@@ -1,5 +1,6 @@
 """
 Parser for Gemini configuration files (.gemini/settings.json)
+Enhanced with functionality from mcp_toggle.py
 """
 
 from typing import Dict, Any
@@ -13,17 +14,72 @@ class GeminiConfigParser(BaseConfigParser):
     
     def parse(self, config_path: Path) -> Dict[str, Any]:
         """Parse Gemini configuration file"""
-        # TODO: Implement Gemini-specific parsing logic
-        with open(config_path, 'r') as f:
-            return json.load(f)
+        if not config_path.exists():
+            return {"mcpServers": {}}
+        
+        try:
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in Gemini config: {e}")
+        except Exception as e:
+            raise IOError(f"Error reading Gemini config: {e}")
     
     def write(self, config: Dict[str, Any], output_path: Path) -> None:
         """Write Gemini configuration file"""
-        # TODO: Implement Gemini-specific writing logic
-        with open(output_path, 'w') as f:
-            json.dump(config, f, indent=2)
+        try:
+            # Ensure parent directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            raise IOError(f"Error writing Gemini config: {e}")
     
     def validate(self, config: Dict[str, Any]) -> bool:
         """Validate Gemini configuration structure"""
-        # TODO: Implement Gemini-specific validation
+        if not isinstance(config, dict):
+            return False
+        
+        # Gemini can have mcpServers at root level or nested
+        if 'mcpServers' in config:
+            return self._validate_servers(config['mcpServers'])
+        
         return True
+    
+    def _validate_servers(self, servers: Dict[str, Any]) -> bool:
+        """Validate server configurations"""
+        if not isinstance(servers, dict):
+            return False
+        
+        for server_name, server_config in servers.items():
+            if not isinstance(server_config, dict):
+                return False
+            
+            if 'command' not in server_config:
+                return False
+        
+        return True
+    
+    def get_servers(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Get active servers from config"""
+        return config.get('mcpServers', {})
+    
+    def set_servers(self, config: Dict[str, Any], servers: Dict[str, Any]) -> Dict[str, Any]:
+        """Set active servers in config"""
+        config['mcpServers'] = servers
+        return config
+    
+    def add_server(self, config: Dict[str, Any], name: str, server_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a server to the configuration"""
+        if 'mcpServers' not in config:
+            config['mcpServers'] = {}
+        
+        config['mcpServers'][name] = server_config
+        return config
+    
+    def remove_server(self, config: Dict[str, Any], name: str) -> Dict[str, Any]:
+        """Remove a server from the configuration"""
+        if 'mcpServers' in config and name in config['mcpServers']:
+            del config['mcpServers'][name]
+        return config
