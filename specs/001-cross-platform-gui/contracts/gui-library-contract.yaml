@@ -1,0 +1,422 @@
+# GUI-Library Integration Contract
+# Defines the interface between GUI and core library
+
+openapi: 3.0.0
+info:
+  title: MCP Config Manager GUI-Library Contract
+  version: 1.0.0
+  description: Internal API contract for GUI to library communication
+
+paths:
+  # Configuration Management
+  /config/load:
+    post:
+      summary: Load configuration from file
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [mode]
+      responses:
+        200:
+          description: Configuration loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        404:
+          description: Configuration file not found
+        422:
+          description: Invalid configuration format
+
+  /config/save:
+    post:
+      summary: Save configuration to file
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+                create_backup:
+                  type: boolean
+                  default: true
+              required: [mode]
+      responses:
+        200:
+          description: Configuration saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backup_path:
+                    type: string
+                    nullable: true
+        403:
+          description: Permission denied
+        500:
+          description: Save failed
+
+  # Server Management
+  /servers/list:
+    get:
+      summary: List all servers
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [claude, gemini, both]
+        - name: include_disabled
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        200:
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+
+  /servers/toggle:
+    post:
+      summary: Toggle server enable/disable state
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                server_name:
+                  type: string
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [server_name, mode]
+      responses:
+        200:
+          description: Server toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+        404:
+          description: Server not found
+
+  /servers/add:
+    post:
+      summary: Add new server
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                server_json:
+                  type: string
+                  description: JSON configuration for server
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [server_json, mode]
+      responses:
+        201:
+          description: Server added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+        400:
+          description: Invalid JSON format
+        409:
+          description: Server already exists
+
+  /servers/bulk:
+    post:
+      summary: Bulk enable/disable servers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [enable_all, disable_all]
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [action, mode]
+      responses:
+        200:
+          description: Bulk operation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  affected_count:
+                    type: integer
+
+  # Preset Management
+  /presets/list:
+    get:
+      summary: List all presets
+      responses:
+        200:
+          description: Preset list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Preset'
+
+  /presets/load:
+    post:
+      summary: Load a preset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preset_name:
+                  type: string
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [preset_name, mode]
+      responses:
+        200:
+          description: Preset loaded
+        404:
+          description: Preset not found
+
+  /presets/save:
+    post:
+      summary: Save current config as preset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [name, mode]
+      responses:
+        201:
+          description: Preset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preset'
+        409:
+          description: Preset name already exists
+
+  /presets/delete:
+    delete:
+      summary: Delete a preset
+      parameters:
+        - name: preset_name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Preset deleted
+        404:
+          description: Preset not found
+        403:
+          description: Cannot delete built-in preset
+
+  # Backup Management
+  /backups/list:
+    get:
+      summary: List available backups
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        200:
+          description: Backup list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BackupInfo'
+
+  /backups/create:
+    post:
+      summary: Create manual backup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [mode]
+      responses:
+        201:
+          description: Backup created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupInfo'
+
+  /backups/restore:
+    post:
+      summary: Restore from backup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                backup_path:
+                  type: string
+                mode:
+                  type: string
+                  enum: [claude, gemini, both]
+              required: [backup_path, mode]
+      responses:
+        200:
+          description: Backup restored
+        404:
+          description: Backup file not found
+        422:
+          description: Invalid backup format
+
+  # Validation
+  /validate:
+    post:
+      summary: Validate configuration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_json:
+                  type: string
+                mode:
+                  type: string
+                  enum: [claude, gemini]
+              required: [config_json]
+      responses:
+        200:
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_valid:
+                    type: boolean
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+components:
+  schemas:
+    Server:
+      type: object
+      properties:
+        name:
+          type: string
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        enabled:
+          type: boolean
+      required: [name, command, enabled]
+
+    Preset:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Server'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_builtin:
+          type: boolean
+      required: [name, servers, is_builtin]
+
+    ConfigurationResponse:
+      type: object
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Server'
+        mode:
+          type: string
+          enum: [claude, gemini, both]
+        file_path:
+          type: string
+        last_modified:
+          type: string
+          format: date-time
+
+    BackupInfo:
+      type: object
+      properties:
+        path:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        size:
+          type: integer
+        config_type:
+          type: string
+        server_count:
+          type: integer
+        is_restorable:
+          type: boolean
+      required: [path, timestamp, size]

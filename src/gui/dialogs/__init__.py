@@ -1,0 +1,1 @@
+"""Dialog components for the GUI."""

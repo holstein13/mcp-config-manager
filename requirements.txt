@@ -4,10 +4,9 @@ click>=8.0.0
 requests>=2.28.0
 watchdog>=3.0.0
 
-# GUI dependencies (will be uncommented when GUI is implemented)
-# PyQt6>=6.4.0
-# or alternatively:
-# tkinter (built into Python)
+# GUI dependencies
+PyQt6>=6.4.0
+# tkinter is built into Python and used as fallback
 
 # Configuration and file handling
 jsonschema>=4.0.0

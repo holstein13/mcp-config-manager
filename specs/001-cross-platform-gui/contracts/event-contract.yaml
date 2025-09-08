@@ -1,0 +1,519 @@
+# Event Handling Contract
+# Defines GUI event system and state management
+
+asyncapi: 2.6.0
+info:
+  title: MCP Config Manager Event Contract
+  version: 1.0.0
+  description: Event-driven communication within GUI application
+
+channels:
+  configuration/events:
+    description: Configuration-related events
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConfigurationLoaded'
+          - $ref: '#/components/messages/ConfigurationSaved'
+          - $ref: '#/components/messages/ConfigurationError'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LoadConfiguration'
+          - $ref: '#/components/messages/SaveConfiguration'
+
+  server/events:
+    description: Server management events
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ServerToggled'
+          - $ref: '#/components/messages/ServerAdded'
+          - $ref: '#/components/messages/ServerRemoved'
+          - $ref: '#/components/messages/ServerModified'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ToggleServer'
+          - $ref: '#/components/messages/AddServer'
+          - $ref: '#/components/messages/RemoveServer'
+          - $ref: '#/components/messages/ModifyServer'
+
+  preset/events:
+    description: Preset management events
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/PresetLoaded'
+          - $ref: '#/components/messages/PresetSaved'
+          - $ref: '#/components/messages/PresetDeleted'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LoadPreset'
+          - $ref: '#/components/messages/SavePreset'
+          - $ref: '#/components/messages/DeletePreset'
+
+  application/events:
+    description: Application-level events
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ModeChanged'
+          - $ref: '#/components/messages/StateChanged'
+          - $ref: '#/components/messages/BackupCreated'
+          - $ref: '#/components/messages/ErrorOccurred'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ChangeMode'
+          - $ref: '#/components/messages/CreateBackup'
+          - $ref: '#/components/messages/RestoreBackup'
+
+  ui/events:
+    description: UI state events
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ViewChanged'
+          - $ref: '#/components/messages/SelectionChanged'
+          - $ref: '#/components/messages/SearchFilterChanged'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ChangeView'
+          - $ref: '#/components/messages/UpdateSelection'
+          - $ref: '#/components/messages/SetSearchFilter'
+
+components:
+  messages:
+    # Configuration Events
+    LoadConfiguration:
+      name: LoadConfiguration
+      title: Load Configuration Request
+      payload:
+        type: object
+        properties:
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+        required: [mode]
+
+    ConfigurationLoaded:
+      name: ConfigurationLoaded
+      title: Configuration Loaded Event
+      payload:
+        type: object
+        properties:
+          mode:
+            type: string
+          servers:
+            type: array
+            items:
+              $ref: '#/components/schemas/Server'
+          timestamp:
+            type: string
+            format: date-time
+
+    SaveConfiguration:
+      name: SaveConfiguration
+      title: Save Configuration Request
+      payload:
+        type: object
+        properties:
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+          create_backup:
+            type: boolean
+            default: true
+
+    ConfigurationSaved:
+      name: ConfigurationSaved
+      title: Configuration Saved Event
+      payload:
+        type: object
+        properties:
+          mode:
+            type: string
+          backup_path:
+            type: string
+            nullable: true
+          timestamp:
+            type: string
+            format: date-time
+
+    ConfigurationError:
+      name: ConfigurationError
+      title: Configuration Error Event
+      payload:
+        type: object
+        properties:
+          error_type:
+            type: string
+            enum: [validation, file, parse, permission]
+          message:
+            type: string
+          details:
+            type: object
+
+    # Server Events
+    ToggleServer:
+      name: ToggleServer
+      title: Toggle Server Request
+      payload:
+        type: object
+        properties:
+          server_name:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ServerToggled:
+      name: ServerToggled
+      title: Server Toggled Event
+      payload:
+        type: object
+        properties:
+          server_name:
+            type: string
+          enabled:
+            type: boolean
+          mode:
+            type: string
+
+    AddServer:
+      name: AddServer
+      title: Add Server Request
+      payload:
+        type: object
+        properties:
+          server_json:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ServerAdded:
+      name: ServerAdded
+      title: Server Added Event
+      payload:
+        type: object
+        properties:
+          server:
+            $ref: '#/components/schemas/Server'
+          mode:
+            type: string
+
+    RemoveServer:
+      name: RemoveServer
+      title: Remove Server Request
+      payload:
+        type: object
+        properties:
+          server_name:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ServerRemoved:
+      name: ServerRemoved
+      title: Server Removed Event
+      payload:
+        type: object
+        properties:
+          server_name:
+            type: string
+          mode:
+            type: string
+
+    ModifyServer:
+      name: ModifyServer
+      title: Modify Server Request
+      payload:
+        type: object
+        properties:
+          server_name:
+            type: string
+          changes:
+            type: object
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ServerModified:
+      name: ServerModified
+      title: Server Modified Event
+      payload:
+        type: object
+        properties:
+          server:
+            $ref: '#/components/schemas/Server'
+          mode:
+            type: string
+
+    # Preset Events
+    LoadPreset:
+      name: LoadPreset
+      title: Load Preset Request
+      payload:
+        type: object
+        properties:
+          preset_name:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    PresetLoaded:
+      name: PresetLoaded
+      title: Preset Loaded Event
+      payload:
+        type: object
+        properties:
+          preset:
+            $ref: '#/components/schemas/Preset'
+          mode:
+            type: string
+
+    SavePreset:
+      name: SavePreset
+      title: Save Preset Request
+      payload:
+        type: object
+        properties:
+          name:
+            type: string
+          description:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    PresetSaved:
+      name: PresetSaved
+      title: Preset Saved Event
+      payload:
+        type: object
+        properties:
+          preset:
+            $ref: '#/components/schemas/Preset'
+
+    DeletePreset:
+      name: DeletePreset
+      title: Delete Preset Request
+      payload:
+        type: object
+        properties:
+          preset_name:
+            type: string
+
+    PresetDeleted:
+      name: PresetDeleted
+      title: Preset Deleted Event
+      payload:
+        type: object
+        properties:
+          preset_name:
+            type: string
+
+    # Application Events
+    ChangeMode:
+      name: ChangeMode
+      title: Change Mode Request
+      payload:
+        type: object
+        properties:
+          new_mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ModeChanged:
+      name: ModeChanged
+      title: Mode Changed Event
+      payload:
+        type: object
+        properties:
+          old_mode:
+            type: string
+          new_mode:
+            type: string
+          synced:
+            type: boolean
+
+    StateChanged:
+      name: StateChanged
+      title: State Changed Event
+      payload:
+        type: object
+        properties:
+          has_unsaved_changes:
+            type: boolean
+          can_undo:
+            type: boolean
+          can_redo:
+            type: boolean
+
+    CreateBackup:
+      name: CreateBackup
+      title: Create Backup Request
+      payload:
+        type: object
+        properties:
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    BackupCreated:
+      name: BackupCreated
+      title: Backup Created Event
+      payload:
+        type: object
+        properties:
+          backup:
+            $ref: '#/components/schemas/BackupInfo'
+
+    RestoreBackup:
+      name: RestoreBackup
+      title: Restore Backup Request
+      payload:
+        type: object
+        properties:
+          backup_path:
+            type: string
+          mode:
+            type: string
+            enum: [claude, gemini, both]
+
+    ErrorOccurred:
+      name: ErrorOccurred
+      title: Error Occurred Event
+      payload:
+        type: object
+        properties:
+          error_type:
+            type: string
+            enum: [validation, file, parse, permission, sync, network]
+          message:
+            type: string
+          recoverable:
+            type: boolean
+          suggested_action:
+            type: string
+
+    # UI Events
+    ChangeView:
+      name: ChangeView
+      title: Change View Request
+      payload:
+        type: object
+        properties:
+          view:
+            type: string
+            enum: [servers, presets, settings, backup]
+
+    ViewChanged:
+      name: ViewChanged
+      title: View Changed Event
+      payload:
+        type: object
+        properties:
+          old_view:
+            type: string
+          new_view:
+            type: string
+
+    UpdateSelection:
+      name: UpdateSelection
+      title: Update Selection Request
+      payload:
+        type: object
+        properties:
+          selected_items:
+            type: array
+            items:
+              type: string
+
+    SelectionChanged:
+      name: SelectionChanged
+      title: Selection Changed Event
+      payload:
+        type: object
+        properties:
+          selected_items:
+            type: array
+            items:
+              type: string
+          selection_count:
+            type: integer
+
+    SetSearchFilter:
+      name: SetSearchFilter
+      title: Set Search Filter Request
+      payload:
+        type: object
+        properties:
+          filter_text:
+            type: string
+
+    SearchFilterChanged:
+      name: SearchFilterChanged
+      title: Search Filter Changed Event
+      payload:
+        type: object
+        properties:
+          filter_text:
+            type: string
+          matched_count:
+            type: integer
+
+  schemas:
+    Server:
+      type: object
+      properties:
+        name:
+          type: string
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+        enabled:
+          type: boolean
+
+    Preset:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Server'
+        created_at:
+          type: string
+          format: date-time
+        is_builtin:
+          type: boolean
+
+    BackupInfo:
+      type: object
+      properties:
+        path:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        size:
+          type: integer
+        config_type:
+          type: string
+        server_count:
+          type: integer

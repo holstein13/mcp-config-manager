@@ -304,7 +304,41 @@ def interactive():
 @cli.command()
 def gui():
     """Launch the GUI interface"""
-    click.echo("GUI not yet implemented. Use 'interactive' mode for now!")
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    
+    try:
+        from gui import is_gui_available, get_framework
+        
+        if not is_gui_available():
+            click.echo("❌ No GUI framework available. Please install PyQt6:")
+            click.echo("   pip install PyQt6")
+            click.echo("\nAlternatively, use 'interactive' mode for CLI interface.")
+            return
+        
+        click.echo(f"🚀 Launching GUI with {get_framework()}...")
+        
+        from gui.main_window import MainWindow
+        from .core.config_manager import ConfigManager
+        
+        # Initialize config manager
+        config_manager = ConfigManager()
+        
+        # Create and run GUI
+        app = MainWindow(config_manager)
+        
+        if get_framework() == "pyqt6":
+            from PyQt6.QtWidgets import QApplication
+            qt_app = QApplication(sys.argv)
+            app.setup()
+            app.window.show()
+            sys.exit(qt_app.exec())
+        else:
+            app.run()
+            
+    except ImportError as e:
+        click.echo(f"❌ Failed to import GUI module: {e}")
+        click.echo("Please ensure PyQt6 is installed: pip install PyQt6")
 
 
 @cli.command()

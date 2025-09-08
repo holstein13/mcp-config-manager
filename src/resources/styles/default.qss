@@ -1,0 +1,62 @@
+/* Default stylesheet for MCP Config Manager */
+
+QMainWindow {
+    background-color: #f5f5f5;
+}
+
+QListWidget {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+QListWidget::item {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+QListWidget::item:selected {
+    background-color: #0078d7;
+    color: white;
+}
+
+QPushButton {
+    background-color: #0078d7;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+QPushButton:hover {
+    background-color: #106ebe;
+}
+
+QPushButton:pressed {
+    background-color: #005a9e;
+}
+
+QPushButton:disabled {
+    background-color: #cccccc;
+    color: #666666;
+}
+
+QLabel {
+    color: #333;
+}
+
+QMenuBar {
+    background-color: white;
+    border-bottom: 1px solid #ddd;
+}
+
+QMenuBar::item:selected {
+    background-color: #e0e0e0;
+}
+
+QStatusBar {
+    background-color: white;
+    border-top: 1px solid #ddd;
+}
