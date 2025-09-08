@@ -1,0 +1,21 @@
+# Core dependencies
+pydantic>=2.0.0
+click>=8.0.0
+requests>=2.28.0
+watchdog>=3.0.0
+
+# GUI dependencies (will be uncommented when GUI is implemented)
+# PyQt6>=6.4.0
+# or alternatively:
+# tkinter (built into Python)
+
+# Configuration and file handling
+jsonschema>=4.0.0
+toml>=0.10.2
+
+# Cross-platform support
+pathlib>=1.0.1
+keyring>=24.0.0
+
+# HTTP client for health checking
+httpx>=0.24.0
