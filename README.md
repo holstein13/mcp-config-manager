@@ -42,20 +42,28 @@ A cross-platform utility for managing Model Context Protocol (MCP) server config
 git clone https://github.com/yourusername/mcp-config-manager.git
 cd mcp-config-manager
 pip install -e .
-🚀 Usage
-Interactive Mode (Recommended)
+```
+
+## 🚀 Usage
+
+### Interactive Mode (Recommended)
 Launch the full interactive interface:
-bashmcp-config-manager interactive
+
+```bash
+mcp-config-manager interactive
+```
 This gives you the complete interface from the original mcp_toggle.py script with:
 
-✅/❌ Visual server status
-🔄 Real-time mode switching (Claude/Gemini/Both)
-📁 Preset management
-➕ Add servers by pasting JSON
-🎯 Quick preset modes (minimal, web dev, etc.)
+- ✅/❌ Visual server status
+- 🔄 Real-time mode switching (Claude/Gemini/Both)
+- 📁 Preset management
+- ➕ Add servers by pasting JSON
+- 🎯 Quick preset modes (minimal, web dev, etc.)
 
-Command Line Usage
-bash# Show current status
+### Command Line Usage
+
+```bash
+# Show current status
 mcp-config-manager status
 
 # Enable/disable specific servers
@@ -73,15 +81,21 @@ mcp-config-manager preset fullstack  # + supabase, clerk, railway
 
 # Validate configurations
 mcp-config-manager validate ~/.claude.json
-Working with Modes
+```
+
+### Working with Modes
+
 The tool supports three modes:
 
-Claude only (--mode claude) - Only manages .claude.json
-Gemini only (--mode gemini) - Only manages .gemini/settings.json
-Both (synced) (--mode both) - Keeps both configs synchronized
+- **Claude only** (`--mode claude`) - Only manages `.claude.json`
+- **Gemini only** (`--mode gemini`) - Only manages `.gemini/settings.json`
+- **Both (synced)** (`--mode both`) - Keeps both configs synchronized
 
-🖼️ Screenshots
-Interactive Mode
+## 🖼️ Screenshots
+
+### Interactive Mode
+
+```
 🔧 MCP Config Manager - Interactive Mode
 ==================================================
 
@@ -111,9 +125,14 @@ Mode: 🔄 Both CLIs (synced)
   [s]    Save and exit
   [q]    Quit without saving
 
-Action:
-🛠️ Development
-Project Structure
+Action: 
+```
+
+## 🛠️ Development
+
+### Project Structure
+
+```
 src/mcp_config_manager/
 ├── core/
 │   ├── config_manager.py    # Main configuration management
@@ -129,8 +148,12 @@ src/mcp_config_manager/
 │   └── file_utils.py       # File path utilities
 ├── gui/                    # Future GUI components
 └── cli.py                  # Command line interface
-Development Setup
-bash# Clone the repository
+```
+
+### Development Setup
+
+```bash
+# Clone the repository
 git clone https://github.com/yourusername/mcp-config-manager.git
 cd mcp-config-manager
 
@@ -145,103 +168,83 @@ pytest
 
 # Run the application
 mcp-config-manager interactive
-📁 File Locations
+```
 
-Claude config: ~/.claude.json
-Gemini config: ~/.gemini/settings.json
-Presets: ~/.mcp_presets.json
-Disabled servers: ./disabled_servers.json (in project directory)
-Backups: ~/.claude.json.backup.YYYYMMDD_HHMMSS
+## 📁 File Locations
 
-🗺️ Roadmap
-Phase 1: Core Functionality ✅ COMPLETE
+- **Claude config:** `~/.claude.json`
+- **Gemini config:** `~/.gemini/settings.json`
+- **Presets:** `~/.mcp_presets.json`
+- **Disabled servers:** `./disabled_servers.json` (in project directory)
+- **Backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
 
- Interactive CLI interface
- Multi-client support (Claude + Gemini)
- Server enable/disable with storage
- Configuration synchronization
- Automatic backups
- Preset management
- JSON server addition
- Command line interface
+## 🗺️ Roadmap
 
-Phase 2: GUI Development (In Progress)
+### Phase 1: Core Functionality ✅ COMPLETE
 
- Cross-platform GUI framework setup
- Main server management window
- Preset management interface
- Settings and configuration
- Drag-and-drop server organization
+- Interactive CLI interface
+- Multi-client support (Claude + Gemini)
+- Server enable/disable with storage
+- Configuration synchronization
+- Automatic backups
+- Preset management
+- JSON server addition
+- Command line interface
 
-Phase 3: Advanced Features
+### Phase 2: GUI Development (In Progress)
 
- Real-time health monitoring
- Server auto-discovery
- Advanced preset templates
- Configuration import/export
- Team configuration sharing
+- Cross-platform GUI framework setup
+- Main server management window
+- Preset management interface
+- Settings and configuration
+- Drag-and-drop server organization
 
-Phase 4: Distribution
+### Phase 3: Advanced Features
 
- Packaged installers (Windows MSI, macOS DMG, Linux AppImage)
- Auto-updater
- Plugin architecture
- Integration with IDEs
+- Real-time health monitoring
+- Server auto-discovery
+- Advanced preset templates
+- Configuration import/export
+- Team configuration sharing
 
-🎯 Migration from Original Script
-If you're using the original mcp_toggle.py script:
+### Phase 4: Distribution
 
-Your configs are preserved - The tool uses the same file locations
-Your presets carry over - ~/.mcp_presets.json is used directly
-Same functionality - All original features are available in interactive mode
-Enhanced capabilities - Plus new CLI commands and better error handling
+- Packaged installers (Windows MSI, macOS DMG, Linux AppImage)
+- Auto-updater
+- Plugin architecture
+- Integration with IDEs
 
-🤝 Contributing
-We welcome contributions! The original mcp_toggle.py script was a fantastic foundation, and we're building on that success.
-Areas for Contribution
+## 🎯 Migration from Original Script
 
-🎨 GUI Development - Help build the cross-platform interface
-🔍 Server Discovery - Auto-detect available MCP servers
-🧪 Testing - Add test coverage for all components
-📚 Documentation - Improve guides and examples
-🐛 Bug Reports - Found an issue? Let us know!
+If you're using the original `mcp_toggle.py` script:
 
-📄 License
-MIT License - see LICENSE file for details.
-🙏 Acknowledgments
+- **Your configs are preserved** - The tool uses the same file locations
+- **Your presets carry over** - `~/.mcp_presets.json` is used directly
+- **Same functionality** - All original features are available in interactive mode
+- **Enhanced capabilities** - Plus new CLI commands and better error handling
 
-Original mcp_toggle.py script that inspired this project
-The Anthropic team for developing the Model Context Protocol
-The open source community for feedback and contributions
+## 🤝 Contributing
 
+We welcome contributions! The original `mcp_toggle.py` script was a fantastic foundation, and we're building on that success.
 
-Ready to get started? Run mcp-config-manager interactive and experience the full power of MCP server management!
-EOF
+### Areas for Contribution
 
-## Step 6: Commit the Integration
+- 🎨 **GUI Development** - Help build the cross-platform interface
+- 🔍 **Server Discovery** - Auto-detect available MCP servers
+- 🧪 **Testing** - Add test coverage for all components
+- 📚 **Documentation** - Improve guides and examples
+- 🐛 **Bug Reports** - Found an issue? Let us know!
 
-```bash
-# Add all the new files
-git add .
+## 📄 License
 
-# Create a comprehensive commit
-git commit -m "Complete integration of mcp_toggle.py functionality
+MIT License - see [LICENSE](LICENSE) file for details.
 
-Features implemented:
-✅ Interactive CLI mode with full original script functionality
-✅ Multi-client support (Claude + Gemini) with syncing
-✅ Server enable/disable with separate storage
-✅ Automatic configuration backups
-✅ Preset management system
-✅ JSON server addition by paste
-✅ Command line interface for automation
-✅ Configuration validation
-✅ Cross-platform file handling
+## 🙏 Acknowledgments
 
-Architecture:
-- Modular design with separate parsers, utilities, and core logic
-- Enhanced error handling and validation
-- Comprehensive testing framework
-- Professional project structure
+- Original `mcp_toggle.py` script that inspired this project
+- The Anthropic team for developing the Model Context Protocol
+- The open source community for feedback and contributions
 
-Next steps: GUI development and advanced features"
+---
+
+**Ready to get started?** Run `mcp-config-manager interactive` and experience the full power of MCP server management!
