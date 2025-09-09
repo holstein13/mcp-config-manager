@@ -306,6 +306,77 @@ Each integration test file validates complete user workflows:
    - Selective restoration
    - Metadata preservation
 
+## Recent Implementation Progress (2025-09-09)
+
+### Session Accomplishments
+Successfully completed tasks T035-T039, implementing the main window and core UI widgets:
+
+#### Key Components Delivered:
+1. **MainWindow** - Full-featured application window with menus, toolbar, and status bar
+2. **ServerListWidget** - Interactive server list with toggle functionality
+3. **ModeSelectorWidget** - Client mode selection with visual feedback
+
+#### Implementation Decisions & Insights:
+
+1. **Dual Framework Strategy Working Well**
+   - PyQt6 as primary for professional appearance
+   - tkinter fallback ensures universal compatibility
+   - Conditional imports with USING_QT flag pattern proved effective
+
+2. **Status Management Architecture**
+   - Status bar with save indicator provides clear feedback
+   - Window title updates with asterisk for unsaved changes
+   - Temporary status messages with timeout support
+
+3. **Widget Communication Pattern**
+   - Qt signals for PyQt6 (pyqtSignal)
+   - Callback lists for tkinter compatibility
+   - Both patterns coexist cleanly without interference
+
+4. **UI State Persistence**
+   - Window geometry saved/restored via UIConfiguration model
+   - Maximized state tracked for Qt
+   - Settings preserved between sessions
+
+5. **Server List Design**
+   - Tree view provides clear information hierarchy
+   - Checkboxes for immediate toggle action
+   - Context menus for additional operations
+   - Visual status indicators with color coding
+
+### Next Steps & Considerations:
+
+1. **Immediate Next Tasks (T040-T044)**:
+   - Dialog implementations will need consistent styling
+   - Modal vs non-modal dialog decisions pending
+   - JSON validation for Add Server dialog critical
+
+2. **Controller Integration (T045-T048)**:
+   - Bridge between GUI and existing ConfigManager
+   - Event handling will connect UI to business logic
+   - Need to maintain separation of concerns
+
+3. **Potential Challenges Identified**:
+   - tkinter tree view doesn't support native checkboxes (using text symbols as workaround)
+   - Color styling more limited in tkinter than Qt
+   - Need to ensure consistent behavior across frameworks
+
+4. **Performance Considerations**:
+   - Server list may need virtual scrolling for 100+ servers (T070)
+   - Search/filter implementation will need debouncing (T071)
+   - Consider lazy loading for large configurations
+
+### Code Quality Notes:
+- Maintained consistent pattern across all widgets
+- Proper separation between Qt and tkinter code paths
+- Extensive use of type hints for clarity
+- Docstrings on all public methods
+
+### Testing Implications:
+- Contract tests (T006-T029) will need updating once controllers implemented
+- GUI components ready for unit testing
+- Integration points clearly defined for future testing
+
 ## Testing Checklist
 
 When making changes, verify:
