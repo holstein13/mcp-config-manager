@@ -134,12 +134,12 @@ class ConfigController:
                 'error': error_msg
             }
     
-    def validate_config(self, config_path: Optional[str] = None) -> Dict[str, Any]:
+    def validate_configuration(self, mode: Optional[str] = None) -> Dict[str, Any]:
         """Validate a configuration file.
-        
+
         Args:
-            config_path: Path to config file to validate (None for current)
-            
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -150,57 +150,50 @@ class ConfigController:
         try:
             errors = []
             warnings = []
-            
-            if config_path:
-                # Validate specific file
-                path = Path(config_path)
-                if not path.exists():
-                    errors.append(f"File not found: {config_path}")
-                else:
-                    # Use appropriate parser based on file
-                    if 'claude' in str(path).lower():
-                        result = self.config_manager.claude_parser.validate_config(path)
-                    elif 'gemini' in str(path).lower():
-                        result = self.config_manager.gemini_parser.validate_config(path)
-                    else:
-                        errors.append("Unknown configuration file type")
-                        result = {'valid': False}
-                    
-                    if not result.get('valid'):
-                        errors.extend(result.get('errors', []))
-                    warnings.extend(result.get('warnings', []))
-            else:
-                # Validate current configuration
-                if self.current_mode in [ConfigMode.CLAUDE, ConfigMode.BOTH]:
-                    if self.config_manager.claude_parser:
-                        result = self.config_manager.claude_parser.validate_current()
-                        if not result.get('valid'):
-                            errors.extend(result.get('errors', []))
-                        warnings.extend(result.get('warnings', []))
-                
-                if self.current_mode in [ConfigMode.GEMINI, ConfigMode.BOTH]:
-                    if self.config_manager.gemini_parser:
-                        result = self.config_manager.gemini_parser.validate_current()
-                        if not result.get('valid'):
-                            errors.extend(result.get('errors', []))
-                        warnings.extend(result.get('warnings', []))
-            
+
+            if mode:
+                # Convert string to ConfigMode
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                self.current_mode = mode_map.get(mode.lower(), self.current_mode)
+
+            claude_data, gemini_data = self.config_manager.load_configs()
+
+            # Validate current configuration
+            if self.current_mode in [ConfigMode.CLAUDE, ConfigMode.BOTH]:
+                if self.config_manager.claude_parser:
+                    if not self.config_manager.claude_parser.validate(claude_data):
+                        errors.append("Claude configuration is invalid.")
+
+            if self.current_mode in [ConfigMode.GEMINI, ConfigMode.BOTH]:
+                if self.config_manager.gemini_parser:
+                    if not self.config_manager.gemini_parser.validate(gemini_data):
+                        errors.append("Gemini configuration is invalid.")
+
             return {
                 'success': True,
-                'valid': len(errors) == 0,
-                'errors': errors,
-                'warnings': warnings
+                'data': {
+                    'valid': len(errors) == 0,
+                    'errors': errors,
+                    'warnings': warnings
+                }
             }
-            
+
         except Exception as e:
             error_msg = f"Failed to validate configuration: {str(e)}"
             logger.error(error_msg)
-            
+
             return {
                 'success': False,
-                'valid': False,
-                'errors': [error_msg],
-                'warnings': []
+                'error': error_msg,
+                'data': {
+                    'valid': False,
+                    'errors': [error_msg],
+                    'warnings': []
+                }
             }
     
     def get_config_paths(self) -> Dict[str, Optional[str]]:
