@@ -1,6 +1,7 @@
 """Main window for MCP Config Manager GUI."""
 
 import sys
+import logging
 from typing import Optional, Dict, Any
 from pathlib import Path
 
@@ -237,11 +238,6 @@ class MainWindow(QMainWindow if USING_QT else object):
         # File menu
         file_menu = menubar.addMenu("&File")
         
-        self.load_action = QAction("&Load Configuration", self)
-        self.load_action.setShortcut(QKeySequence.StandardKey.Open)
-        self.load_action.triggered.connect(self.load_configuration)
-        file_menu.addAction(self.load_action)
-        
         self.save_action = QAction("&Save Configuration", self)
         self.save_action.setShortcut(QKeySequence.StandardKey.Save)
         self.save_action.triggered.connect(self.save_configuration)
@@ -323,7 +319,6 @@ class MainWindow(QMainWindow if USING_QT else object):
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Load Configuration", command=self.load_configuration)
         file_menu.add_command(label="Save Configuration", command=self.save_configuration)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
@@ -369,19 +364,25 @@ class MainWindow(QMainWindow if USING_QT else object):
         from PyQt6.QtWidgets import QPushButton, QToolBar, QWidget
         from PyQt6.QtCore import QSize
         
-        toolbar = QToolBar("Main")
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        self.toolbar = QToolBar("Main")
+        self.toolbar.setMovable(False)
+        self.addToolBar(self.toolbar)
         
         # Set toolbar style to show buttons with text
-        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        toolbar.setIconSize(QSize(24, 24))
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        self.toolbar.setIconSize(QSize(24, 24))
         
-        # Primary actions group - Load/Save Configuration
-        load_btn = QPushButton("Load")
-        load_btn.clicked.connect(self.load_configuration)
-        toolbar.addWidget(load_btn)
+        # Dynamic Revert button - only shown when there are unsaved changes
+        # Create a QAction instead of a QPushButton for better toolbar integration
+        self.revert_action = QAction("Revert", self)
+        self.revert_action.triggered.connect(self.on_revert_changes)
+        self.revert_action.setToolTip("Discard changes and reload from file")
+        # Don't add it to toolbar yet - we'll add/remove it dynamically
         
+        # Store reference to the action for later use
+        self.revert_action_added = False
+        
+        # Primary action - Save Configuration
         save_btn = QPushButton("Save")
         save_btn.clicked.connect(self.save_configuration)
         save_btn.setStyleSheet("""
@@ -399,16 +400,16 @@ class MainWindow(QMainWindow if USING_QT else object):
                 background-color: #003D99;
             }
         """)
-        toolbar.addWidget(save_btn)
+        self.toolbar.addWidget(save_btn)
         
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
         
         # Secondary action - Add Server
         add_btn = QPushButton("Add Server")
         add_btn.clicked.connect(self.add_server)
-        toolbar.addWidget(add_btn)
+        self.toolbar.addWidget(add_btn)
         
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
         
         # Tertiary action - Validate
         validate_btn = QPushButton("Validate")
@@ -423,7 +424,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                 background-color: #E0E0E0;
             }
         """)
-        toolbar.addWidget(validate_btn)
+        self.toolbar.addWidget(validate_btn)
     
     def _setup_tk_toolbar(self):
         """Set up tkinter toolbar with improved visual hierarchy."""
@@ -431,8 +432,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         toolbar = ttk.Frame(self.root)
         toolbar.pack(side=tk.TOP, fill=tk.X, before=self.root.winfo_children()[-1])
         
-        # Primary actions
-        ttk.Button(toolbar, text="Load", command=self.load_configuration).pack(side=tk.LEFT, padx=2)
+        # Dynamic Revert button - only shown when there are unsaved changes
+        self.revert_btn = ttk.Button(toolbar, text="Revert", command=self.on_revert_changes)
+        # Initially hidden by not packing
+        
+        # Primary action - Save
         save_btn = ttk.Button(toolbar, text="Save", command=self.save_configuration)
         save_btn.pack(side=tk.LEFT, padx=2)
         # Note: tkinter doesn't support button styling as richly as Qt
@@ -504,8 +508,35 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def set_unsaved_changes(self, unsaved: bool):
         """Set unsaved changes state and update UI."""
+        logging.debug(f"set_unsaved_changes called with unsaved={unsaved}")
         self._unsaved_changes = unsaved
         self._update_save_indicator()
+        
+        # Add/remove Revert action from toolbar based on unsaved changes
+        if hasattr(self, 'revert_action') and hasattr(self, 'toolbar'):
+            logging.debug(f"revert_action exists, setting visibility to {unsaved}")
+            if USING_QT:
+                if unsaved and not self.revert_action_added:
+                    # Get the Save button action to insert before it
+                    actions = self.toolbar.actions()
+                    if actions:
+                        # Insert before the first action (Save button)
+                        self.toolbar.insertAction(actions[0], self.revert_action)
+                    else:
+                        self.toolbar.addAction(self.revert_action)
+                    self.revert_action_added = True
+                    logging.debug("Added revert action to toolbar")
+                elif not unsaved and self.revert_action_added:
+                    self.toolbar.removeAction(self.revert_action)
+                    self.revert_action_added = False
+                    logging.debug("Removed revert action from toolbar")
+            else:
+                if unsaved and not self.revert_btn.winfo_ismapped():
+                    self.revert_btn.pack(side=tk.LEFT, padx=2, before=self.root.winfo_children()[1].winfo_children()[0])
+                elif not unsaved and self.revert_btn.winfo_ismapped():
+                    self.revert_btn.pack_forget()
+        else:
+            logging.debug("revert_action or toolbar does not exist yet")
         
         # Update window title
         title = "MCP Config Manager"
@@ -555,7 +586,6 @@ class MainWindow(QMainWindow if USING_QT else object):
             QShortcut(QKeySequence("Ctrl+3"), self, lambda: self._switch_mode('both'))
         else:
             # Tkinter key bindings
-            self.root.bind("<Control-o>", lambda e: self.load_configuration())
             self.root.bind("<Control-s>", lambda e: self.save_configuration())
             self.root.bind("<Control-n>", lambda e: self.add_server())
             self.root.bind("<Control-comma>", lambda e: self.show_settings())
@@ -659,17 +689,20 @@ class MainWindow(QMainWindow if USING_QT else object):
     # Widget event callbacks
     def _on_server_toggled(self, server_name: str, enabled: bool):
         """Handle server toggle from widget."""
+        logging.debug(f"_on_server_toggled called with server={server_name}, enabled={enabled}")
         mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
         # Use bulk_operation with 'enable' or 'disable' for individual servers
         operation = 'enable' if enabled else 'disable'
         result = self.server_controller.bulk_operation(operation, [server_name], mode_value)
         
         if result['success']:
+            logging.debug(f"Server toggle successful, calling set_unsaved_changes(True)")
             self.set_unsaved_changes(True)
             dispatcher.emit_now(EventType.SERVER_TOGGLED, 
                                 {'server': server_name, 'enabled': enabled},
                                 source='MainWindow')
         else:
+            logging.error(f"Server toggle failed: {result.get('error')}")
             self.set_status_message(f"Error: {result['error']}", timeout=5)
     
     def _on_server_selected(self, server_name: str):
@@ -706,6 +739,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _handle_config_saved(self, event: Event):
         """Handle configuration saved event."""
         self.set_status_message("Configuration saved successfully", timeout=3)
+        # Clear unsaved changes flag
+        self.set_unsaved_changes(False)
         self.set_unsaved_changes(False)
     
     def _handle_config_error(self, event: Event):
@@ -719,15 +754,20 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _handle_server_toggled(self, event: Event):
         """Handle server toggled event."""
+        logging.debug(f"_handle_server_toggled called with event data: {event.data}")
         server = event.data.get('server')
         enabled = event.data.get('enabled')
         status = "enabled" if enabled else "disabled"
         self.set_status_message(f"Server '{server}' {status}", timeout=3)
+        # Mark configuration as having unsaved changes
+        self.set_unsaved_changes(True)
     
     def _handle_server_added(self, event: Event):
         """Handle server added event."""
         server = event.data.get('server')
         self.set_status_message(f"Server '{server}' added successfully", timeout=3)
+        # Mark configuration as having unsaved changes
+        self.set_unsaved_changes(True)
         self.set_unsaved_changes(True)
         self.refresh_server_list()
     
@@ -826,9 +866,31 @@ class MainWindow(QMainWindow if USING_QT else object):
         result = self.config_controller.save_config()
         
         if result['success']:
-            dispatcher.emit_now(EventType.CONFIG_SAVED, result['data'], source='MainWindow')
+            dispatcher.emit_now(EventType.CONFIG_SAVED, result.get('data', {}), source='MainWindow')
         else:
-            dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
+            dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result.get('error', 'Unknown error')}, source='MainWindow')
+    
+    def on_revert_changes(self):
+        """Revert unsaved changes by reloading from file."""
+        if USING_QT:
+            from PyQt6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self, 
+                "Revert Changes",
+                "Are you sure you want to discard all unsaved changes and reload from file?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        else:
+            from tkinter import messagebox
+            if not messagebox.askyesno("Revert Changes", "Are you sure you want to discard all unsaved changes and reload from file?"):
+                return
+        
+        # Reload the configuration
+        self.load_configuration()
+        self.set_status_message("Changes reverted", timeout=3)
     
     def add_server(self):
         """Show add server dialog."""
