@@ -157,8 +157,8 @@ class ServerListWidget(QWidget if USING_QT else object):
             checkbox.stateChanged.connect(lambda state: self._toggle_server(server.name, state == 2))
             
             item.setText(1, server.name)
-            item.setText(2, server.status.value)
-            item.setText(3, server.source_mode or "Both")
+            item.setText(2, str(server.status.value) if hasattr(server.status, 'value') else str(server.status))
+            item.setText(3, str(server.source_mode or "Both"))
             
             # Store server name in item data
             item.setData(0, Qt.ItemDataRole.UserRole, server.name)

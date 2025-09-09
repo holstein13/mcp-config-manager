@@ -42,40 +42,38 @@ class ServerController:
             if not mode:
                 mode = 'both'  # Default to both
             
-            # Get active and disabled servers from config manager
-            active_servers, disabled_servers_list = self.config_manager.list_servers(mode)
+            # Load configs once
+            claude_data, gemini_data = self.config_manager.load_configs()
             
             server_items = []
             
-            # Add active servers
-            for server_name in active_servers:
-                # Get server config from the loaded configs
-                claude_data, gemini_data = self.config_manager.load_configs()
+            # Get enabled servers using the same method as ConfigController
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                claude_data, gemini_data, mode
+            )
+            
+            # Add enabled servers
+            for server_info in enabled_servers:
+                config = server_info['config']
+                command_obj = ServerCommand(
+                    command=config.get('command', ''),
+                    args=config.get('args', []),
+                    env=config.get('env', {})
+                )
                 
-                config = None
-                source_mode = None
-                
-                # Find the server config in appropriate mode
-                if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
-                    if server_name in claude_data['mcpServers']:
-                        config = claude_data['mcpServers'][server_name]
-                        source_mode = 'claude'
-                
-                if not config and mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
-                    if server_name in gemini_data['mcpServers']:
-                        config = gemini_data['mcpServers'][server_name]
-                        source_mode = 'gemini'
-                
-                if not config and mode == 'both':
-                    # Check if it exists in either config
-                    if 'mcpServers' in claude_data and server_name in claude_data['mcpServers']:
-                        config = claude_data['mcpServers'][server_name]
-                        source_mode = 'both'
-                    elif 'mcpServers' in gemini_data and server_name in gemini_data['mcpServers']:
-                        config = gemini_data['mcpServers'][server_name]
-                        source_mode = 'both'
-                
-                if config:
+                server_item = ServerListItem(
+                    name=server_info['name'],
+                    status=ServerStatus.ENABLED,
+                    command=command_obj,
+                    source_mode=server_info['mode'],
+                    config=config
+                )
+                server_items.append(server_item)
+            
+            # Get disabled servers if they exist
+            try:
+                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                for server_name, config in disabled_servers.items():
                     command_obj = ServerCommand(
                         command=config.get('command', ''),
                         args=config.get('args', []),
@@ -84,35 +82,15 @@ class ServerController:
                     
                     server_item = ServerListItem(
                         name=server_name,
-                        status=ServerStatus.ENABLED,
+                        status=ServerStatus.DISABLED,
                         command=command_obj,
-                        source_mode=source_mode or mode,
+                        source_mode=mode,
                         config=config
                     )
                     server_items.append(server_item)
-            
-            # Add disabled servers
-            for server_name in disabled_servers_list:
-                # Get config from disabled servers storage
-                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-                config = disabled_servers.get(server_name, {})
-                
-                command_obj = None
-                if config:
-                    command_obj = ServerCommand(
-                        command=config.get('command', ''),
-                        args=config.get('args', []),
-                        env=config.get('env', {})
-                    )
-                
-                server_item = ServerListItem(
-                    name=server_name,
-                    status=ServerStatus.DISABLED,
-                    command=command_obj,
-                    source_mode=mode,
-                    config=config
-                )
-                server_items.append(server_item)
+            except:
+                # No disabled servers file yet, that's OK
+                pass
             
             return {
                 'success': True,
@@ -122,10 +100,12 @@ class ServerController:
         except Exception as e:
             error_msg = f"Failed to get servers: {str(e)}"
             logger.error(error_msg)
+            import traceback
+            traceback.print_exc()
             
             return {
                 'success': False,
-                'data': {'servers': []},
+                'data': {'servers': []},  # Keep consistent structure
                 'error': error_msg
             }
     
@@ -174,16 +154,20 @@ class ServerController:
                 })
             
             # Get disabled servers
-            disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-            for name, config in disabled_servers.items():
-                servers.append({
-                    'name': name,
-                    'enabled': False,
-                    'command': config.get('command', ''),
-                    'args': config.get('args', []),
-                    'env': config.get('env', {}),
-                    'status': 'disabled'
-                })
+            try:
+                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                for name, config in disabled_servers.items():
+                    servers.append({
+                        'name': name,
+                        'enabled': False,
+                        'command': config.get('command', ''),
+                        'args': config.get('args', []),
+                        'env': config.get('env', {}),
+                        'status': 'disabled'
+                    })
+            except:
+                # No disabled servers file yet, that's OK
+                pass
             
             return {
                 'success': True,
@@ -246,6 +230,9 @@ class ServerController:
                 new_state = True
             
             if success:
+                # Save the configs
+                self.config_manager.save_configs(claude_data, gemini_data, mode.lower() if mode else 'both')
+                
                 # Notify callbacks
                 for callback in self.on_server_toggled_callbacks:
                     callback({
