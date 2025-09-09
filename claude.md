@@ -123,10 +123,70 @@ Successfully implemented the main window and essential UI components:
    - Callback system for mode change notifications
    - Enable/disable support for configuration locking
 
-##### 🔄 Next Implementation Phase
-- T040-T044: Dialog implementations (Add Server, Preset Manager, Settings, Backup/Restore, Error)
-- T045-T048: Controller implementations (Config, Server, Preset, Backup controllers)
+##### ✅ Dialogs Complete (T040-T044)
+Successfully implemented all dialog components in `src/gui/dialogs/`:
+
+1. **AddServerDialog** (`add_server_dialog.py`) - JSON server addition
+   - Live JSON validation with syntax highlighting
+   - Placeholder text showing expected format
+   - Error messages for invalid configurations
+   - Support for environment variables and arguments
+
+2. **PresetManagerDialog** (`preset_manager_dialog.py`) - Preset management
+   - List view with built-in/custom preset distinction
+   - Apply, save, delete operations with confirmations
+   - Favorite marking and server count display
+   - Details panel showing preset configuration
+
+3. **SettingsDialog** (`settings_dialog.py`) - Application preferences
+   - Tabbed interface: General, Appearance, Behavior, Advanced
+   - Theme selection (Light/Dark/System)
+   - Backup settings and auto-save configuration
+   - Validation and logging preferences
+
+4. **BackupRestoreDialog** (`backup_restore_dialog.py`) - Backup operations
+   - Table view with timestamp, mode, size information
+   - Create, restore, delete individual backups
+   - Bulk delete old backups functionality
+   - Automatic refresh and status updates
+
+5. **ErrorDialog** (`error_dialog.py`) - Error display
+   - Icon-based severity indicators (error/warning/info)
+   - Detailed error information with stack traces
+   - Copy to clipboard functionality
+   - Issue reporting integration
+
+##### ✅ Controllers Complete (T045-T048)
+Successfully implemented all controller components in `src/gui/controllers/`:
+
+1. **ConfigController** (`config_controller.py`) - Configuration management
+   - Load/save operations with backup creation
+   - Mode switching (Claude/Gemini/Both)
+   - Configuration validation
+   - Path management for all config files
+
+2. **ServerController** (`server_controller.py`) - Server operations
+   - Toggle, add, remove server functionality
+   - Bulk operations (enable all/disable all)
+   - Server validation with error reporting
+   - Mode-aware server management
+
+3. **PresetController** (`preset_controller.py`) - Preset management
+   - Load, save, delete preset operations
+   - Favorite toggle functionality
+   - Built-in preset protection
+   - Detailed preset information retrieval
+
+4. **BackupController** (`backup_controller.py`) - Backup operations
+   - Create, restore, delete backups
+   - Cleanup old backups by age or count
+   - Backup information and metadata
+   - Server count tracking in backups
+
+##### 🚀 Next Implementation Phase
 - T049-T052: Event system and handlers (Dispatcher, state management, shortcuts)
+- T053-T056: Library integration (connecting controllers to ConfigManager)
+- T057-T063: UI features and threading
 
 ## Development Commands
 
@@ -308,7 +368,66 @@ Each integration test file validates complete user workflows:
 
 ## Recent Implementation Progress (2025-09-09)
 
-### Session Accomplishments
+### Latest Session: Dialog and Controller Implementation (T040-T048)
+Successfully completed all dialog and controller components, establishing the complete GUI-Library bridge:
+
+#### Key Accomplishments:
+1. **All 5 Dialogs Implemented** - Complete user interaction layer with dual framework support
+2. **All 4 Controllers Implemented** - Full business logic bridge between GUI and core library
+3. **Consistent Architecture** - Request/response pattern across all controllers
+4. **Event System Ready** - Callback registration in place for all major operations
+
+#### Architecture Decisions from This Session:
+
+1. **Dual Framework Consistency**
+   - Every dialog works identically in PyQt6 and tkinter
+   - Conditional imports with USING_QT flag maintained throughout
+   - Visual parity achieved despite framework limitations
+
+2. **Controller Pattern Success**
+   - Clean separation between UI (dialogs) and logic (controllers)
+   - Controllers directly integrate with existing ConfigManager
+   - No GUI framework dependencies in controllers
+
+3. **Event-Driven Design Validated**
+   - Callback registration pattern works well for loose coupling
+   - Multiple callbacks per event supported
+   - Easy to extend without modifying existing code
+
+4. **Error Handling Strategy**
+   - Consistent `{success: bool, data/error: {...}}` pattern
+   - Comprehensive try-catch blocks with logging
+   - User-friendly error messages with technical details
+
+#### Key Insights:
+
+1. **tkinter Limitations Addressed**
+   - Tree view checkboxes simulated with text symbols (✓/✗)
+   - Tab interfaces work well as notebook widgets
+   - Color theming more limited but acceptable
+
+2. **Validation Importance**
+   - JSON validation in AddServerDialog prevents invalid configs
+   - Built-in preset protection in PresetController
+   - Configuration validation before save operations
+
+3. **User Experience Considerations**
+   - Live validation provides immediate feedback
+   - Confirmation dialogs for destructive operations
+   - Status messages and progress indicators planned
+
+#### Next Steps:
+- **Immediate**: Implement event dispatcher system (T049)
+- **Integration**: Connect controllers to main window (T050)
+- **Polish**: Add keyboard shortcuts and state management (T051-T052)
+- **Testing**: Update contract tests to validate controller implementations
+
+#### Potential Blockers:
+- None identified - architecture is solid and extensible
+- Controllers ready for integration with existing ConfigManager
+- Event system design clear from callback patterns
+
+### Previous Session Accomplishments (T035-T039)
 Successfully completed tasks T035-T039, implementing the main window and core UI widgets:
 
 #### Key Components Delivered:

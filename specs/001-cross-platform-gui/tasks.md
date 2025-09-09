@@ -99,17 +99,17 @@
 - [x] T039 Implement mode selector widget in src/gui/widgets/mode_selector.py
 
 ### Dialogs
-- [ ] T040 [P] Add Server dialog in src/gui/dialogs/add_server_dialog.py
-- [ ] T041 [P] Preset Manager dialog in src/gui/dialogs/preset_manager_dialog.py
-- [ ] T042 [P] Settings dialog in src/gui/dialogs/settings_dialog.py
-- [ ] T043 [P] Backup/Restore dialog in src/gui/dialogs/backup_restore_dialog.py
-- [ ] T044 [P] Error dialog with details in src/gui/dialogs/error_dialog.py
+- [x] T040 [P] Add Server dialog in src/gui/dialogs/add_server_dialog.py
+- [x] T041 [P] Preset Manager dialog in src/gui/dialogs/preset_manager_dialog.py
+- [x] T042 [P] Settings dialog in src/gui/dialogs/settings_dialog.py
+- [x] T043 [P] Backup/Restore dialog in src/gui/dialogs/backup_restore_dialog.py
+- [x] T044 [P] Error dialog with details in src/gui/dialogs/error_dialog.py
 
 ### Controllers (GUI-Library Bridge)
-- [ ] T045 [P] ConfigController for load/save operations in src/gui/controllers/config_controller.py
-- [ ] T046 [P] ServerController for server management in src/gui/controllers/server_controller.py
-- [ ] T047 [P] PresetController for preset operations in src/gui/controllers/preset_controller.py
-- [ ] T048 [P] BackupController for backup/restore in src/gui/controllers/backup_controller.py
+- [x] T045 [P] ConfigController for load/save operations in src/gui/controllers/config_controller.py
+- [x] T046 [P] ServerController for server management in src/gui/controllers/server_controller.py
+- [x] T047 [P] PresetController for preset operations in src/gui/controllers/preset_controller.py
+- [x] T048 [P] BackupController for backup/restore in src/gui/controllers/backup_controller.py
 
 ### Event Handling
 - [ ] T049 Event dispatcher system in src/gui/events/dispatcher.py

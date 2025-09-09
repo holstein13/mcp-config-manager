@@ -1,0 +1,458 @@
+"""Controller for server management operations."""
+
+from typing import Dict, Any, List, Optional, Callable
+import logging
+
+from mcp_config_manager.core.config_manager import ConfigManager
+from mcp_config_manager.core.config_manager import ConfigMode
+
+logger = logging.getLogger(__name__)
+
+
+class ServerController:
+    """Controller for managing server operations between GUI and library."""
+    
+    def __init__(self, config_manager: Optional[ConfigManager] = None):
+        """Initialize the server controller.
+        
+        Args:
+            config_manager: Optional ConfigManager instance to use
+        """
+        self.config_manager = config_manager or ConfigManager()
+        self.on_server_toggled_callbacks: List[Callable] = []
+        self.on_server_added_callbacks: List[Callable] = []
+        self.on_server_removed_callbacks: List[Callable] = []
+        self.on_servers_bulk_callbacks: List[Callable] = []
+    
+    def get_server_list(self, mode: Optional[str] = None) -> Dict[str, Any]:
+        """Get list of all servers.
+        
+        Args:
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - servers: list of server dictionaries
+                - error: error message if failed
+        """
+        try:
+            # Determine mode
+            if mode:
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
+            else:
+                config_mode = ConfigMode.BOTH
+            
+            servers = []
+            
+            # Get enabled servers
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(config_mode)
+            for name, config in enabled_servers.items():
+                servers.append({
+                    'name': name,
+                    'enabled': True,
+                    'command': config.get('command', ''),
+                    'args': config.get('args', []),
+                    'env': config.get('env', {}),
+                    'status': 'enabled'
+                })
+            
+            # Get disabled servers
+            disabled_servers = self.config_manager.server_manager.get_disabled_servers(config_mode)
+            for name, config in disabled_servers.items():
+                servers.append({
+                    'name': name,
+                    'enabled': False,
+                    'command': config.get('command', ''),
+                    'args': config.get('args', []),
+                    'env': config.get('env', {}),
+                    'status': 'disabled'
+                })
+            
+            return {
+                'success': True,
+                'servers': servers
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to get server list: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'servers': [],
+                'error': error_msg
+            }
+    
+    def toggle_server(self, server_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
+        """Toggle a server's enabled/disabled state.
+        
+        Args:
+            server_name: Name of the server to toggle
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - enabled: new enabled state
+                - error: error message if failed
+        """
+        try:
+            # Determine mode
+            if mode:
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
+            else:
+                config_mode = ConfigMode.BOTH
+            
+            # Check current state
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(config_mode)
+            is_currently_enabled = server_name in enabled_servers
+            
+            if is_currently_enabled:
+                # Disable the server
+                result = self.config_manager.server_manager.disable_server(server_name, config_mode)
+                new_state = False
+            else:
+                # Enable the server
+                result = self.config_manager.server_manager.enable_server(server_name, config_mode)
+                new_state = True
+            
+            if result.get('success'):
+                # Notify callbacks
+                for callback in self.on_server_toggled_callbacks:
+                    callback({
+                        'server': server_name,
+                        'enabled': new_state,
+                        'mode': mode
+                    })
+                
+                return {
+                    'success': True,
+                    'enabled': new_state
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Failed to toggle server')
+                }
+            
+        except Exception as e:
+            error_msg = f"Failed to toggle server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
+    def add_server(self, server_config: Dict[str, Any], mode: Optional[str] = None) -> Dict[str, Any]:
+        """Add a new server.
+        
+        Args:
+            server_config: Dictionary with server configuration
+                          Should have format: {"server_name": {"command": "...", ...}}
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - server_names: list of added server names
+                - error: error message if failed
+        """
+        try:
+            # Determine mode
+            if mode:
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
+            else:
+                config_mode = ConfigMode.BOTH
+            
+            added_servers = []
+            
+            # Add each server in the config
+            for server_name, config in server_config.items():
+                result = self.config_manager.server_manager.add_server(
+                    server_name,
+                    config,
+                    config_mode
+                )
+                
+                if result.get('success'):
+                    added_servers.append(server_name)
+                else:
+                    # If any server fails, return error
+                    return {
+                        'success': False,
+                        'error': f"Failed to add server '{server_name}': {result.get('error')}"
+                    }
+            
+            # Notify callbacks
+            for callback in self.on_server_added_callbacks:
+                callback({
+                    'servers': added_servers,
+                    'mode': mode
+                })
+            
+            return {
+                'success': True,
+                'server_names': added_servers
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to add server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
+    def remove_server(self, server_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
+        """Remove a server completely.
+        
+        Args:
+            server_name: Name of the server to remove
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - error: error message if failed
+        """
+        try:
+            # Determine mode
+            if mode:
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
+            else:
+                config_mode = ConfigMode.BOTH
+            
+            result = self.config_manager.server_manager.remove_server(server_name, config_mode)
+            
+            if result.get('success'):
+                # Notify callbacks
+                for callback in self.on_server_removed_callbacks:
+                    callback({
+                        'server': server_name,
+                        'mode': mode
+                    })
+                
+                return {'success': True}
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Failed to remove server')
+                }
+            
+        except Exception as e:
+            error_msg = f"Failed to remove server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
+    def bulk_operation(self, operation: str, server_names: Optional[List[str]] = None,
+                       mode: Optional[str] = None) -> Dict[str, Any]:
+        """Perform bulk operations on servers.
+        
+        Args:
+            operation: Operation to perform ('enable_all', 'disable_all', 'enable', 'disable')
+            server_names: List of server names (for 'enable' and 'disable' operations)
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - affected_servers: list of affected server names
+                - error: error message if failed
+        """
+        try:
+            # Determine mode
+            if mode:
+                mode_map = {
+                    'claude': ConfigMode.CLAUDE,
+                    'gemini': ConfigMode.GEMINI,
+                    'both': ConfigMode.BOTH
+                }
+                config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
+            else:
+                config_mode = ConfigMode.BOTH
+            
+            affected_servers = []
+            
+            if operation == 'enable_all':
+                # Enable all disabled servers
+                disabled_servers = self.config_manager.server_manager.get_disabled_servers(config_mode)
+                for server_name in disabled_servers:
+                    result = self.config_manager.server_manager.enable_server(server_name, config_mode)
+                    if result.get('success'):
+                        affected_servers.append(server_name)
+            
+            elif operation == 'disable_all':
+                # Disable all enabled servers
+                enabled_servers = self.config_manager.server_manager.get_enabled_servers(config_mode)
+                for server_name in enabled_servers:
+                    result = self.config_manager.server_manager.disable_server(server_name, config_mode)
+                    if result.get('success'):
+                        affected_servers.append(server_name)
+            
+            elif operation == 'enable' and server_names:
+                # Enable specific servers
+                for server_name in server_names:
+                    result = self.config_manager.server_manager.enable_server(server_name, config_mode)
+                    if result.get('success'):
+                        affected_servers.append(server_name)
+            
+            elif operation == 'disable' and server_names:
+                # Disable specific servers
+                for server_name in server_names:
+                    result = self.config_manager.server_manager.disable_server(server_name, config_mode)
+                    if result.get('success'):
+                        affected_servers.append(server_name)
+            
+            else:
+                return {
+                    'success': False,
+                    'error': f"Invalid operation: {operation}"
+                }
+            
+            # Notify callbacks
+            for callback in self.on_servers_bulk_callbacks:
+                callback({
+                    'operation': operation,
+                    'servers': affected_servers,
+                    'mode': mode
+                })
+            
+            return {
+                'success': True,
+                'affected_servers': affected_servers
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to perform bulk operation: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
+    def validate_server(self, server_name: str, server_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Validate a server configuration.
+        
+        Args:
+            server_name: Name of the server
+            server_config: Optional server configuration to validate
+                          If not provided, validates existing server
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - valid: whether server is valid
+                - errors: list of validation errors
+                - warnings: list of warnings
+        """
+        try:
+            errors = []
+            warnings = []
+            
+            if server_config:
+                # Validate provided config
+                if not server_config.get('command'):
+                    errors.append("Server must have a 'command' field")
+                
+                if not isinstance(server_config.get('args', []), list):
+                    errors.append("Server 'args' must be a list")
+                
+                if not isinstance(server_config.get('env', {}), dict):
+                    errors.append("Server 'env' must be a dictionary")
+                
+                # Check for environment variables
+                env_vars = server_config.get('env', {})
+                for key, value in env_vars.items():
+                    if not isinstance(value, str):
+                        warnings.append(f"Environment variable '{key}' should be a string")
+            else:
+                # Validate existing server
+                all_servers = self.get_server_list()
+                if all_servers['success']:
+                    server = next((s for s in all_servers['servers'] if s['name'] == server_name), None)
+                    if not server:
+                        errors.append(f"Server '{server_name}' not found")
+                    else:
+                        # Validate the found server
+                        if not server.get('command'):
+                            errors.append("Server has no command specified")
+                else:
+                    errors.append("Failed to retrieve server list")
+            
+            return {
+                'success': True,
+                'valid': len(errors) == 0,
+                'errors': errors,
+                'warnings': warnings
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to validate server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'valid': False,
+                'errors': [error_msg],
+                'warnings': []
+            }
+    
+    def on_server_toggled(self, callback: Callable[[Dict[str, Any]], None]):
+        """Register callback for server toggled event.
+        
+        Args:
+            callback: Function to call when server is toggled
+        """
+        self.on_server_toggled_callbacks.append(callback)
+    
+    def on_server_added(self, callback: Callable[[Dict[str, Any]], None]):
+        """Register callback for server added event.
+        
+        Args:
+            callback: Function to call when server is added
+        """
+        self.on_server_added_callbacks.append(callback)
+    
+    def on_server_removed(self, callback: Callable[[Dict[str, Any]], None]):
+        """Register callback for server removed event.
+        
+        Args:
+            callback: Function to call when server is removed
+        """
+        self.on_server_removed_callbacks.append(callback)
+    
+    def on_servers_bulk(self, callback: Callable[[Dict[str, Any]], None]):
+        """Register callback for bulk operation event.
+        
+        Args:
+            callback: Function to call when bulk operation is performed
+        """
+        self.on_servers_bulk_callbacks.append(callback)
