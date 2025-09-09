@@ -351,8 +351,8 @@ class MainWindow(QMainWindow if USING_QT else object):
             self._setup_tk_toolbar()
     
     def _setup_qt_toolbar(self):
-        """Set up Qt toolbar."""
-        from PyQt6.QtWidgets import QPushButton, QToolBar
+        """Set up Qt toolbar with improved visual hierarchy."""
+        from PyQt6.QtWidgets import QPushButton, QToolBar, QWidget
         from PyQt6.QtCore import QSize
         
         toolbar = QToolBar("Main")
@@ -363,53 +363,74 @@ class MainWindow(QMainWindow if USING_QT else object):
         toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         toolbar.setIconSize(QSize(24, 24))
         
-        # Create actual buttons with proper styling
-        load_btn = QPushButton("Load Configuration")
+        # Primary actions group - Load/Save Configuration
+        load_btn = QPushButton("Load")
         load_btn.clicked.connect(self.load_configuration)
         toolbar.addWidget(load_btn)
         
-        save_btn = QPushButton("Save Configuration")
+        save_btn = QPushButton("Save")
         save_btn.clicked.connect(self.save_configuration)
-        # Removed stylesheet to preserve native macOS rendering of checkboxes
-        # The stylesheet was causing Qt to switch from native to synthetic rendering
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #007AFF;
+                color: white;
+                font-weight: bold;
+                padding: 5px 15px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0051D5;
+            }
+            QPushButton:pressed {
+                background-color: #003D99;
+            }
+        """)
         toolbar.addWidget(save_btn)
         
         toolbar.addSeparator()
         
+        # Secondary action - Add Server
         add_btn = QPushButton("Add Server")
         add_btn.clicked.connect(self.add_server)
         toolbar.addWidget(add_btn)
         
         toolbar.addSeparator()
         
-        enable_all_btn = QPushButton("Enable All")
-        enable_all_btn.clicked.connect(self.enable_all_servers)
-        toolbar.addWidget(enable_all_btn)
-        
-        disable_all_btn = QPushButton("Disable All")
-        disable_all_btn.clicked.connect(self.disable_all_servers)
-        toolbar.addWidget(disable_all_btn)
-        
-        toolbar.addSeparator()
-        
+        # Tertiary action - Validate
         validate_btn = QPushButton("Validate")
         validate_btn.clicked.connect(self.validate_configuration)
+        validate_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F0F0F0;
+                padding: 5px 10px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+        """)
         toolbar.addWidget(validate_btn)
     
     def _setup_tk_toolbar(self):
-        """Set up tkinter toolbar."""
+        """Set up tkinter toolbar with improved visual hierarchy."""
         # Insert toolbar after menu but before main content
         toolbar = ttk.Frame(self.root)
         toolbar.pack(side=tk.TOP, fill=tk.X, before=self.root.winfo_children()[-1])
         
+        # Primary actions
         ttk.Button(toolbar, text="Load", command=self.load_configuration).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Save", command=self.save_configuration).pack(side=tk.LEFT, padx=2)
+        save_btn = ttk.Button(toolbar, text="Save", command=self.save_configuration)
+        save_btn.pack(side=tk.LEFT, padx=2)
+        # Note: tkinter doesn't support button styling as richly as Qt
+        
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        
+        # Secondary action
         ttk.Button(toolbar, text="Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
+        
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        ttk.Button(toolbar, text="Enable All", command=self.enable_all_servers).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Disable All", command=self.disable_all_servers).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        
+        # Tertiary action
         ttk.Button(toolbar, text="Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
     
     def _setup_status_bar(self):
@@ -503,8 +524,6 @@ class MainWindow(QMainWindow if USING_QT else object):
             # Additional shortcuts not in menus
             QShortcut(QKeySequence("Ctrl+R"), self, self.refresh_server_list)
             QShortcut(QKeySequence("Ctrl+F"), self, self._focus_search)
-            QShortcut(QKeySequence("Ctrl+E"), self, self.enable_all_servers)
-            QShortcut(QKeySequence("Ctrl+D"), self, self.disable_all_servers)
             QShortcut(QKeySequence("Ctrl+P"), self, self.manage_presets)
             QShortcut(QKeySequence("Ctrl+B"), self, self.backup_configuration)
             QShortcut(QKeySequence("Ctrl+Shift+R"), self, self.restore_configuration)
@@ -529,8 +548,6 @@ class MainWindow(QMainWindow if USING_QT else object):
             self.root.bind("<Control-q>", lambda e: self.quit_application())
             self.root.bind("<Control-r>", lambda e: self.refresh_server_list())
             self.root.bind("<Control-f>", lambda e: self._focus_search())
-            self.root.bind("<Control-e>", lambda e: self.enable_all_servers())
-            self.root.bind("<Control-d>", lambda e: self.disable_all_servers())
             self.root.bind("<Control-p>", lambda e: self.manage_presets())
             self.root.bind("<Control-b>", lambda e: self.backup_configuration())
             self.root.bind("<Control-Shift-R>", lambda e: self.restore_configuration())

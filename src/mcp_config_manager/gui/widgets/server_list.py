@@ -6,7 +6,7 @@ from enum import Enum
 try:
     from PyQt6.QtWidgets import (
         QWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QHBoxLayout,
-        QPushButton, QLabel, QMenu, QHeaderView
+        QPushButton, QLabel, QMenu, QHeaderView, QCheckBox
     )
     from PyQt6.QtCore import Qt, pyqtSignal, QPoint
     from PyQt6.QtGui import QAction, QIcon
@@ -45,6 +45,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         self._selection_callbacks: List[Callable] = []
         self._multi_selection_callbacks: List[Callable] = []
         self.multi_select_enabled = False
+        self.master_state = None  # Track master checkbox state
     
     def _setup_qt_widget(self):
         """Set up Qt widget."""
@@ -53,7 +54,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         
         # Tree widget for server list
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Enabled", "Server", "Status", "Mode"])
+        # Don't set header labels yet - we'll do it in _setup_master_checkbox
         self.tree.setRootIsDecorated(False)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)  # Enable multi-selection
@@ -63,6 +64,9 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.itemSelectionChanged.connect(self._on_selection_changed_qt)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
+        
+        # Add master checkbox to header
+        self._setup_master_checkbox()
         
         # Set column widths
         header = self.tree.header()
@@ -94,6 +98,22 @@ class ServerListWidget(QWidget if USING_QT else object):
         status_layout.addWidget(self.status_label)
         
         layout.addLayout(status_layout)
+    
+    def _setup_master_checkbox(self):
+        """Set up the master checkbox in the header."""
+        if not USING_QT:
+            return
+        
+        # Set header labels initially
+        self.tree.setHeaderLabels(["☐ All", "Server", "Status", "Mode"])
+        
+        # Store reference to header for updating checkbox display
+        self.header = self.tree.header()
+        self.header.setSectionsClickable(True)
+        self.header.sectionClicked.connect(self._on_header_clicked)
+        
+        # Track master checkbox state
+        self.master_state = Qt.CheckState.Unchecked
     
     def _setup_tk_widget(self, parent):
         """Set up tkinter widget."""
@@ -258,6 +278,8 @@ class ServerListWidget(QWidget if USING_QT else object):
         if server_name:
             enabled = item.checkState(0) == Qt.CheckState.Checked
             self._toggle_server(server_name, enabled)
+            # Update master checkbox state when individual items change
+            self._update_master_checkbox_state()
     
     def _toggle_server(self, server_name: str, enabled: bool):
         """Toggle server enabled/disabled state."""
@@ -304,10 +326,6 @@ class ServerListWidget(QWidget if USING_QT else object):
             for callback in self._selection_callbacks:
                 callback(server_name)
     
-    def _on_item_changed(self, item: 'QTreeWidgetItem', column: int):
-        """Handle item change (Qt)."""
-        # This is handled by checkbox state change
-        pass
     
     def _on_selection_changed(self, event=None):
         """Handle selection change (tkinter)."""
@@ -411,6 +429,9 @@ class ServerListWidget(QWidget if USING_QT else object):
         
         # Update status count
         self.update_status_count()
+        
+        # Update master checkbox state
+        self._update_master_checkbox_state()
     
     def clear(self):
         """Clear all servers from the list."""
@@ -551,3 +572,59 @@ class ServerListWidget(QWidget if USING_QT else object):
             return self
         else:
             return self.frame
+    
+    def _on_header_clicked(self, logical_index):
+        """Handle header click to toggle master checkbox."""
+        if not USING_QT or logical_index != 0:
+            return
+        
+        # Cycle through states: Unchecked -> Checked -> Unchecked
+        if self.master_state == Qt.CheckState.Unchecked:
+            self.master_state = Qt.CheckState.Checked
+            # Check all items
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                item.setCheckState(0, Qt.CheckState.Checked)
+        else:
+            self.master_state = Qt.CheckState.Unchecked
+            # Uncheck all items
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                item.setCheckState(0, Qt.CheckState.Unchecked)
+        
+        self._update_master_checkbox_display()
+    
+    def _update_master_checkbox_state(self):
+        """Update the master checkbox state based on individual checkboxes."""
+        if not USING_QT:
+            return
+        
+        checked_count = 0
+        total_count = self.tree.topLevelItemCount()
+        
+        for i in range(total_count):
+            item = self.tree.topLevelItem(i)
+            if item.checkState(0) == Qt.CheckState.Checked:
+                checked_count += 1
+        
+        if checked_count == 0:
+            self.master_state = Qt.CheckState.Unchecked
+        elif checked_count == total_count:
+            self.master_state = Qt.CheckState.Checked
+        else:
+            self.master_state = Qt.CheckState.PartiallyChecked
+        
+        self._update_master_checkbox_display()
+    
+    def _update_master_checkbox_display(self):
+        """Update the visual display of the master checkbox in the header."""
+        if not USING_QT:
+            return
+        
+        # Update header text with checkbox symbol
+        if self.master_state == Qt.CheckState.Checked:
+            self.tree.headerItem().setText(0, "☑ All")
+        elif self.master_state == Qt.CheckState.Unchecked:
+            self.tree.headerItem().setText(0, "☐ All")
+        else:  # PartiallyChecked
+            self.tree.headerItem().setText(0, "⊟ All")
