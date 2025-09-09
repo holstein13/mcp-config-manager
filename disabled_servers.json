@@ -1,0 +1,19 @@
+{
+  "XcodeBuildMCP": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "xcodebuildmcp@latest"
+    ],
+    "enabled": false
+  },
+  "memory": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-memory"
+    ],
+    "enabled": true
+  }
+}

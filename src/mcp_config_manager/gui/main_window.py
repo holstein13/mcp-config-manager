@@ -126,14 +126,19 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         logging.debug("Scheduling configuration load")
         # Load initial configuration after all UI is ready
+        # Set initial status
+        self.set_status_message("Ready", timeout=0)
+        
         # Use QTimer to delay loading to allow window to show first
         print("DEBUG: About to schedule/call configuration load")
         print(f"DEBUG: USING_QT = {USING_QT}")
         
-        # Directly call load_configuration for now to debug the issue
-        print("DEBUG: Calling load_configuration directly")
-        self.load_configuration()
-        print("DEBUG: load_configuration call completed")
+        if USING_QT:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, self.load_configuration)
+        else:
+            # For tkinter, use after method
+            self.root.after(100, self.load_configuration)
         
         logging.debug("Loading window state")
         self._load_window_state()
@@ -589,7 +594,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     # Widget event callbacks
     def _on_server_toggled(self, server_name: str, enabled: bool):
         """Handle server toggle from widget."""
-        result = self.server_controller.toggle_server(server_name, enabled, self.app_state.mode)
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.server_controller.toggle_server(server_name, enabled, mode_value)
         if result['success']:
             self.set_unsaved_changes(True)
             dispatcher.emit_now(EventType.SERVER_TOGGLED, 
@@ -623,7 +629,9 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _handle_config_loaded(self, event: Event):
         """Handle configuration loaded event."""
         print("DEBUG: _handle_config_loaded called")
-        self.set_status_message("Configuration loaded successfully", timeout=3)
+        # Get server count from event data if available
+        server_count = len(event.data.get('servers', [])) if event.data else 0
+        self.set_status_message(f"Configuration loaded - {server_count} servers", timeout=5)
         self.set_unsaved_changes(False)
         self.refresh_server_list()
     
@@ -710,7 +718,9 @@ class MainWindow(QMainWindow if USING_QT else object):
         if hasattr(self, 'server_list') and self.server_list:
             print("DEBUG: server_list exists, getting servers...")
             # Get current servers from controller
-            result = self.server_controller.get_servers(self.app_state.mode)
+            # Convert Mode enum to string value
+            mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+            result = self.server_controller.get_servers(mode_value)
             print(f"DEBUG: get_servers result: {result}")
             if result['success']:
                 servers = result['data']['servers']
@@ -758,7 +768,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         if dialog.exec() if USING_QT else dialog.show():
             server_json = dialog.get_server_json()
             if server_json:
-                result = self.server_controller.add_server(server_json, self.app_state.mode)
+                mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+                result = self.server_controller.add_server(server_json, mode_value)
                 if result['success']:
                     server_name = result['data'].get('server')
                     dispatcher.emit_now(EventType.SERVER_ADDED, 
@@ -771,7 +782,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def enable_all_servers(self):
         """Enable all servers."""
-        result = self.server_controller.bulk_toggle(True, self.app_state.mode)
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.server_controller.bulk_toggle(True, mode_value)
         if result['success']:
             count = result['data'].get('count', 0)
             dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
@@ -784,7 +796,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def disable_all_servers(self):
         """Disable all servers."""
-        result = self.server_controller.bulk_toggle(False, self.app_state.mode)
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.server_controller.bulk_toggle(False, mode_value)
         if result['success']:
             count = result['data'].get('count', 0)
             dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
@@ -816,7 +829,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def backup_configuration(self):
         """Create configuration backup."""
         self.set_status_message("Creating backup...")
-        result = self.backup_controller.create_backup(self.app_state.mode)
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.backup_controller.create_backup(mode_value)
         if result['success']:
             backup_file = result['data'].get('file')
             dispatcher.emit_now(EventType.BACKUP_CREATED,
@@ -841,7 +855,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def validate_configuration(self):
         """Validate current configuration."""
         self.set_status_message("Validating configuration...")
-        result = self.config_controller.validate_configuration(self.app_state.mode)
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.config_controller.validate_configuration(mode_value)
         if result['success']:
             if result['data'].get('valid'):
                 self.set_status_message("Configuration is valid", 3)
