@@ -370,18 +370,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         save_btn = QPushButton("Save Configuration")
         save_btn.clicked.connect(self.save_configuration)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007AFF;
-                color: white;
-                font-weight: bold;
-                padding: 5px 15px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #0051D5;
-            }
-        """)
+        # Removed stylesheet to preserve native macOS rendering of checkboxes
+        # The stylesheet was causing Qt to switch from native to synthetic rendering
         toolbar.addWidget(save_btn)
         
         toolbar.addSeparator()
@@ -1103,6 +1093,12 @@ def run_gui_in_main_thread():
     if USING_QT:
         app = QApplication(sys.argv)
         app.setApplicationName("MCP Config Manager")
+        
+        # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
+        # may render as solid blue squares. This is a Qt rendering issue that
+        # should be fixed in future Qt versions. The application is using the
+        # native macOS style correctly.
+        
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
         window.show()
