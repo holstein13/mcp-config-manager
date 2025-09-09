@@ -51,11 +51,13 @@ class FieldEditor(ABC):
         self.is_modified = False
         self.validation_error = None
         self.change_callbacks: List[Callable] = []
+        self._initializing = True  # Flag to prevent marking as modified during init
         
         self._create_widget()
         self._setup_signals()
         if initial_value is not None:
             self.set_value(initial_value)
+        self._initializing = False  # Init complete, now track changes
     
     @abstractmethod
     def _create_widget(self) -> None:
@@ -124,6 +126,15 @@ class FieldEditor(ABC):
         self.is_modified = False
         self._update_visual_state()
     
+    def set_required(self, required: bool) -> None:
+        """Set whether this field is required.
+        
+        Args:
+            required: Whether the field is required
+        """
+        self.required = required
+        self._update_visual_state()
+    
     def add_change_callback(self, callback: Callable) -> None:
         """Add a callback for value changes."""
         self.change_callbacks.append(callback)
@@ -131,7 +142,9 @@ class FieldEditor(ABC):
     def _on_value_changed(self) -> None:
         """Handle value changes."""
         self.current_value = self.get_value()
-        self.is_modified = self.has_changes()
+        # Only mark as modified if not initializing
+        if not getattr(self, '_initializing', False):
+            self.is_modified = self.has_changes()
         self._update_visual_state()
         
         # Notify callbacks

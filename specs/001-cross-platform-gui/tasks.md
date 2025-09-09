@@ -206,11 +206,11 @@
 - [x] T107 Add empty state message "Select a server to edit" in src/mcp_config_manager/gui/widgets/server_details_panel.py
 
 ### Phase 3.6.5: Tkinter Support
-- [ ] T108 [P] Create tkinter field editor equivalents in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T109 [P] Create tkinter ServerDetailsPanel in src/mcp_config_manager/gui/widgets/server_details_panel.py
-- [ ] T110 [P] Create tkinter AddFieldDialog in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
-- [ ] T111 Ensure consistent API between Qt and tkinter implementations in field_editors.py
-- [ ] T112 Test tkinter visual parity and functionality
+- [x] T108 [P] Create tkinter field editor equivalents in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T109 [P] Create tkinter ServerDetailsPanel in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T110 [P] Create tkinter AddFieldDialog in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
+- [x] T111 Ensure consistent API between Qt and tkinter implementations in field_editors.py
+- [x] T112 Test tkinter visual parity and functionality
 
 ### Phase 3.6.6: Testing
 - [ ] T113 [P] Unit tests for field editor widgets in tests/test_gui/unit/test_field_editors.py
