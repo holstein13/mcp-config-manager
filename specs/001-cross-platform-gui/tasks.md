@@ -185,11 +185,11 @@
 - [x] T092 [P] Create base FieldEditor class with common validation logic in src/mcp_config_manager/gui/widgets/field_editors.py
 
 ### Phase 3.6.2: Server Details Panel
-- [ ] T093 Create ServerDetailsPanel widget with scrollable form layout in src/mcp_config_manager/gui/widgets/server_details_panel.py
-- [ ] T094 Implement load_server() method to populate form with server data in src/mcp_config_manager/gui/widgets/server_details_panel.py
-- [ ] T095 Implement field validation with visual error indicators in src/mcp_config_manager/gui/widgets/server_details_panel.py
-- [ ] T096 Create AddFieldDialog for adding optional MCP fields in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
-- [ ] T097 Implement save/cancel handlers with change detection in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T093 Create ServerDetailsPanel widget with scrollable form layout in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T094 Implement load_server() method to populate form with server data in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T095 Implement field validation with visual error indicators in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T096 Create AddFieldDialog for adding optional MCP fields in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
+- [x] T097 Implement save/cancel handlers with change detection in src/mcp_config_manager/gui/widgets/server_details_panel.py
 
 ### Phase 3.6.3: Integration
 - [ ] T098 Update ServerListWidget to handle itemClicked separately from checkbox in src/mcp_config_manager/gui/widgets/server_list.py
