@@ -329,13 +329,19 @@ class AddServerDialog:
             Dictionary with server configuration or None if cancelled
         """
         if USING_QT:
-            if self.dialog.exec() == QDialog.DialogCode.Accepted:
-                return self.result
+            self.dialog.exec()
+            return self.result
         else:
             self.dialog.wait_window()
             return self.result
+    
+    def get_server_json(self) -> Optional[Dict[str, Any]]:
+        """Get the server JSON configuration.
         
-        return None
+        Returns:
+            Dictionary with server configuration or None if cancelled
+        """
+        return self.result
     
     def set_initial_json(self, json_text: str):
         """Set initial JSON text in the input field.

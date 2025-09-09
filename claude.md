@@ -20,10 +20,34 @@ MCP Config Manager is a cross-platform utility for managing Model Context Protoc
 
 ## Current Status (Updated 2025-01-09)
 
+### 🚧 NEW FEATURE IN PLANNING: Server Detail View & Edit (Session 10: 2025-01-09)
+**Planning implementation of server detail view panel for editing MCP server configurations directly in the GUI.**
+
+### Current Session 10: Server Detail View & Edit Feature Planning
+
+#### Feature Overview:
+Implementing a detail panel on the right side of the server list that displays and allows editing of MCP server configurations when a server name is clicked (not the checkbox). This will provide a visual interface for modifying server settings without manually editing JSON files.
+
+#### Unified Implementation Plan (Best of Claude + Gemini):
+1. **Modular Field Editors** - Reusable components for each data type (string, number, boolean, array, key-value)
+2. **Server Details Panel** - Main form container with dynamic field management
+3. **Immediate Editing** - Fields are editable as soon as server is selected
+4. **Add Field Dialog** - Clean interface for adding optional MCP fields
+5. **Visual Feedback** - Orange indicators for unsaved changes, red borders for validation errors
+6. **Save/Cancel Controls** - Explicit buttons for committing or reverting changes
+7. **Comprehensive Testing** - Unit tests for components, integration tests for workflows
+
+#### Key Design Decisions:
+- **Split View Layout**: Server list on left (70%), detail panel on right (30%)
+- **Field Organization**: Core fields always visible, optional fields added dynamically
+- **Validation**: Real-time validation with visual feedback
+- **Dual Framework**: Full support for both PyQt6 and tkinter
+- **Keyboard Support**: Tab navigation, Ctrl+S to save, Esc to cancel
+
 ### ✅ GUI FULLY FUNCTIONAL WITH UX IMPROVEMENTS! (Session 9: 2025-01-09)
 **The GUI is working correctly with all major features operational. Successfully implemented high-impact UX improvements.**
 
-### Current Session 9: UX Improvements - Master Checkbox & Toolbar Consolidation
+### Previous Session 9: UX Improvements - Master Checkbox & Toolbar Consolidation
 
 #### Improvements Implemented:
 1. **Master Checkbox for Bulk Operations**:
