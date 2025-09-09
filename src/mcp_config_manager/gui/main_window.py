@@ -426,6 +426,38 @@ class MainWindow(QMainWindow if USING_QT else object):
             }
         """)
         self.toolbar.addWidget(validate_btn)
+        
+        # Backup button
+        backup_btn = QPushButton("💾 Backup")
+        backup_btn.setToolTip("Create backup of configuration files in current directory")
+        backup_btn.clicked.connect(self.quick_backup)
+        backup_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F0F0F0;
+                padding: 5px 10px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+        """)
+        self.toolbar.addWidget(backup_btn)
+        
+        # Restore button
+        restore_btn = QPushButton("📂 Restore")
+        restore_btn.setToolTip("Restore configuration from backup files")
+        restore_btn.clicked.connect(self.quick_restore)
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F0F0F0;
+                padding: 5px 10px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+        """)
+        self.toolbar.addWidget(restore_btn)
     
     def _setup_tk_toolbar(self):
         """Set up tkinter toolbar with improved visual hierarchy."""
@@ -1005,6 +1037,113 @@ class MainWindow(QMainWindow if USING_QT else object):
             dispatcher.emit_now(EventType.BACKUP_ERROR,
                                {'error': result['error']},
                                source='MainWindow')
+    
+    def quick_backup(self):
+        """Quick backup to current directory with -backup suffix."""
+        import shutil
+        from pathlib import Path
+        import os
+        
+        try:
+            mode = self.app_state.mode
+            mode_value = mode.value if hasattr(mode, 'value') else str(mode)
+            
+            # Get the config paths
+            claude_path = Path.home() / '.claude.json'
+            gemini_path = Path.home() / '.gemini' / 'settings.json'
+            
+            # Create backup file names in current directory
+            current_dir = Path.cwd()
+            backup_files = []
+            
+            # Backup based on mode
+            if mode_value in ['claude', 'both'] and claude_path.exists():
+                backup_name = current_dir / 'claude-backup.json'
+                shutil.copy2(claude_path, backup_name)
+                backup_files.append(backup_name)
+            
+            if mode_value in ['gemini', 'both'] and gemini_path.exists():
+                backup_name = current_dir / 'gemini-backup.json'
+                shutil.copy2(gemini_path, backup_name)
+                backup_files.append(backup_name)
+            
+            if backup_files:
+                files_str = ', '.join([f.name for f in backup_files])
+                self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
+                if USING_QT:
+                    QMessageBox.information(self, "Backup Complete", 
+                                          f"Configuration backed up to:\n{files_str}")
+            else:
+                self.set_status_message("No configuration files to backup", timeout=5000)
+                
+        except Exception as e:
+            error_msg = f"Backup failed: {str(e)}"
+            self.set_status_message(error_msg, timeout=0)
+            if USING_QT:
+                QMessageBox.critical(self, "Backup Error", error_msg)
+    
+    def quick_restore(self):
+        """Quick restore from backup files in current directory."""
+        import shutil
+        from pathlib import Path
+        
+        if USING_QT:
+            from PyQt6.QtWidgets import QFileDialog
+            
+            # Show file selection dialog
+            files, _ = QFileDialog.getOpenFileNames(
+                self,
+                "Select Backup Files to Restore",
+                str(Path.cwd()),
+                "JSON Files (*.json);;All Files (*.*)"
+            )
+            
+            if not files:
+                return
+                
+            # Ask for confirmation
+            file_list = '\n'.join([Path(f).name for f in files])
+            reply = QMessageBox.question(
+                self,
+                "Confirm Restore",
+                f"This will replace your current configuration with:\n{file_list}\n\nAre you sure?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            
+            try:
+                restored = []
+                for backup_file in files:
+                    backup_path = Path(backup_file)
+                    
+                    # Determine destination based on filename
+                    if 'claude' in backup_path.name.lower():
+                        dest = Path.home() / '.claude.json'
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Claude')
+                    elif 'gemini' in backup_path.name.lower():
+                        dest = Path.home() / '.gemini' / 'settings.json'
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Gemini')
+                
+                if restored:
+                    self.set_status_message(f"✅ Restored: {', '.join(restored)}", timeout=5000)
+                    QMessageBox.information(self, "Restore Complete",
+                                          f"Configuration restored for: {', '.join(restored)}\n\nReloading configuration...")
+                    # Reload the configuration
+                    self.load_configuration()
+                else:
+                    QMessageBox.warning(self, "No Files Restored",
+                                       "Could not determine configuration type from filenames.\nFiles should contain 'claude' or 'gemini' in the name.")
+                    
+            except Exception as e:
+                error_msg = f"Restore failed: {str(e)}"
+                self.set_status_message(error_msg, timeout=0)
+                QMessageBox.critical(self, "Restore Error", error_msg)
     
     def restore_configuration(self):
         """Show restore dialog."""

@@ -60,6 +60,10 @@ temp_configs/
 # User-specific configuration
 disabled_servers.json
 
+# Backup files
+claude-backup.json
+gemini-backup.json
+
 # Packaging
 *.dmg
 *.exe
