@@ -175,6 +175,14 @@ class MainWindow(QMainWindow if USING_QT else object):
         # Main layout
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)  # Remove spacing between widgets
+        
+        # Mode selector at the top
+        from .widgets.mode_selector import ModeSelectorWidget
+        self.mode_selector = ModeSelectorWidget()
+        self.mode_selector_widget = self.mode_selector  # For compatibility
+        self.mode_selector.mode_changed.connect(self._on_mode_changed)
+        main_layout.addWidget(self.mode_selector)
         
         # Content splitter (for future server list and details)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -196,6 +204,12 @@ class MainWindow(QMainWindow if USING_QT else object):
         # Main frame
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        
+        # Mode selector at the top
+        from .widgets.mode_selector import ModeSelectorWidget
+        self.mode_selector = ModeSelectorWidget(main_frame)
+        self.mode_selector_widget = self.mode_selector  # For compatibility
+        self.mode_selector.frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Paned window (splitter)
         self.paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
