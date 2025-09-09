@@ -39,108 +39,98 @@ class ModeSelectorWidget(QWidget if USING_QT else object):
     
     def _setup_qt_widget(self):
         """Set up Qt widget."""
-        layout = QVBoxLayout(self)
+        # Set size policy to prevent vertical expansion
+        from PyQt6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.setMaximumHeight(40)  # Ensure it doesn't grow beyond reasonable height
         
-        # Group box for mode selection
-        group = QGroupBox("Client Mode")
-        group_layout = QVBoxLayout()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 2, 10, 2)  # Minimal vertical padding
         
-        # Description label
-        desc_label = QLabel("Select which client configurations to manage:")
-        desc_label.setWordWrap(True)
-        group_layout.addWidget(desc_label)
+        # Mode label
+        mode_label = QLabel("Client Mode:")
+        mode_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(mode_label)
         
-        # Radio buttons
+        # Radio buttons in horizontal layout
         self.button_group = QButtonGroup()
         
         self.claude_radio = QRadioButton("Claude Only")
         self.claude_radio.setToolTip("Manage only Claude Desktop configuration")
         self.button_group.addButton(self.claude_radio, 0)
-        group_layout.addWidget(self.claude_radio)
+        layout.addWidget(self.claude_radio)
         
         self.gemini_radio = QRadioButton("Gemini Only")
         self.gemini_radio.setToolTip("Manage only Gemini configuration")
         self.button_group.addButton(self.gemini_radio, 1)
-        group_layout.addWidget(self.gemini_radio)
+        layout.addWidget(self.gemini_radio)
         
         self.both_radio = QRadioButton("Both (Synchronized)")
         self.both_radio.setToolTip("Manage both Claude and Gemini configurations together")
         self.both_radio.setChecked(True)
         self.button_group.addButton(self.both_radio, 2)
-        group_layout.addWidget(self.both_radio)
+        layout.addWidget(self.both_radio)
         
         # Connect signal
         self.button_group.idClicked.connect(self._on_mode_changed_qt)
         
+        # Add some spacing
+        layout.addSpacing(20)
+        
         # Status indicator
-        self.status_layout = QHBoxLayout()
         self.status_label = QLabel("Status:")
+        layout.addWidget(self.status_label)
         self.status_value = QLabel("Both clients synchronized")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
-        self.status_layout.addWidget(self.status_label)
-        self.status_layout.addWidget(self.status_value)
-        self.status_layout.addStretch()
-        group_layout.addLayout(self.status_layout)
+        layout.addWidget(self.status_value)
         
-        group.setLayout(group_layout)
-        layout.addWidget(group)
+        # Push everything to the left
+        layout.addStretch()
         
-        # Compact mode - horizontal layout option
-        self.compact_layout = QHBoxLayout()
-        self.compact_label = QLabel("Mode:")
+        # Store compact mode widgets but don't use them in this simpler layout
         self.compact_combo = QComboBox()
         self.compact_combo.addItems(["Claude Only", "Gemini Only", "Both"])
         self.compact_combo.setCurrentIndex(2)
         self.compact_combo.currentIndexChanged.connect(self._on_combo_changed)
-        self.compact_combo.hide()  # Hidden by default
+        self.compact_combo.hide()
+        self.compact_label = QLabel("Mode:")
         self.compact_label.hide()
-        
-        self.compact_layout.addWidget(self.compact_label)
-        self.compact_layout.addWidget(self.compact_combo)
-        self.compact_layout.addStretch()
-        layout.addLayout(self.compact_layout)
-        
-        layout.addStretch()
     
     def _setup_tk_widget(self, parent):
         """Set up tkinter widget."""
         self.frame = ttk.Frame(parent)
         
-        # Label frame for mode selection
-        group = ttk.LabelFrame(self.frame, text="Client Mode", padding=10)
-        group.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Horizontal frame for compact layout
+        mode_frame = ttk.Frame(self.frame)
+        mode_frame.pack(fill=tk.X, padx=10, pady=5)
         
-        # Description label
-        desc_label = ttk.Label(group, text="Select which client configurations to manage:",
-                              wraplength=300)
-        desc_label.pack(anchor=tk.W, pady=(0, 10))
+        # Mode label
+        mode_label = ttk.Label(mode_frame, text="Client Mode:", font=('', 0, 'bold'))
+        mode_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Radio buttons
+        # Radio buttons in horizontal layout
         self.mode_var = tk.StringVar(value="both")
         
-        self.claude_radio = ttk.Radiobutton(group, text="Claude Only", 
+        self.claude_radio = ttk.Radiobutton(mode_frame, text="Claude Only", 
                                            variable=self.mode_var, value="claude",
                                            command=self._on_mode_changed_tk)
-        self.claude_radio.pack(anchor=tk.W, pady=2)
+        self.claude_radio.pack(side=tk.LEFT, padx=5)
         
-        self.gemini_radio = ttk.Radiobutton(group, text="Gemini Only",
+        self.gemini_radio = ttk.Radiobutton(mode_frame, text="Gemini Only",
                                            variable=self.mode_var, value="gemini",
                                            command=self._on_mode_changed_tk)
-        self.gemini_radio.pack(anchor=tk.W, pady=2)
+        self.gemini_radio.pack(side=tk.LEFT, padx=5)
         
-        self.both_radio = ttk.Radiobutton(group, text="Both (Synchronized)",
+        self.both_radio = ttk.Radiobutton(mode_frame, text="Both (Synchronized)",
                                          variable=self.mode_var, value="both",
                                          command=self._on_mode_changed_tk)
-        self.both_radio.pack(anchor=tk.W, pady=2)
+        self.both_radio.pack(side=tk.LEFT, padx=5)
         
-        # Status frame
-        status_frame = ttk.Frame(group)
-        status_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        ttk.Label(status_frame, text="Status:").pack(side=tk.LEFT)
-        self.status_label = ttk.Label(status_frame, text="Both clients synchronized",
+        # Status indicator
+        ttk.Label(mode_frame, text="Status:").pack(side=tk.LEFT, padx=(20, 5))
+        self.status_label = ttk.Label(mode_frame, text="Both clients synchronized",
                                      foreground="green", font=('', 9, 'bold'))
-        self.status_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.status_label.pack(side=tk.LEFT)
         
         # Compact mode (alternative layout)
         self.compact_frame = ttk.Frame(parent)
