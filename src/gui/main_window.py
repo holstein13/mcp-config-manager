@@ -20,6 +20,17 @@ except ImportError:
 
 from .models.app_state import ApplicationState
 from .models.ui_config import UIConfiguration
+from .controllers.config_controller import ConfigController
+from .controllers.server_controller import ServerController
+from .controllers.preset_controller import PresetController
+from .controllers.backup_controller import BackupController
+from .events.dispatcher import dispatcher, EventType, Event
+from .widgets.server_list import ServerListWidget
+from .widgets.mode_selector import ModeSelectorWidget
+from .dialogs.add_server_dialog import AddServerDialog
+from .dialogs.preset_manager_dialog import PresetManagerDialog
+from .dialogs.settings_dialog import SettingsDialog
+from .dialogs.backup_restore_dialog import BackupRestoreDialog
 
 
 class MainWindow(QMainWindow if USING_QT else object):
@@ -47,7 +58,20 @@ class MainWindow(QMainWindow if USING_QT else object):
         self._status_bar = None
         self._status_label = None
         self._save_indicator = None
+        
+        # Initialize controllers
+        self.config_controller = ConfigController()
+        self.server_controller = ServerController()
+        self.preset_controller = PresetController()
+        self.backup_controller = BackupController()
+        
+        # Initialize widgets
+        self.server_list_widget = None
+        self.mode_selector_widget = None
+        
         self._setup_ui()
+        self._connect_events()
+        self._register_event_handlers()
         self._setup_menus()
         self._setup_toolbar()
         self._setup_status_bar()
@@ -376,14 +400,56 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _setup_shortcuts(self):
         """Set up keyboard shortcuts."""
-        # Shortcuts are set up in menu actions for Qt
-        # For tkinter, we bind them here
-        if not USING_QT:
+        if USING_QT:
+            # Qt shortcuts are set up in menu actions, but we add additional ones here
+            from PyQt6.QtGui import QShortcut
+            
+            # Additional shortcuts not in menus
+            QShortcut(QKeySequence("Ctrl+R"), self, self.refresh_server_list)
+            QShortcut(QKeySequence("Ctrl+F"), self, self._focus_search)
+            QShortcut(QKeySequence("Ctrl+E"), self, self.enable_all_servers)
+            QShortcut(QKeySequence("Ctrl+D"), self, self.disable_all_servers)
+            QShortcut(QKeySequence("Ctrl+P"), self, self.manage_presets)
+            QShortcut(QKeySequence("Ctrl+B"), self, self.backup_configuration)
+            QShortcut(QKeySequence("Ctrl+Shift+R"), self, self.restore_configuration)
+            QShortcut(QKeySequence("Ctrl+Shift+V"), self, self.validate_configuration)
+            QShortcut(QKeySequence("F1"), self, self.show_help)
+            QShortcut(QKeySequence("F5"), self, self.refresh_server_list)
+            QShortcut(QKeySequence("Ctrl+Z"), self, self._undo_action)
+            QShortcut(QKeySequence("Ctrl+Y"), self, self._redo_action)
+            QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self._redo_action)
+            QShortcut(QKeySequence("Escape"), self, self._clear_selection)
+            
+            # Mode switching shortcuts
+            QShortcut(QKeySequence("Ctrl+1"), self, lambda: self._switch_mode('claude'))
+            QShortcut(QKeySequence("Ctrl+2"), self, lambda: self._switch_mode('gemini'))
+            QShortcut(QKeySequence("Ctrl+3"), self, lambda: self._switch_mode('both'))
+        else:
+            # Tkinter key bindings
             self.root.bind("<Control-o>", lambda e: self.load_configuration())
             self.root.bind("<Control-s>", lambda e: self.save_configuration())
             self.root.bind("<Control-n>", lambda e: self.add_server())
             self.root.bind("<Control-comma>", lambda e: self.show_settings())
-            self.root.bind("<Control-q>", lambda e: self.root.quit())
+            self.root.bind("<Control-q>", lambda e: self.quit_application())
+            self.root.bind("<Control-r>", lambda e: self.refresh_server_list())
+            self.root.bind("<Control-f>", lambda e: self._focus_search())
+            self.root.bind("<Control-e>", lambda e: self.enable_all_servers())
+            self.root.bind("<Control-d>", lambda e: self.disable_all_servers())
+            self.root.bind("<Control-p>", lambda e: self.manage_presets())
+            self.root.bind("<Control-b>", lambda e: self.backup_configuration())
+            self.root.bind("<Control-Shift-R>", lambda e: self.restore_configuration())
+            self.root.bind("<Control-Shift-V>", lambda e: self.validate_configuration())
+            self.root.bind("<F1>", lambda e: self.show_help())
+            self.root.bind("<F5>", lambda e: self.refresh_server_list())
+            self.root.bind("<Control-z>", lambda e: self._undo_action())
+            self.root.bind("<Control-y>", lambda e: self._redo_action())
+            self.root.bind("<Control-Shift-Z>", lambda e: self._redo_action())
+            self.root.bind("<Escape>", lambda e: self._clear_selection())
+            
+            # Mode switching shortcuts
+            self.root.bind("<Control-Key-1>", lambda e: self._switch_mode('claude'))
+            self.root.bind("<Control-Key-2>", lambda e: self._switch_mode('gemini'))
+            self.root.bind("<Control-Key-3>", lambda e: self._switch_mode('both'))
     
     def _load_window_state(self):
         """Load window state from UI configuration."""
@@ -420,56 +486,407 @@ class MainWindow(QMainWindow if USING_QT else object):
             }
     
     # Action handlers (placeholders for now)
+    def _connect_events(self):
+        """Connect UI events to controllers."""
+        # Connect widget signals to controller methods
+        if self.server_list_widget:
+            self.server_list_widget.server_toggled_callback = self._on_server_toggled
+            self.server_list_widget.server_selected_callback = self._on_server_selected
+            
+        if self.mode_selector_widget:
+            self.mode_selector_widget.mode_changed_callback = self._on_mode_changed
+    
+    def _register_event_handlers(self):
+        """Register handlers for dispatcher events."""
+        # Configuration events
+        dispatcher.subscribe(EventType.CONFIG_LOADED, self._handle_config_loaded)
+        dispatcher.subscribe(EventType.CONFIG_SAVED, self._handle_config_saved)
+        dispatcher.subscribe(EventType.CONFIG_ERROR, self._handle_config_error)
+        
+        # Server events
+        dispatcher.subscribe(EventType.SERVER_TOGGLED, self._handle_server_toggled)
+        dispatcher.subscribe(EventType.SERVER_ADDED, self._handle_server_added)
+        dispatcher.subscribe(EventType.SERVERS_BULK_TOGGLED, self._handle_servers_bulk_toggled)
+        
+        # Preset events
+        dispatcher.subscribe(EventType.PRESET_APPLIED, self._handle_preset_applied)
+        dispatcher.subscribe(EventType.PRESET_SAVED, self._handle_preset_saved)
+        
+        # Mode events
+        dispatcher.subscribe(EventType.MODE_CHANGED, self._handle_mode_changed)
+        
+        # Backup events
+        dispatcher.subscribe(EventType.BACKUP_CREATED, self._handle_backup_created)
+        dispatcher.subscribe(EventType.BACKUP_RESTORED, self._handle_backup_restored)
+        
+        # Application events
+        dispatcher.subscribe(EventType.APP_ERROR, self._handle_app_error)
+    
+    # Widget event callbacks
+    def _on_server_toggled(self, server_name: str, enabled: bool):
+        """Handle server toggle from widget."""
+        result = self.server_controller.toggle_server(server_name, enabled, self.app_state.mode)
+        if result['success']:
+            self.set_unsaved_changes(True)
+            dispatcher.emit_now(EventType.SERVER_TOGGLED, 
+                                {'server': server_name, 'enabled': enabled},
+                                source='MainWindow')
+        else:
+            self.set_status_message(f"Error: {result['error']}", timeout=5)
+    
+    def _on_server_selected(self, server_name: str):
+        """Handle server selection from widget."""
+        self.app_state.selected_server = server_name
+        dispatcher.emit_now(EventType.UI_SELECTION_CHANGED,
+                           {'selection': server_name},
+                           source='MainWindow')
+    
+    def _on_mode_changed(self, mode: str):
+        """Handle mode change from widget."""
+        result = self.config_controller.switch_mode(mode)
+        if result['success']:
+            self.app_state.mode = mode
+            dispatcher.emit_now(EventType.MODE_CHANGED,
+                               {'mode': mode},
+                               source='MainWindow')
+            self.refresh_server_list()
+        else:
+            self.set_status_message(f"Error: {result['error']}", timeout=5)
+    
+    # Dispatcher event handlers
+    def _handle_config_loaded(self, event: Event):
+        """Handle configuration loaded event."""
+        self.set_status_message("Configuration loaded successfully", timeout=3)
+        self.set_unsaved_changes(False)
+        self.refresh_server_list()
+    
+    def _handle_config_saved(self, event: Event):
+        """Handle configuration saved event."""
+        self.set_status_message("Configuration saved successfully", timeout=3)
+        self.set_unsaved_changes(False)
+    
+    def _handle_config_error(self, event: Event):
+        """Handle configuration error event."""
+        error_msg = event.data.get('error', 'Unknown configuration error')
+        self.set_status_message(f"Configuration error: {error_msg}", timeout=0)
+        if USING_QT:
+            QMessageBox.critical(self, "Configuration Error", error_msg)
+        else:
+            messagebox.showerror("Configuration Error", error_msg)
+    
+    def _handle_server_toggled(self, event: Event):
+        """Handle server toggled event."""
+        server = event.data.get('server')
+        enabled = event.data.get('enabled')
+        status = "enabled" if enabled else "disabled"
+        self.set_status_message(f"Server '{server}' {status}", timeout=3)
+    
+    def _handle_server_added(self, event: Event):
+        """Handle server added event."""
+        server = event.data.get('server')
+        self.set_status_message(f"Server '{server}' added successfully", timeout=3)
+        self.set_unsaved_changes(True)
+        self.refresh_server_list()
+    
+    def _handle_servers_bulk_toggled(self, event: Event):
+        """Handle bulk server toggle event."""
+        enabled = event.data.get('enabled')
+        count = event.data.get('count', 0)
+        action = "enabled" if enabled else "disabled"
+        self.set_status_message(f"{count} servers {action}", timeout=3)
+        self.set_unsaved_changes(True)
+        self.refresh_server_list()
+    
+    def _handle_preset_applied(self, event: Event):
+        """Handle preset applied event."""
+        preset = event.data.get('preset')
+        self.set_status_message(f"Preset '{preset}' applied", timeout=3)
+        self.set_unsaved_changes(True)
+        self.refresh_server_list()
+    
+    def _handle_preset_saved(self, event: Event):
+        """Handle preset saved event."""
+        preset = event.data.get('preset')
+        self.set_status_message(f"Preset '{preset}' saved", timeout=3)
+    
+    def _handle_mode_changed(self, event: Event):
+        """Handle mode changed event."""
+        mode = event.data.get('mode')
+        self.app_state.mode = mode
+        self.set_status_message(f"Switched to {mode} mode", timeout=3)
+        self.refresh_server_list()
+    
+    def _handle_backup_created(self, event: Event):
+        """Handle backup created event."""
+        backup_file = event.data.get('file')
+        self.set_status_message(f"Backup created: {backup_file}", timeout=3)
+    
+    def _handle_backup_restored(self, event: Event):
+        """Handle backup restored event."""
+        backup_file = event.data.get('file')
+        self.set_status_message(f"Backup restored: {backup_file}", timeout=3)
+        self.set_unsaved_changes(False)
+        self.refresh_server_list()
+    
+    def _handle_app_error(self, event: Event):
+        """Handle application error event."""
+        error_msg = event.data.get('error', 'Unknown error')
+        self.set_status_message(f"Error: {error_msg}", timeout=0)
+        if USING_QT:
+            QMessageBox.critical(self, "Application Error", error_msg)
+        else:
+            messagebox.showerror("Application Error", error_msg)
+    
+    def refresh_server_list(self):
+        """Refresh the server list widget."""
+        if self.server_list_widget:
+            # Get current servers from controller
+            result = self.server_controller.get_servers(self.app_state.mode)
+            if result['success']:
+                servers = result['data']['servers']
+                self.server_list_widget.load_servers(servers)
+    
     def load_configuration(self):
         """Load configuration from file."""
         self.set_status_message("Loading configuration...")
-        # Will be implemented with controllers
-        self.set_status_message("Configuration loaded", 3)
+        result = self.config_controller.load_configuration(self.app_state.mode)
+        
+        if result['success']:
+            dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
+        else:
+            dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
     
     def save_configuration(self):
         """Save configuration to file."""
         self.set_status_message("Saving configuration...")
-        # Will be implemented with controllers
-        self.set_unsaved_changes(False)
-        self.set_status_message("Configuration saved", 3)
+        result = self.config_controller.save_configuration(self.app_state.mode)
+        
+        if result['success']:
+            dispatcher.emit_now(EventType.CONFIG_SAVED, result['data'], source='MainWindow')
+        else:
+            dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
     
     def add_server(self):
         """Show add server dialog."""
-        print("Add server - will be implemented in T040")
+        dialog = AddServerDialog(self if USING_QT else self.root)
+        if dialog.exec() if USING_QT else dialog.show():
+            server_json = dialog.get_server_json()
+            if server_json:
+                result = self.server_controller.add_server(server_json, self.app_state.mode)
+                if result['success']:
+                    server_name = result['data'].get('server')
+                    dispatcher.emit_now(EventType.SERVER_ADDED, 
+                                       {'server': server_name},
+                                       source='MainWindow')
+                else:
+                    dispatcher.emit_now(EventType.APP_ERROR,
+                                       {'error': result['error']},
+                                       source='MainWindow')
     
     def enable_all_servers(self):
         """Enable all servers."""
-        self.set_unsaved_changes(True)
-        self.set_status_message("All servers enabled", 3)
+        result = self.server_controller.bulk_toggle(True, self.app_state.mode)
+        if result['success']:
+            count = result['data'].get('count', 0)
+            dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
+                               {'enabled': True, 'count': count},
+                               source='MainWindow')
+        else:
+            dispatcher.emit_now(EventType.APP_ERROR,
+                               {'error': result['error']},
+                               source='MainWindow')
     
     def disable_all_servers(self):
         """Disable all servers."""
-        self.set_unsaved_changes(True)
-        self.set_status_message("All servers disabled", 3)
+        result = self.server_controller.bulk_toggle(False, self.app_state.mode)
+        if result['success']:
+            count = result['data'].get('count', 0)
+            dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
+                               {'enabled': False, 'count': count},
+                               source='MainWindow')
+        else:
+            dispatcher.emit_now(EventType.APP_ERROR,
+                               {'error': result['error']},
+                               source='MainWindow')
     
     def show_settings(self):
         """Show settings dialog."""
-        print("Settings - will be implemented in T042")
+        dialog = SettingsDialog(self if USING_QT else self.root)
+        if dialog.exec() if USING_QT else dialog.show():
+            # Settings saved in dialog, update UI config if needed
+            self.ui_config = dialog.get_settings()
     
     def manage_presets(self):
         """Show preset manager dialog."""
-        print("Manage presets - will be implemented in T041")
+        dialog = PresetManagerDialog(self if USING_QT else self.root)
+        dialog.set_controller(self.preset_controller)
+        if dialog.exec() if USING_QT else dialog.show():
+            # Check if preset was applied
+            if hasattr(dialog, 'applied_preset') and dialog.applied_preset:
+                dispatcher.emit_now(EventType.PRESET_APPLIED,
+                                   {'preset': dialog.applied_preset},
+                                   source='MainWindow')
     
     def backup_configuration(self):
         """Create configuration backup."""
         self.set_status_message("Creating backup...")
-        # Will be implemented with controllers
-        self.set_status_message("Backup created", 3)
+        result = self.backup_controller.create_backup(self.app_state.mode)
+        if result['success']:
+            backup_file = result['data'].get('file')
+            dispatcher.emit_now(EventType.BACKUP_CREATED,
+                               {'file': backup_file},
+                               source='MainWindow')
+        else:
+            dispatcher.emit_now(EventType.BACKUP_ERROR,
+                               {'error': result['error']},
+                               source='MainWindow')
     
     def restore_configuration(self):
         """Show restore dialog."""
-        print("Restore - will be implemented in T043")
+        dialog = BackupRestoreDialog(self if USING_QT else self.root)
+        dialog.set_controller(self.backup_controller)
+        if dialog.exec() if USING_QT else dialog.show():
+            # Check if restore happened
+            if hasattr(dialog, 'restored_backup') and dialog.restored_backup:
+                dispatcher.emit_now(EventType.BACKUP_RESTORED,
+                                   {'file': dialog.restored_backup},
+                                   source='MainWindow')
     
     def validate_configuration(self):
         """Validate current configuration."""
         self.set_status_message("Validating configuration...")
-        # Will be implemented with controllers
-        self.set_status_message("Configuration is valid", 3)
+        result = self.config_controller.validate_configuration(self.app_state.mode)
+        if result['success']:
+            if result['data'].get('valid'):
+                self.set_status_message("Configuration is valid", 3)
+            else:
+                errors = result['data'].get('errors', [])
+                self.set_status_message(f"Configuration has {len(errors)} errors", 0)
+                dispatcher.emit_now(EventType.CONFIG_VALIDATION_ERROR,
+                                   {'errors': errors},
+                                   source='MainWindow')
+        else:
+            self.set_status_message(f"Validation failed: {result['error']}", 0)
+    
+    def show_help(self):
+        """Show help documentation."""
+        help_text = """
+MCP Config Manager - Keyboard Shortcuts
+
+File Operations:
+  Ctrl+O        Load configuration
+  Ctrl+S        Save configuration
+  Ctrl+N        Add new server
+  Ctrl+Q        Quit application
+  
+Server Management:
+  Ctrl+E        Enable all servers
+  Ctrl+D        Disable all servers
+  Ctrl+R / F5   Refresh server list
+  
+Mode Switching:
+  Ctrl+1        Claude mode
+  Ctrl+2        Gemini mode
+  Ctrl+3        Both mode
+  
+Tools:
+  Ctrl+P        Manage presets
+  Ctrl+B        Create backup
+  Ctrl+Shift+R  Restore backup
+  Ctrl+Shift+V  Validate configuration
+  Ctrl+,        Settings
+  
+Edit:
+  Ctrl+Z        Undo
+  Ctrl+Y        Redo
+  Ctrl+F        Search
+  Escape        Clear selection
+  
+Help:
+  F1            Show this help
+        """
+        
+        if USING_QT:
+            QMessageBox.information(self, "Keyboard Shortcuts", help_text)
+        else:
+            messagebox.showinfo("Keyboard Shortcuts", help_text)
+    
+    def quit_application(self):
+        """Quit the application with unsaved changes check."""
+        if self._unsaved_changes:
+            if USING_QT:
+                reply = QMessageBox.question(self, "Unsaved Changes",
+                                            "You have unsaved changes. Do you want to save before quitting?",
+                                            QMessageBox.StandardButton.Save |
+                                            QMessageBox.StandardButton.Discard |
+                                            QMessageBox.StandardButton.Cancel)
+                
+                if reply == QMessageBox.StandardButton.Save:
+                    self.save_configuration()
+                    QApplication.instance().quit()
+                elif reply == QMessageBox.StandardButton.Discard:
+                    QApplication.instance().quit()
+            else:
+                response = messagebox.askyesnocancel("Unsaved Changes",
+                                                     "You have unsaved changes. Do you want to save before quitting?")
+                if response is True:  # Yes - save
+                    self.save_configuration()
+                    self.root.quit()
+                elif response is False:  # No - don't save
+                    self.root.quit()
+                # Cancel - do nothing
+        else:
+            if USING_QT:
+                QApplication.instance().quit()
+            else:
+                self.root.quit()
+    
+    # Shortcut helper methods
+    def _focus_search(self):
+        """Focus the search field."""
+        if hasattr(self, 'search_field'):
+            if USING_QT:
+                self.search_field.setFocus()
+            else:
+                self.search_field.focus_set()
+        else:
+            self.set_status_message("Search not available", 2)
+    
+    def _switch_mode(self, mode: str):
+        """Switch to a specific mode."""
+        if self.mode_selector_widget:
+            self.mode_selector_widget.set_mode(mode)
+            self._on_mode_changed(mode)
+        else:
+            self.set_status_message(f"Cannot switch to {mode} mode", 2)
+    
+    def _undo_action(self):
+        """Undo the last action."""
+        from .events.state_manager import get_state_manager
+        state_mgr = get_state_manager()
+        if state_mgr.undo():
+            self.set_status_message("Undo successful", 2)
+        else:
+            self.set_status_message("Nothing to undo", 2)
+    
+    def _redo_action(self):
+        """Redo the last undone action."""
+        from .events.state_manager import get_state_manager
+        state_mgr = get_state_manager()
+        if state_mgr.redo():
+            self.set_status_message("Redo successful", 2)
+        else:
+            self.set_status_message("Nothing to redo", 2)
+    
+    def _clear_selection(self):
+        """Clear current selection."""
+        if self.server_list_widget:
+            self.server_list_widget.clear_selection()
+        self.app_state.selected_server = None
+        dispatcher.emit_now(EventType.UI_SELECTION_CHANGED,
+                           {'selection': None},
+                           source='MainWindow')
+        self.set_status_message("Selection cleared", 2)
     
     def show_about(self):
         """Show about dialog."""

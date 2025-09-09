@@ -112,10 +112,10 @@
 - [x] T048 [P] BackupController for backup/restore in src/gui/controllers/backup_controller.py
 
 ### Event Handling
-- [ ] T049 Event dispatcher system in src/gui/events/dispatcher.py
-- [ ] T050 Connect UI events to controllers in src/gui/main_window.py
-- [ ] T051 Implement state change notifications in src/gui/events/state_manager.py
-- [ ] T052 Add keyboard shortcuts in src/gui/main_window.py
+- [x] T049 Event dispatcher system in src/gui/events/dispatcher.py
+- [x] T050 Connect UI events to controllers in src/gui/main_window.py
+- [x] T051 Implement state change notifications in src/gui/events/state_manager.py
+- [x] T052 Add keyboard shortcuts in src/gui/main_window.py
 
 ## Phase 3.4: Integration
 
