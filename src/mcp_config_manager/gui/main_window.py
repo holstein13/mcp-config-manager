@@ -127,14 +127,13 @@ class MainWindow(QMainWindow if USING_QT else object):
         logging.debug("Scheduling configuration load")
         # Load initial configuration after all UI is ready
         # Use QTimer to delay loading to allow window to show first
-        print("DEBUG: About to schedule configuration load")
-        if USING_QT:
-            from PyQt6.QtCore import QTimer
-            print("DEBUG: Using QTimer to schedule load_configuration")
-            QTimer.singleShot(100, self.load_configuration)  # Load after 100ms
-        else:
-            print("DEBUG: Using tkinter after to schedule load_configuration")
-            self.root.after(100, self.load_configuration)  # Load after 100ms
+        print("DEBUG: About to schedule/call configuration load")
+        print(f"DEBUG: USING_QT = {USING_QT}")
+        
+        # Directly call load_configuration for now to debug the issue
+        print("DEBUG: Calling load_configuration directly")
+        self.load_configuration()
+        print("DEBUG: load_configuration call completed")
         
         logging.debug("Loading window state")
         self._load_window_state()
@@ -623,6 +622,7 @@ class MainWindow(QMainWindow if USING_QT else object):
     # Dispatcher event handlers
     def _handle_config_loaded(self, event: Event):
         """Handle configuration loaded event."""
+        print("DEBUG: _handle_config_loaded called")
         self.set_status_message("Configuration loaded successfully", timeout=3)
         self.set_unsaved_changes(False)
         self.refresh_server_list()
@@ -706,12 +706,20 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def refresh_server_list(self):
         """Refresh the server list widget."""
+        print("DEBUG: refresh_server_list called")
         if hasattr(self, 'server_list') and self.server_list:
+            print("DEBUG: server_list exists, getting servers...")
             # Get current servers from controller
             result = self.server_controller.get_servers(self.app_state.mode)
+            print(f"DEBUG: get_servers result: {result}")
             if result['success']:
                 servers = result['data']['servers']
+                print(f"DEBUG: Got {len(servers)} servers")
                 self.server_list.load_servers(servers)
+            else:
+                print(f"DEBUG: get_servers failed: {result.get('error', 'Unknown error')}")
+        else:
+            print("DEBUG: server_list not found or None")
     
     def load_configuration(self):
         """Load configuration from file."""
@@ -1026,18 +1034,18 @@ Help:
             self.root.destroy()
 
 
+from mcp_config_manager.core.config_manager import ConfigManager
+
 def run_gui_in_main_thread():
     """Run the GUI application in the main thread."""
     if USING_QT:
         app = QApplication(sys.argv)
         app.setApplicationName("MCP Config Manager")
-        from src.mcp_config_manager.core.config_manager import ConfigManager
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
         window.show()
         sys.exit(app.exec())
     else:
-        from src.mcp_config_manager.core.config_manager import ConfigManager
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
         window.run()
