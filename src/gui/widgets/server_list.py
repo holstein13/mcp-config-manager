@@ -40,8 +40,11 @@ class ServerListWidget(QWidget if USING_QT else object):
         
         self.servers: Dict[str, ServerListItem] = {}
         self.selected_server: Optional[str] = None
+        self.selected_servers: List[str] = []  # For multi-selection
         self._toggle_callbacks: List[Callable] = []
         self._selection_callbacks: List[Callable] = []
+        self._multi_selection_callbacks: List[Callable] = []
+        self.multi_select_enabled = False
     
     def _setup_qt_widget(self):
         """Set up Qt widget."""
@@ -53,8 +56,11 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.setHeaderLabels(["Enabled", "Server", "Status", "Mode"])
         self.tree.setRootIsDecorated(False)
         self.tree.setAlternatingRowColors(True)
+        self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)  # Enable multi-selection
+        self.tree.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)  # Enable drag-drop
         self.tree.itemClicked.connect(self._on_item_clicked)
         self.tree.itemChanged.connect(self._on_item_changed)
+        self.tree.itemSelectionChanged.connect(self._on_selection_changed_qt)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         
@@ -445,6 +451,83 @@ class ServerListWidget(QWidget if USING_QT else object):
     def add_selection_callback(self, callback: Callable):
         """Add callback for server selection events."""
         self._selection_callbacks.append(callback)
+    
+    def add_multi_selection_callback(self, callback: Callable):
+        """Add callback for multi-selection events."""
+        self._multi_selection_callbacks.append(callback)
+    
+    def enable_multi_selection(self, enabled: bool = True):
+        """Enable or disable multi-selection mode."""
+        self.multi_select_enabled = enabled
+        
+        if USING_QT:
+            if enabled:
+                self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
+            else:
+                self.tree.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
+        else:
+            # tkinter tree supports multi-selection by default with Ctrl/Shift
+            pass
+    
+    def get_selected_servers(self) -> List[str]:
+        """Get list of currently selected server names."""
+        selected = []
+        
+        if USING_QT:
+            for item in self.tree.selectedItems():
+                server_name = item.data(0, Qt.ItemDataRole.UserRole)
+                if server_name:
+                    selected.append(server_name)
+        else:
+            for item_id in self.tree.selection():
+                item = self.tree.item(item_id)
+                server_name = item['values'][1]
+                selected.append(server_name)
+        
+        return selected
+    
+    def select_servers(self, server_names: List[str]):
+        """Select multiple servers programmatically."""
+        if USING_QT:
+            self.tree.clearSelection()
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                server_name = item.data(0, Qt.ItemDataRole.UserRole)
+                if server_name in server_names:
+                    item.setSelected(True)
+        else:
+            # Clear current selection
+            self.tree.selection_remove(self.tree.selection())
+            
+            # Select new items
+            for server_name in server_names:
+                server = self.servers.get(server_name)
+                if server and hasattr(server, '_tree_item'):
+                    self.tree.selection_add(server._tree_item)
+    
+    def toggle_selected_servers(self, enable: bool):
+        """Toggle all selected servers to enabled/disabled state."""
+        selected = self.get_selected_servers()
+        for server_name in selected:
+            self._toggle_server(server_name, enable)
+    
+    def _on_selection_changed_qt(self):
+        """Handle selection change in Qt."""
+        if not USING_QT:
+            return
+        
+        selected = self.get_selected_servers()
+        self.selected_servers = selected
+        
+        # Update single selection for compatibility
+        if selected:
+            self.selected_server = selected[0]
+        else:
+            self.selected_server = None
+        
+        # Notify multi-selection callbacks
+        for callback in self._multi_selection_callbacks:
+            callback(selected)
     
     def get_widget(self):
         """Get the underlying widget (for tkinter compatibility)."""

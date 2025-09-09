@@ -2,9 +2,11 @@
 
 Manages application state changes and notifies components through the event dispatcher.
 Provides centralized state management with automatic change detection and notification.
+Thread-safe for use with background operations.
 """
 
 import logging
+import threading
 from typing import Any, Dict, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -57,6 +59,7 @@ class StateManager:
         self._suspended_properties: Set[StateProperty] = set()
         self._batch_mode = False
         self._batch_changes: list[StateChange] = []
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
         
         # Initialize previous state
         self._capture_state()
@@ -81,15 +84,16 @@ class StateManager:
         }
     
     def get_state(self) -> ApplicationState:
-        """Get the current application state.
+        """Get the current application state (thread-safe).
         
         Returns:
             Current ApplicationState object
         """
-        return self._state
+        with self._lock:
+            return self._state
     
     def set_property(self, property: StateProperty, value: Any, source: Optional[str] = None) -> bool:
-        """Set a state property value.
+        """Set a state property value (thread-safe).
         
         Args:
             property: The property to set
@@ -99,30 +103,31 @@ class StateManager:
         Returns:
             True if the value changed, False otherwise
         """
-        if property in self._suspended_properties:
-            logger.debug(f"Property {property.value} is suspended, ignoring change")
-            return False
-        
-        # Get current value
-        current_state = self._capture_state()
-        old_value = current_state.get(property)
-        
-        # Check if value actually changed
-        if old_value == value:
-            return False
-        
-        # Apply the change
-        self._apply_change(property, value)
-        
-        # Create state change record
-        change = StateChange(property, old_value, value, source)
-        
-        if self._batch_mode:
-            self._batch_changes.append(change)
-        else:
-            self._process_change(change)
-        
-        return True
+        with self._lock:
+            if property in self._suspended_properties:
+                logger.debug(f"Property {property.value} is suspended, ignoring change")
+                return False
+            
+            # Get current value
+            current_state = self._capture_state()
+            old_value = current_state.get(property)
+            
+            # Check if value actually changed
+            if old_value == value:
+                return False
+            
+            # Apply the change
+            self._apply_change(property, value)
+            
+            # Create state change record
+            change = StateChange(property, old_value, value, source)
+            
+            if self._batch_mode:
+                self._batch_changes.append(change)
+            else:
+                self._process_change(change)
+            
+            return True
     
     def _apply_change(self, property: StateProperty, value: Any) -> None:
         """Apply a change to the state.
@@ -206,28 +211,30 @@ class StateManager:
                                source='StateManager')
     
     def batch_begin(self) -> None:
-        """Begin a batch of state changes.
+        """Begin a batch of state changes (thread-safe).
         
         Changes will be collected but not processed until batch_end is called.
         """
-        self._batch_mode = True
-        self._batch_changes = []
-        logger.debug("Batch mode started")
+        with self._lock:
+            self._batch_mode = True
+            self._batch_changes = []
+            logger.debug("Batch mode started")
     
     def batch_end(self) -> None:
-        """End a batch of state changes and process them."""
-        if not self._batch_mode:
-            return
-        
-        self._batch_mode = False
-        changes = self._batch_changes
-        self._batch_changes = []
-        
-        # Process all changes
-        for change in changes:
-            self._process_change(change)
-        
-        logger.debug(f"Batch mode ended, processed {len(changes)} changes")
+        """End a batch of state changes and process them (thread-safe)."""
+        with self._lock:
+            if not self._batch_mode:
+                return
+            
+            self._batch_mode = False
+            changes = self._batch_changes
+            self._batch_changes = []
+            
+            # Process all changes
+            for change in changes:
+                self._process_change(change)
+            
+            logger.debug(f"Batch mode ended, processed {len(changes)} changes")
     
     def suspend_property(self, property: StateProperty) -> None:
         """Suspend change notifications for a property.

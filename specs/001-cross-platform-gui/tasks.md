@@ -120,26 +120,26 @@
 ## Phase 3.4: Integration
 
 ### Library Integration
-- [ ] T053 Connect ConfigController to ConfigManager in src/gui/controllers/config_controller.py
-- [ ] T054 Connect ServerController to ServerManager in src/gui/controllers/server_controller.py
-- [ ] T055 Connect PresetController to PresetManager in src/gui/controllers/preset_controller.py
-- [ ] T056 Implement config file watching in src/gui/utils/file_watcher.py
+- [x] T053 Connect ConfigController to ConfigManager in src/gui/controllers/config_controller.py
+- [x] T054 Connect ServerController to ServerManager in src/gui/controllers/server_controller.py
+- [x] T055 Connect PresetController to PresetManager in src/gui/controllers/preset_controller.py
+- [x] T056 Implement config file watching in src/gui/utils/file_watcher.py
 
 ### UI Features
-- [ ] T057 [P] Implement search/filter in src/gui/widgets/search_bar.py
-- [ ] T058 [P] Add multi-selection support in src/gui/widgets/server_list.py
-- [ ] T059 [P] Implement drag-drop for server reordering in src/gui/widgets/server_list.py
-- [ ] T060 [P] Add right-click context menus in src/gui/widgets/server_list.py
+- [x] T057 [P] Implement search/filter in src/gui/widgets/search_bar.py
+- [x] T058 [P] Add multi-selection support in src/gui/widgets/server_list.py
+- [x] T059 [P] Implement drag-drop for server reordering in src/gui/widgets/server_list.py
+- [x] T060 [P] Add right-click context menus in src/gui/widgets/server_list.py
 
 ### Threading
-- [ ] T061 Background file operations in src/gui/utils/worker_thread.py
-- [ ] T062 Progress indicators for long operations in src/gui/widgets/progress_widget.py
-- [ ] T063 Thread-safe state updates in src/gui/events/state_manager.py
+- [x] T061 Background file operations in src/gui/utils/worker_thread.py
+- [x] T062 Progress indicators for long operations in src/gui/widgets/progress_widget.py
+- [x] T063 Thread-safe state updates in src/gui/events/state_manager.py
 
 ### tkinter Fallback
-- [ ] T064 [P] tkinter MainWindow implementation in src/gui/tkinter/main_window.py
-- [ ] T065 [P] tkinter server list in src/gui/tkinter/server_list.py
-- [ ] T066 [P] tkinter dialogs adapter in src/gui/tkinter/dialogs.py
+- [x] T064 [P] tkinter MainWindow implementation in src/gui/tkinter/main_window.py
+- [x] T065 [P] tkinter server list in src/gui/tkinter/server_list.py
+- [x] T066 [P] tkinter dialogs adapter in src/gui/tkinter/dialogs.py
 
 ## Phase 3.5: Polish
 
