@@ -895,20 +895,19 @@ class MainWindow(QMainWindow if USING_QT else object):
     def add_server(self):
         """Show add server dialog."""
         dialog = AddServerDialog(self if USING_QT else self.root)
-        if dialog.exec() if USING_QT else dialog.show():
-            server_json = dialog.get_server_json()
-            if server_json:
-                mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-                result = self.server_controller.add_server(server_json, mode_value)
-                if result['success']:
-                    server_name = result['data'].get('server')
-                    dispatcher.emit_now(EventType.SERVER_ADDED, 
-                                       {'server': server_name},
-                                       source='MainWindow')
-                else:
-                    dispatcher.emit_now(EventType.APP_ERROR,
-                                       {'error': result['error']},
-                                       source='MainWindow')
+        server_json = dialog.show()
+        if server_json:
+            mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+            result = self.server_controller.add_server(server_json, mode_value)
+            if result['success']:
+                server_name = result['data'].get('server')
+                dispatcher.emit_now(EventType.SERVER_ADDED,
+                                   {'server': server_name},
+                                   source='MainWindow')
+            else:
+                dispatcher.emit_now(EventType.APP_ERROR,
+                                   {'error': result['error']},
+                                   source='MainWindow')
     
     def enable_all_servers(self):
         """Enable all servers."""

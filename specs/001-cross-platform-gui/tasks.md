@@ -171,6 +171,57 @@
 - [ ] T083 Test with 200+ servers for performance
 - [ ] T084 Validate cross-platform appearance
 
+## Phase 3.6: Server Detail View & Edit Feature
+**New feature to display and edit MCP server configurations in a detail panel**
+
+### Phase 3.6.1: Field Editor Components
+- [ ] T085 [P] Create StringEditor widget for text fields (command, cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T086 [P] Create NumberEditor widget for numeric fields (timeout) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T087 [P] Create BooleanEditor widget for checkboxes (trust, disabled) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T088 [P] Create ArrayEditor widget for list fields (args, capabilities) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T089 [P] Create KeyValueEditor widget for environment variables (env) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T090 [P] Create PathEditor widget with browse button for directory fields (cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T091 [P] Create DropdownEditor widget for enum fields (transport, restart) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T092 [P] Create base FieldEditor class with common validation logic in src/mcp_config_manager/gui/widgets/field_editors.py
+
+### Phase 3.6.2: Server Details Panel
+- [ ] T093 Create ServerDetailsPanel widget with scrollable form layout in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [ ] T094 Implement load_server() method to populate form with server data in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [ ] T095 Implement field validation with visual error indicators in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [ ] T096 Create AddFieldDialog for adding optional MCP fields in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
+- [ ] T097 Implement save/cancel handlers with change detection in src/mcp_config_manager/gui/widgets/server_details_panel.py
+
+### Phase 3.6.3: Integration
+- [ ] T098 Update ServerListWidget to handle itemClicked separately from checkbox in src/mcp_config_manager/gui/widgets/server_list.py
+- [ ] T099 Replace placeholder detail panel with ServerDetailsPanel in src/mcp_config_manager/gui/main_window.py
+- [ ] T100 Connect server_selected signal to detail panel load_server in src/mcp_config_manager/gui/main_window.py
+- [ ] T101 Add update_server() method to ServerController in src/mcp_config_manager/gui/controllers/server_controller.py
+- [ ] T102 Add update_server_config() method to ServerManager in src/mcp_config_manager/core/server_manager.py
+- [ ] T103 Add keyboard shortcuts (Ctrl+S save, Esc cancel) for edit operations in src/mcp_config_manager/gui/main_window.py
+
+### Phase 3.6.4: Visual Polish
+- [ ] T104 Add blue highlight for selected server in list in src/mcp_config_manager/gui/widgets/server_list.py
+- [ ] T105 Add orange indicators for unsaved changes in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [ ] T106 Add red borders and tooltips for validation errors in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T107 Add empty state message "Select a server to edit" in src/mcp_config_manager/gui/widgets/server_details_panel.py
+
+### Phase 3.6.5: Tkinter Support
+- [ ] T108 [P] Create tkinter field editor equivalents in src/mcp_config_manager/gui/widgets/field_editors.py
+- [ ] T109 [P] Create tkinter ServerDetailsPanel in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [ ] T110 [P] Create tkinter AddFieldDialog in src/mcp_config_manager/gui/dialogs/add_field_dialog.py
+- [ ] T111 Ensure consistent API between Qt and tkinter implementations in field_editors.py
+- [ ] T112 Test tkinter visual parity and functionality
+
+### Phase 3.6.6: Testing
+- [ ] T113 [P] Unit tests for field editor widgets in tests/test_gui/unit/test_field_editors.py
+- [ ] T114 [P] Unit tests for ServerDetailsPanel in tests/test_gui/unit/test_server_details_panel.py
+- [ ] T115 [P] Unit tests for AddFieldDialog in tests/test_gui/unit/test_add_field_dialog.py
+- [ ] T116 [P] Integration test for complete edit workflow in tests/test_gui/integration/test_edit_server_workflow.py
+- [ ] T117 [P] Test validation and error handling in tests/test_gui/integration/test_edit_validation.py
+- [ ] T118 [P] Test field addition/removal functionality in tests/test_gui/integration/test_dynamic_fields.py
+- [ ] T119 [P] Test save/cancel operations and data persistence in tests/test_gui/integration/test_edit_persistence.py
+- [ ] T120 Performance test with servers having many fields in tests/test_gui/performance/test_edit_performance.py
+
 ## Dependencies
 - Setup (T001-T005) blocks everything
 - All tests (T006-T029) must complete before implementation (T030-T066)
