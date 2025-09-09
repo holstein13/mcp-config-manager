@@ -3,18 +3,26 @@ cat > README.md << 'EOF'
 
 A cross-platform utility for managing Model Context Protocol (MCP) server configurations across Claude, Gemini, and other AI systems.
 
-**Based on the battle-tested `mcp_toggle.py` script with enhanced architecture for extensibility.**
+**Based on the battle-tested `mcp_toggle.py` script with enhanced architecture and GUI interface.**
 
 ![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![GUI](https://img.shields.io/badge/GUI-PyQt6%20%7C%20Tkinter-green.svg)
+
+## 🎉 Project Status
+
+### ✅ GUI is FULLY FUNCTIONAL!
+The graphical interface is complete and working with all major features operational. The application provides a modern, user-friendly way to manage MCP servers without touching JSON files.
 
 ## 🚀 Current Features
 
 ### ✅ Fully Implemented
+- **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages both `.claude.json` and `.gemini/settings.json` files
 - **Server Enable/Disable** - Toggle servers on/off without losing configurations
+- **Master Checkbox** - Bulk select/deselect all servers at once
 - **Configuration Syncing** - Synchronize servers between Claude and Gemini
 - **Automatic Backups** - Timestamped backups before any changes
 - **Preset Management** - Save and load project-specific configurations
@@ -23,11 +31,12 @@ A cross-platform utility for managing Model Context Protocol (MCP) server config
 - **Cross-Platform Support** - Works on Windows, macOS, and Linux
 - **Command Line Interface** - Full CLI with individual commands
 - **Configuration Validation** - Validate config file structure
+- **Visual Status Indicators** - Clear enabled/disabled status with colors
+- **Keyboard Shortcuts** - Professional keyboard navigation (Cmd+S to save, etc.)
 
-### 🔄 In Development
-- **GUI Interface** - Modern cross-platform graphical interface
+### 🚧 Next Features (Planning Phase)
+- **Server Detail View** - Edit server configurations directly in the GUI (in planning)
 - **Health Monitoring** - Real-time server connection status
-- **Advanced Preset Editor** - GUI-based preset management
 - **Import/Export** - Backup and restore entire configurations
 - **Auto-Discovery** - Automatically find and suggest MCP servers
 
@@ -36,18 +45,38 @@ A cross-platform utility for managing Model Context Protocol (MCP) server config
 ### Prerequisites
 - Python 3.8 or higher
 - Claude Code CLI and/or Gemini CLI installed
+- PyQt6 (optional, for better GUI experience): `pip install PyQt6`
 
 ### Quick Install
 ```bash
 git clone https://github.com/yourusername/mcp-config-manager.git
 cd mcp-config-manager
 pip install -e .
+
+# Optional: Install PyQt6 for better GUI experience
+pip install PyQt6
 ```
 
 ## 🚀 Usage
 
-### Interactive Mode (Recommended)
-Launch the full interactive interface:
+### GUI Mode (NEW! - Recommended)
+Launch the graphical interface:
+
+```bash
+mcp-config-manager gui
+```
+
+The GUI provides:
+- 🖥️ Visual server list with checkboxes
+- ☑ Master checkbox for bulk operations
+- 🔄 Mode switching between Claude/Gemini/Both
+- 💾 Save button with visual feedback
+- ➕ Add new servers via JSON
+- 📁 Preset management dialog
+- ⌨️ Full keyboard shortcuts (Cmd+S to save, etc.)
+
+### Interactive CLI Mode
+Launch the command-line interactive interface:
 
 ```bash
 mcp-config-manager interactive
@@ -180,7 +209,7 @@ mcp-config-manager interactive
 
 ## 🗺️ Roadmap
 
-### Phase 1: Core Functionality ✅ COMPLETE
+### ✅ Phase 1: Core Functionality - COMPLETE
 
 - Interactive CLI interface
 - Multi-client support (Claude + Gemini)
@@ -191,28 +220,42 @@ mcp-config-manager interactive
 - JSON server addition
 - Command line interface
 
-### Phase 2: GUI Development (In Progress)
+### ✅ Phase 2: GUI Development - COMPLETE
 
-- Cross-platform GUI framework setup
-- Main server management window
-- Preset management interface
-- Settings and configuration
-- Drag-and-drop server organization
+- Cross-platform GUI framework (PyQt6/tkinter)
+- Main server management window with checkboxes
+- Master checkbox for bulk operations
+- Preset management dialog
+- Settings and configuration dialogs
+- Add server via JSON paste
+- Keyboard shortcuts and professional UX
+- Visual status indicators and feedback
 
-### Phase 3: Advanced Features
+### 🚧 Phase 3: Polish & Platform Testing - IN PROGRESS
 
-- Real-time health monitoring
-- Server auto-discovery
-- Advanced preset templates
-- Configuration import/export
-- Team configuration sharing
+Current focus:
+- ✅ macOS platform testing and optimization
+- ⏳ Windows platform testing
+- ⏳ Linux platform testing
+- ⏳ Performance optimization for large server lists
+- ⏳ PyInstaller packaging
 
-### Phase 4: Distribution
+### 📋 Phase 4: Advanced Features - PLANNED
+
+Next major features:
+- **Server Detail View** - Click server name to edit configuration in side panel
+- **Field Editors** - Visual editors for each configuration field type
+- **Real-time Validation** - Immediate feedback on configuration changes
+- **Health Monitoring** - Real-time server connection status
+- **Import/Export** - Backup and restore configurations
+- **Server Discovery** - Auto-detect available MCP servers
+
+### 🚀 Phase 5: Distribution
 
 - Packaged installers (Windows MSI, macOS DMG, Linux AppImage)
-- Auto-updater
-- Plugin architecture
-- Integration with IDEs
+- Auto-updater mechanism
+- Plugin architecture for extensions
+- IDE integrations (VS Code, IntelliJ, etc.)
 
 ## 🎯 Migration from Original Script
 

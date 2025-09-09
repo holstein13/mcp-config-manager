@@ -1,20 +1,21 @@
 # Core dependencies
-pydantic>=2.0.0
 click>=8.0.0
-requests>=2.28.0
-watchdog>=3.0.0
 
-# GUI dependencies
-PyQt6>=6.4.0
-# tkinter is built into Python and used as fallback
+# GUI dependencies (optional - for better GUI experience)
+# PyQt6>=6.4.0
+# Note: PyQt6 is optional. If not installed, the app will use tkinter (built into Python)
+# To install PyQt6: pip install PyQt6
 
-# Configuration and file handling
-jsonschema>=4.0.0
-toml>=0.10.2
-
-# Cross-platform support
-pathlib>=1.0.1
-keyring>=24.0.0
-
-# HTTP client for health checking
-httpx>=0.24.0
+# The following are Python standard library modules (no installation needed):
+# - json (for JSON parsing)
+# - pathlib (for file paths)
+# - tkinter (GUI fallback)
+# - logging (for logging)
+# - os, sys (system operations)
+# - shutil (file operations)
+# - threading (for background tasks)
+# - datetime (for timestamps)
+# - dataclasses (for data models)
+# - enum (for enumerations)
+# - typing (for type hints)
+# - abc (for abstract base classes)

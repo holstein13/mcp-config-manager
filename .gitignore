@@ -57,6 +57,9 @@ htmlcov/
 test_configs/
 temp_configs/
 
+# User-specific configuration
+disabled_servers.json
+
 # Packaging
 *.dmg
 *.exe
