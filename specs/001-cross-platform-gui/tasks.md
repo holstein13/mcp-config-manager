@@ -192,18 +192,18 @@
 - [x] T097 Implement save/cancel handlers with change detection in src/mcp_config_manager/gui/widgets/server_details_panel.py
 
 ### Phase 3.6.3: Integration
-- [ ] T098 Update ServerListWidget to handle itemClicked separately from checkbox in src/mcp_config_manager/gui/widgets/server_list.py
-- [ ] T099 Replace placeholder detail panel with ServerDetailsPanel in src/mcp_config_manager/gui/main_window.py
-- [ ] T100 Connect server_selected signal to detail panel load_server in src/mcp_config_manager/gui/main_window.py
-- [ ] T101 Add update_server() method to ServerController in src/mcp_config_manager/gui/controllers/server_controller.py
-- [ ] T102 Add update_server_config() method to ServerManager in src/mcp_config_manager/core/server_manager.py
-- [ ] T103 Add keyboard shortcuts (Ctrl+S save, Esc cancel) for edit operations in src/mcp_config_manager/gui/main_window.py
+- [x] T098 Update ServerListWidget to handle itemClicked separately from checkbox in src/mcp_config_manager/gui/widgets/server_list.py
+- [x] T099 Replace placeholder detail panel with ServerDetailsPanel in src/mcp_config_manager/gui/main_window.py
+- [x] T100 Connect server_selected signal to detail panel load_server in src/mcp_config_manager/gui/main_window.py
+- [x] T101 Add update_server() method to ServerController in src/mcp_config_manager/gui/controllers/server_controller.py
+- [x] T102 Add update_server_config() method to ServerManager in src/mcp_config_manager/core/server_manager.py
+- [x] T103 Add keyboard shortcuts (Ctrl+S save, Esc cancel) for edit operations in src/mcp_config_manager/gui/widgets/server_details_panel.py
 
 ### Phase 3.6.4: Visual Polish
-- [ ] T104 Add blue highlight for selected server in list in src/mcp_config_manager/gui/widgets/server_list.py
-- [ ] T105 Add orange indicators for unsaved changes in src/mcp_config_manager/gui/widgets/server_details_panel.py
-- [ ] T106 Add red borders and tooltips for validation errors in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T107 Add empty state message "Select a server to edit" in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T104 Add blue highlight for selected server in list in src/mcp_config_manager/gui/widgets/server_list.py
+- [x] T105 Add orange indicators for unsaved changes in src/mcp_config_manager/gui/widgets/server_details_panel.py
+- [x] T106 Add red borders and tooltips for validation errors in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T107 Add empty state message "Select a server to edit" in src/mcp_config_manager/gui/widgets/server_details_panel.py
 
 ### Phase 3.6.5: Tkinter Support
 - [ ] T108 [P] Create tkinter field editor equivalents in src/mcp_config_manager/gui/widgets/field_editors.py

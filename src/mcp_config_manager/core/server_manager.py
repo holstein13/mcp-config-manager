@@ -196,3 +196,30 @@ class ServerManager:
             gemini_data['mcpServers'][server_name] = server_config
         
         return True
+    
+    def update_server_config(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
+                            server_name: str, new_config: Dict[str, Any], 
+                            mode: str = 'both') -> bool:
+        """Update an existing server's configuration"""
+        updated = False
+        
+        # Check if server exists in enabled servers
+        if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
+            if server_name in claude_data['mcpServers']:
+                claude_data['mcpServers'][server_name] = new_config
+                updated = True
+        
+        if mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
+            if server_name in gemini_data['mcpServers']:
+                gemini_data['mcpServers'][server_name] = new_config
+                updated = True
+        
+        # Also check disabled servers
+        if not updated:
+            disabled = self.load_disabled_servers()
+            if server_name in disabled:
+                disabled[server_name] = new_config
+                self.save_disabled_servers(disabled)
+                updated = True
+        
+        return updated
