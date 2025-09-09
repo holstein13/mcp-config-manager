@@ -6,6 +6,7 @@ Enhanced with functionality from mcp_toggle.py
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import json
+from enum import Enum
 
 from ..parsers.claude_parser import ClaudeConfigParser
 from ..parsers.gemini_parser import GeminiConfigParser
@@ -17,6 +18,13 @@ from ..utils.backup import backup_all_configs
 from ..utils.sync import sync_server_configs
 from .server_manager import ServerManager
 from .presets import PresetManager
+
+
+class ConfigMode(Enum):
+    """Configuration mode for the application."""
+    CLAUDE = "claude"
+    GEMINI = "gemini"
+    BOTH = "both"
 
 
 class ConfigManager:

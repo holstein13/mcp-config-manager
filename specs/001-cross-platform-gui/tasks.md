@@ -145,7 +145,7 @@
 
 ### Platform Testing
 - [ ] T067 [P] Windows-specific testing in tests/test_gui/platform/test_windows.py
-- [ ] T068 [P] macOS-specific testing in tests/test_gui/platform/test_macos.py
+- [x] T068 [P] macOS-specific testing in tests/test_gui/platform/test_macos.py
 - [ ] T069 [P] Linux-specific testing in tests/test_gui/platform/test_linux.py
 
 ### Performance

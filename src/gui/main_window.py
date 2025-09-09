@@ -13,10 +13,35 @@ try:
     from PyQt6.QtCore import Qt, QTimer, pyqtSignal
     from PyQt6.QtGui import QIcon, QKeySequence
     USING_QT = True
+    tk = None
+    ttk = None
+    messagebox = None
 except ImportError:
-    import tkinter as tk
-    from tkinter import ttk, messagebox
     USING_QT = False
+    QMainWindow = object
+    QWidget = object
+    QVBoxLayout = object
+    QHBoxLayout = object
+    QMenuBar = object
+    QToolBar = object
+    QStatusBar = object
+    QAction = object
+    QMessageBox = object
+    QApplication = object
+    QSplitter = object
+    QListWidget = object
+    Qt = None
+    QTimer = None
+    pyqtSignal = None
+    QIcon = None
+    QKeySequence = None
+    try:
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+    except ImportError:
+        tk = None
+        ttk = None
+        messagebox = None
 
 from .models.app_state import ApplicationState
 from .models.ui_config import UIConfiguration

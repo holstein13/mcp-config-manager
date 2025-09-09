@@ -16,7 +16,7 @@ except ImportError:
     from tkinter import ttk
     USING_QT = False
 
-from ..models.app_state import ClientMode
+from ..models.app_state import Mode as ClientMode
 
 
 class ModeSelectorWidget(QWidget if USING_QT else object):

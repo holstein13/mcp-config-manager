@@ -14,11 +14,11 @@ MCP Config Manager is a cross-platform utility for managing Model Context Protoc
 - **Tasks**: `specs/001-cross-platform-gui/tasks.md`
 
 ### Implementation Status
-- Current phase: GUI Development Complete (Phase 2 & 3.4)
+- Current phase: Polish & Platform Testing (Phase 3.5)
 - Active branch: master
-- Next phase: Polish & Platform Testing (Phase 3.5)
+- T068 Complete: macOS-specific platform testing implemented
 
-## Current Status
+## Current Status (Updated 2025-01-09)
 
 ### ✅ Phase 1 Complete: Core Functionality
 - Interactive CLI interface (fully functional)
@@ -264,11 +264,13 @@ Successfully implemented the complete event system and UI-controller integration
   - AddServerDialogTk with JSON validation
   - PresetManagerDialogTk with full preset management
 
-### 🚀 Next Phase: Polish (Phase 3.5)
-- Platform-specific testing (Windows, macOS, Linux)
-- Performance optimization for large server lists
-- Packaging with PyInstaller
-- Documentation updates
+### 🚀 Next Phase: Polish (Phase 3.5) - IN PROGRESS
+- [x] macOS-specific testing (T068 complete)
+- [ ] Windows-specific testing (T067)
+- [ ] Linux-specific testing (T069)
+- [ ] Performance optimization for large server lists
+- [ ] Packaging with PyInstaller
+- [ ] Documentation updates
 
 ## Development Commands
 
@@ -450,7 +452,73 @@ Each integration test file validates complete user workflows:
 
 ## Recent Implementation Progress (2025-01-09)
 
-### Latest Session: Phase 3.4 Integration Complete (T053-T066)
+### Current Session: macOS Platform Testing & GUI Launch (T068)
+
+#### Key Accomplishments:
+1. **T068 Complete** - Comprehensive macOS-specific platform testing implemented
+   - File paths and permissions testing
+   - GUI framework availability detection (PyQt6/tkinter)
+   - macOS-specific keyboard shortcuts (Cmd vs Ctrl)
+   - Native menu bar integration
+   - Dark mode detection
+   - Notification center integration
+   - Retina display support
+   - Application bundle structure validation
+
+2. **GUI Framework Setup**
+   - Successfully installed PyQt6 on macOS
+   - Verified PyQt6 window can launch and display
+   - Identified import handling issues in dialog modules
+
+3. **Interactive Mode Verification**
+   - Confirmed interactive CLI mode is fully functional
+   - All 9 MCP servers properly configured and manageable
+   - Backup system working correctly
+
+#### Key Decisions Made:
+1. **Import Strategy for Dual Framework Support**
+   - Need to handle missing tkinter gracefully when PyQt6 is available
+   - Set fallback objects to None when framework not available
+   - Conditional imports pattern: try PyQt6 first, fallback to tkinter, handle neither
+
+2. **Testing Approach**
+   - Platform tests gracefully skip when GUI frameworks unavailable
+   - Tests validate expected behavior without requiring actual GUI launch
+   - Focus on platform-specific paths, conventions, and integrations
+
+3. **ConfigMode Enum Addition**
+   - Added ConfigMode enum to config_manager.py
+   - Provides CLAUDE, GEMINI, BOTH modes for application state
+   - Used throughout GUI controllers for mode management
+
+#### Current Blockers:
+1. **GUI Import Issues**
+   - Dialog modules need consistent import handling for tkinter fallback
+   - When PyQt6 is available, tkinter imports still attempted causing errors
+   - Solution: Apply consistent conditional import pattern across all GUI files
+
+#### Next Steps:
+1. **Fix GUI Launch**
+   - Apply consistent import pattern to all dialog files
+   - Ensure tk/ttk/messagebox set to None when using PyQt6
+   - Test full GUI launch with all dialogs functional
+
+2. **Continue Platform Testing**
+   - T067: Windows-specific testing
+   - T069: Linux-specific testing
+
+3. **Performance & Packaging**
+   - T070-T073: Performance optimizations
+   - T074-T077: Platform packaging with PyInstaller
+
+#### Important Context for Future Sessions:
+- Interactive mode is the primary interface and is fully functional
+- PyQt6 is installed and working on macOS (verified with simple window test)
+- Import handling needs standardization across all GUI modules
+- All core functionality is complete and tested
+- User has 9 active MCP servers configured
+
+### Previous Session: Phase 3.4 Integration Complete (T053-T066)
 Successfully implemented all integration tasks, completing the core GUI functionality:
 
 #### Key Accomplishments:

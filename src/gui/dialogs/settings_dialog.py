@@ -11,10 +11,31 @@ try:
     )
     from PyQt6.QtCore import Qt, pyqtSignal
     USING_QT = True
+    tk = None
+    ttk = None
 except ImportError:
-    import tkinter as tk
-    from tkinter import ttk
     USING_QT = False
+    QDialog = object
+    QVBoxLayout = object
+    QHBoxLayout = object
+    QTabWidget = object
+    QWidget = object
+    QPushButton = object
+    QDialogButtonBox = object
+    QLabel = object
+    QComboBox = object
+    QCheckBox = object
+    QSpinBox = object
+    QGroupBox = object
+    QFormLayout = object
+    Qt = None
+    pyqtSignal = None
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+    except ImportError:
+        tk = None
+        ttk = None
 
 
 class Theme(Enum):
