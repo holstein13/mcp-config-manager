@@ -927,7 +927,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         result = self.config_controller.validate_configuration(mode_value)
         if result['success']:
             if result['data'].get('valid'):
-                self.set_status_message("Configuration is valid", 3)
+                self.set_status_message("Configuration is valid", timeout=0)
             else:
                 errors = result['data'].get('errors', [])
                 self.set_status_message(f"Configuration has {len(errors)} errors", 0)
@@ -1105,11 +1105,11 @@ Help:
         if self._unsaved_changes:
             result = messagebox.askyesnocancel("Unsaved Changes",
                                               "You have unsaved changes. Do you want to save them?")
-            if result is True:
+            if result is True: # Yes - save
                 self.save_configuration()
                 self._save_window_state()
                 self.root.destroy()
-            elif result is False:
+            elif result is False: # No - don't save
                 self._save_window_state()
                 self.root.destroy()
         else:
