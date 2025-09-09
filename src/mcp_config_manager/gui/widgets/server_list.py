@@ -60,6 +60,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)  # Enable multi-selection
         self.tree.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)  # Enable drag-drop
         self.tree.itemClicked.connect(self._on_item_clicked)
+        # Connect itemChanged signal to handle checkbox state changes (only once)
         self.tree.itemChanged.connect(self._on_item_changed)
         self.tree.itemSelectionChanged.connect(self._on_selection_changed_qt)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -77,9 +78,6 @@ class ServerListWidget(QWidget if USING_QT else object):
         header.resizeSection(2, 100)  # Status column
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(3, 80)  # Mode column
-        
-        # Connect itemChanged signal to handle checkbox state changes
-        self.tree.itemChanged.connect(self._on_item_changed)
         
         # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
         # may render as solid blue squares instead of proper checkboxes.
@@ -163,6 +161,9 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.servers[server.name] = server
         
         if USING_QT:
+            # Temporarily block signals to prevent triggering events during initial setup
+            self.tree.blockSignals(True)
+            
             item = QTreeWidgetItem()
             
             # Use built-in checkbox functionality instead of widget
@@ -181,6 +182,9 @@ class ServerListWidget(QWidget if USING_QT else object):
             
             # Set status colors
             self._update_item_status(item, server.status)
+            
+            # Re-enable signals
+            self.tree.blockSignals(False)
         else:
             # tkinter implementation
             enabled = "✓" if server.status == ServerStatus.ENABLED else ""
@@ -232,8 +236,11 @@ class ServerListWidget(QWidget if USING_QT else object):
                     item.setText(2, status.value)
                     self._update_item_status(item, status)
                     
+                    # Block signals temporarily to avoid triggering unwanted events
+                    self.tree.blockSignals(True)
                     # Update checkbox state using built-in functionality
                     item.setCheckState(0, Qt.CheckState.Checked if status == ServerStatus.ENABLED else Qt.CheckState.Unchecked)
+                    self.tree.blockSignals(False)
                     break
         else:
             # Update tkinter tree
@@ -271,12 +278,15 @@ class ServerListWidget(QWidget if USING_QT else object):
     
     def _on_item_changed(self, item: 'QTreeWidgetItem', column: int):
         """Handle item changed event for checkbox state changes."""
+        print(f"DEBUG: _on_item_changed called, column={column}, USING_QT={USING_QT}")
         if not USING_QT or column != 0:
             return
         
         server_name = item.data(0, Qt.ItemDataRole.UserRole)
+        print(f"DEBUG: server_name from item data: {server_name}")
         if server_name:
             enabled = item.checkState(0) == Qt.CheckState.Checked
+            print(f"DEBUG: Calling _toggle_server with server={server_name}, enabled={enabled}")
             self._toggle_server(server_name, enabled)
             # Update master checkbox state when individual items change
             self._update_master_checkbox_state()
