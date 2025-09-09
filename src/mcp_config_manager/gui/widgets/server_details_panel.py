@@ -188,21 +188,9 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         button_layout.addStretch()
         
         self.save_btn = QPushButton("Save")
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007AFF;
-                color: white;
-                padding: 6px 20px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0051D5;
-            }
-            QPushButton:disabled {
-                background-color: #CCCCCC;
-            }
-        """)
+        # Explicitly set to non-default button to prevent macOS blue styling
+        self.save_btn.setDefault(False)
+        self.save_btn.setAutoDefault(False)
         self.save_btn.clicked.connect(self._on_save)
         self.save_btn.setEnabled(False)
         button_layout.addWidget(self.save_btn)
@@ -224,6 +212,30 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         # Escape for cancel
         cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
         cancel_shortcut.activated.connect(lambda: self._on_cancel() if self.cancel_btn.isEnabled() else None)
+    
+    def _update_save_button_style(self, has_changes: bool):
+        """Update save button style based on whether there are unsaved changes."""
+        if USING_QT:
+            if has_changes:
+                # Green style when there are unsaved changes
+                self.save_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #28A745;
+                        color: white;
+                        padding: 6px 20px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: #218838;
+                    }
+                    QPushButton:disabled {
+                        background-color: #CCCCCC;
+                    }
+                """)
+            else:
+                # Clear custom styles - let Qt use native styling
+                self.save_btn.setStyleSheet("")
     
     def _init_tk_ui(self):
         """Initialize tkinter UI components."""
@@ -292,6 +304,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.add_field_btn.setEnabled(True)
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
+            self._update_save_button_style(False)  # Clear any custom styles
             # Switch to form view
             self.stacked_widget.setCurrentIndex(1)  # Show the form
         elif HAS_TKINTER:
@@ -409,7 +422,9 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         # Enable/disable save and cancel buttons
         if USING_QT:
             self.save_btn.setEnabled(self.has_changes and not self.validation_errors)
+            self._update_save_button_style(self.has_changes)
             self.cancel_btn.setEnabled(self.has_changes)
+            self._update_save_button_style(self.has_changes)
             
             # Update header styling for unsaved changes
             if self.has_changes:
@@ -453,6 +468,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         # Update save button state
         if USING_QT:
             self.save_btn.setEnabled(self.has_changes and not self.validation_errors)
+            self._update_save_button_style(self.has_changes)
         elif HAS_TKINTER:
             state = 'normal' if self.has_changes and not self.validation_errors else 'disabled'
             self.save_btn.config(state=state)
@@ -499,6 +515,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
+            self._update_save_button_style(False)  # Clear any custom styles
             # Reset header styling after save
             self.server_label.setStyleSheet("font-weight: bold; font-size: 14px;")
             self.server_label.setText(f"Editing: {self.current_server}")
@@ -579,6 +596,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.add_field_btn.setEnabled(False)
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
+            self._update_save_button_style(False)  # Clear any custom styles
         elif HAS_TKINTER:
             self.server_label.config(text="Select a server to edit")
             self.add_field_btn.config(state='disabled')

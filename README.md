@@ -19,6 +19,8 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
+- **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
+- **🔧 Field Editor System** - Dynamic field editing with real-time validation
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages both `.claude.json` and `.gemini/settings.json` files
 - **Server Enable/Disable** - Toggle servers on/off without losing configurations
@@ -32,10 +34,11 @@ The graphical interface is complete and working with all major features operatio
 - **Command Line Interface** - Full CLI with individual commands
 - **Configuration Validation** - Validate config file structure
 - **Visual Status Indicators** - Clear enabled/disabled status with colors
-- **Keyboard Shortcuts** - Professional keyboard navigation (Cmd+S to save, etc.)
+- **Keyboard Shortcuts** - Professional keyboard navigation (Ctrl+S to save, Esc to cancel)
+- **Visual Polish** - Blue selection highlights, orange unsaved indicators, red validation errors
 
 ### 🚧 Next Features (Planning Phase)
-- **Server Detail View** - Edit server configurations directly in the GUI (in planning)
+- **Tkinter Support** - Alternative GUI backend for systems without Qt
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore entire configurations
 - **Auto-Discovery** - Automatically find and suggest MCP servers
@@ -68,12 +71,29 @@ mcp-config-manager gui
 
 The GUI provides:
 - 🖥️ Visual server list with checkboxes
-- ☑ Master checkbox for bulk operations
+- ☑ Master checkbox for bulk operations (☐/☑/⊟ states)
+- 📝 **Server Detail Editor** - Click any server to edit its configuration
+- 🔧 **Dynamic Field Editors** - Smart editors for each field type:
+  - Text fields for strings and commands
+  - Number fields with validation
+  - Boolean toggles for true/false values
+  - Array editors for list management
+  - Object editors for nested configurations
+- ✅ **Real-time Validation** - Immediate feedback on configuration errors
+- 🎨 **Visual Feedback**:
+  - Blue highlights for selected servers
+  - Orange indicators for unsaved changes
+  - Red borders for validation errors
+  - Empty state guidance when no server selected
+- 💾 **Backup & Restore**:
+  - Backup button creates timestamped backups
+  - Restore button lists and restores previous backups
+  - Automatic backups before any changes
 - 🔄 Mode switching between Claude/Gemini/Both
 - 💾 Save button with visual feedback
 - ➕ Add new servers via JSON
 - 📁 Preset management dialog
-- ⌨️ Full keyboard shortcuts (Cmd+S to save, etc.)
+- ⌨️ Full keyboard shortcuts (Ctrl+S to save, Esc to cancel)
 
 ### Interactive CLI Mode
 Launch the command-line interactive interface:
@@ -175,8 +195,60 @@ src/mcp_config_manager/
 │   ├── backup.py           # Backup functionality
 │   ├── sync.py             # Config synchronization
 │   └── file_utils.py       # File path utilities
-├── gui/                    # Future GUI components
-└── cli.py                  # Command line interface
+├── gui/                    # GUI components
+│   ├── main_window.py      # Main application window
+│   ├── controllers/        # GUI-library bridge
+│   │   └── server_controller.py
+│   ├── widgets/           # UI components
+│   │   ├── server_list.py
+│   │   ├── server_details_panel.py
+│   │   └── field_editors/  # Dynamic field editors
+│   │       ├── base.py
+│   │       ├── text.py
+│   │       ├── number.py
+│   │       ├── boolean.py
+│   │       ├── array.py
+│   │       └── object.py
+│   └── dialogs/           # Modal dialogs
+└── cli.py                 # Command line interface
+```
+
+### Field Editor System
+
+The field editor system provides dynamic, type-specific editors for server configuration fields:
+
+#### Architecture
+- **Base Editor** (`field_editors/base.py`): Abstract base class defining the interface
+- **Type-Specific Editors**: Specialized editors for each data type
+- **Factory Pattern**: `FieldEditorFactory` creates appropriate editor based on field type
+- **Validation**: Real-time validation with visual feedback
+
+#### Supported Field Types
+1. **Text Editor** - Single/multi-line text fields for strings and commands
+2. **Number Editor** - Integer/float fields with min/max validation
+3. **Boolean Editor** - Checkbox for true/false values
+4. **Array Editor** - List management with add/remove/reorder capabilities
+5. **Object Editor** - Nested object editing with key-value pairs
+
+#### Visual Feedback
+- **Orange Border** - Field has been modified (unsaved changes)
+- **Red Border** - Validation error with 2px width
+- **Light Red Background** - Additional error indication (#FFF5F5)
+- **Tooltip** - Error message on hover for invalid fields
+
+#### Usage Example
+```python
+# The ServerDetailsPanel automatically creates appropriate editors
+field_editor = FieldEditorFactory.create_editor(
+    field_name="command",
+    field_value="npx @modelcontextprotocol/server-sqlite",
+    field_type="string",
+    parent=self
+)
+
+# Connect signals for change tracking
+field_editor.value_changed.connect(self.on_field_changed)
+field_editor.validation_error.connect(self.on_validation_error)
 ```
 
 ### Development Setup
@@ -240,12 +312,14 @@ Current focus:
 - ⏳ Performance optimization for large server lists
 - ⏳ PyInstaller packaging
 
-### 📋 Phase 4: Advanced Features - PLANNED
+### 📋 Phase 4: Advanced Features - IN PROGRESS
 
-Next major features:
-- **Server Detail View** - Click server name to edit configuration in side panel
-- **Field Editors** - Visual editors for each configuration field type
-- **Real-time Validation** - Immediate feedback on configuration changes
+Completed:
+- ✅ **Server Detail View** - Click server name to edit configuration in side panel
+- ✅ **Field Editors** - Visual editors for each configuration field type
+- ✅ **Real-time Validation** - Immediate feedback on configuration changes
+
+Next features:
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore configurations
 - **Server Discovery** - Auto-detect available MCP servers
