@@ -76,24 +76,16 @@ class ServerListWidget(QWidget if USING_QT else object):
         
         layout.addWidget(self.tree)
         
-        # Button bar
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(5, 5, 5, 5)
+        # Status bar at bottom with server count
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(5, 5, 5, 5)
         
-        self.enable_all_btn = QPushButton("Enable All")
-        self.enable_all_btn.clicked.connect(self._enable_all)
-        button_layout.addWidget(self.enable_all_btn)
-        
-        self.disable_all_btn = QPushButton("Disable All")
-        self.disable_all_btn.clicked.connect(self._disable_all)
-        button_layout.addWidget(self.disable_all_btn)
-        
-        button_layout.addStretch()
+        status_layout.addStretch()
         
         self.status_label = QLabel("")
-        button_layout.addWidget(self.status_label)
+        status_layout.addWidget(self.status_label)
         
-        layout.addLayout(button_layout)
+        layout.addLayout(status_layout)
     
     def _setup_tk_widget(self, parent):
         """Set up tkinter widget."""
@@ -127,16 +119,10 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Button frame
-        button_frame = ttk.Frame(parent)
+        # Status frame for server count
+        status_frame = ttk.Frame(parent)
         
-        self.enable_all_btn = ttk.Button(button_frame, text="Enable All", command=self._enable_all)
-        self.enable_all_btn.pack(side=tk.LEFT, padx=5)
-        
-        self.disable_all_btn = ttk.Button(button_frame, text="Disable All", command=self._disable_all)
-        self.disable_all_btn.pack(side=tk.LEFT, padx=5)
-        
-        self.status_label = ttk.Label(button_frame, text="")
+        self.status_label = ttk.Label(status_frame, text="")
         self.status_label.pack(side=tk.RIGHT, padx=5)
         
         # Bind events

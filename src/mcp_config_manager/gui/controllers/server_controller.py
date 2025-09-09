@@ -407,33 +407,62 @@ class ServerController:
             
             if operation == 'enable_all':
                 # Enable all disabled servers
-                disabled_servers = self.config_manager.server_manager.get_disabled_servers(config_mode)
-                for server_name in disabled_servers:
-                    result = self.config_manager.server_manager.enable_server(server_name, config_mode)
-                    if result.get('success'):
+                # Load current configs
+                claude_data, gemini_data = self.config_manager.load_configs()
+                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                for server_name in disabled_servers.keys():
+                    success = self.config_manager.server_manager.enable_server(
+                        claude_data, gemini_data, server_name, mode or 'both'
+                    )
+                    if success:
                         affected_servers.append(server_name)
+                # Save the updated configs
+                if affected_servers:
+                    self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
             
             elif operation == 'disable_all':
                 # Disable all enabled servers
-                enabled_servers = self.config_manager.server_manager.get_enabled_servers(config_mode)
-                for server_name in enabled_servers:
-                    result = self.config_manager.server_manager.disable_server(server_name, config_mode)
-                    if result.get('success'):
+                # Load current configs
+                claude_data, gemini_data = self.config_manager.load_configs()
+                enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                    claude_data, gemini_data, mode or 'both'
+                )
+                for server in enabled_servers:
+                    server_name = server['name']
+                    success = self.config_manager.server_manager.disable_server(
+                        claude_data, gemini_data, server_name, mode or 'both'
+                    )
+                    if success:
                         affected_servers.append(server_name)
+                # Save the updated configs
+                if affected_servers:
+                    self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
             
             elif operation == 'enable' and server_names:
                 # Enable specific servers
+                # Load current configs
+                claude_data, gemini_data = self.config_manager.load_configs()
                 for server_name in server_names:
-                    result = self.config_manager.server_manager.enable_server(server_name, config_mode)
-                    if result.get('success'):
+                    success = self.config_manager.server_manager.enable_server(
+                        claude_data, gemini_data, server_name, mode or 'both'
+                    )
+                    if success:
                         affected_servers.append(server_name)
+                # Save the updated configs
+                self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
             
             elif operation == 'disable' and server_names:
                 # Disable specific servers
+                # Load current configs
+                claude_data, gemini_data = self.config_manager.load_configs()
                 for server_name in server_names:
-                    result = self.config_manager.server_manager.disable_server(server_name, config_mode)
-                    if result.get('success'):
+                    success = self.config_manager.server_manager.disable_server(
+                        claude_data, gemini_data, server_name, mode or 'both'
+                    )
+                    if success:
                         affected_servers.append(server_name)
+                # Save the updated configs
+                self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
             
             else:
                 return {

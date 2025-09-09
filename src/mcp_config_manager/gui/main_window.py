@@ -149,6 +149,10 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.setWindowTitle("MCP Config Manager")
         self.setGeometry(100, 100, 1000, 700)
         
+        # Ensure window gets focus and comes to front
+        self.raise_()
+        self.activateWindow()
+        
     def _setup_tk_window(self):
         """Set up tkinter window properties."""
         self.root = tk.Tk()
@@ -348,19 +352,59 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _setup_qt_toolbar(self):
         """Set up Qt toolbar."""
-        toolbar = self.addToolBar("Main")
-        toolbar.setMovable(False)
+        from PyQt6.QtWidgets import QPushButton, QToolBar
+        from PyQt6.QtCore import QSize
         
-        # Add toolbar actions
-        toolbar.addAction(self.load_action)
-        toolbar.addAction(self.save_action)
+        toolbar = QToolBar("Main")
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+        
+        # Set toolbar style to show buttons with text
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+        toolbar.setIconSize(QSize(24, 24))
+        
+        # Create actual buttons with proper styling
+        load_btn = QPushButton("Load Configuration")
+        load_btn.clicked.connect(self.load_configuration)
+        toolbar.addWidget(load_btn)
+        
+        save_btn = QPushButton("Save Configuration")
+        save_btn.clicked.connect(self.save_configuration)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #007AFF;
+                color: white;
+                font-weight: bold;
+                padding: 5px 15px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0051D5;
+            }
+        """)
+        toolbar.addWidget(save_btn)
+        
         toolbar.addSeparator()
-        toolbar.addAction(self.add_server_action)
+        
+        add_btn = QPushButton("Add Server")
+        add_btn.clicked.connect(self.add_server)
+        toolbar.addWidget(add_btn)
+        
         toolbar.addSeparator()
-        toolbar.addAction(self.enable_all_action)
-        toolbar.addAction(self.disable_all_action)
+        
+        enable_all_btn = QPushButton("Enable All")
+        enable_all_btn.clicked.connect(self.enable_all_servers)
+        toolbar.addWidget(enable_all_btn)
+        
+        disable_all_btn = QPushButton("Disable All")
+        disable_all_btn.clicked.connect(self.disable_all_servers)
+        toolbar.addWidget(disable_all_btn)
+        
         toolbar.addSeparator()
-        toolbar.addAction(self.validate_action)
+        
+        validate_btn = QPushButton("Validate")
+        validate_btn.clicked.connect(self.validate_configuration)
+        toolbar.addWidget(validate_btn)
     
     def _setup_tk_toolbar(self):
         """Set up tkinter toolbar."""
@@ -595,7 +639,10 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _on_server_toggled(self, server_name: str, enabled: bool):
         """Handle server toggle from widget."""
         mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.toggle_server(server_name, enabled, mode_value)
+        # Use bulk_operation with 'enable' or 'disable' for individual servers
+        operation = 'enable' if enabled else 'disable'
+        result = self.server_controller.bulk_operation(operation, [server_name], mode_value)
+        
         if result['success']:
             self.set_unsaved_changes(True)
             dispatcher.emit_now(EventType.SERVER_TOGGLED, 
@@ -628,10 +675,10 @@ class MainWindow(QMainWindow if USING_QT else object):
     # Dispatcher event handlers
     def _handle_config_loaded(self, event: Event):
         """Handle configuration loaded event."""
-        print("DEBUG: _handle_config_loaded called")
         # Get server count from event data if available
         server_count = len(event.data.get('servers', [])) if event.data else 0
-        self.set_status_message(f"Configuration loaded - {server_count} servers", timeout=5)
+        status_msg = f"Configuration loaded - {server_count} servers"
+        self.set_status_message(status_msg, timeout=0)  # Set timeout to 0 for persistent message
         self.set_unsaved_changes(False)
         self.refresh_server_list()
     
@@ -741,11 +788,11 @@ class MainWindow(QMainWindow if USING_QT else object):
             if result['success']:
                 print("DEBUG: Configuration loaded successfully")
                 dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
-                self.set_status_message("Configuration loaded", timeout=3)
+                # Don't set status here - let the event handler do it
             else:
                 print(f"DEBUG: Configuration load failed: {result['error']}")
                 dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
-                self.set_status_message(f"Error: {result['error']}", timeout=0)
+                # Don't set status here - let the event handler do it
         except Exception as e:
             print(f"DEBUG: Exception in load_configuration: {e}")
             import traceback
@@ -1059,6 +1106,9 @@ def run_gui_in_main_thread():
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
         window.show()
+        # Ensure window gets focus after showing
+        window.raise_()
+        window.activateWindow()
         sys.exit(app.exec())
     else:
         config_manager = ConfigManager()
