@@ -82,6 +82,36 @@ class ServerManager:
         
         return False
     
+    def get_enabled_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
+                           mode: str = 'both') -> List[Dict[str, Any]]:
+        """Get list of enabled servers with their configurations"""
+        servers = []
+        seen = set()
+        
+        if mode in ['claude', 'both']:
+            for name, config in claude_data.get('mcpServers', {}).items():
+                if name not in seen:
+                    servers.append({
+                        'name': name,
+                        'config': config,
+                        'enabled': True,
+                        'mode': 'claude' if mode == 'claude' else 'both'
+                    })
+                    seen.add(name)
+        
+        if mode in ['gemini', 'both']:
+            for name, config in gemini_data.get('mcpServers', {}).items():
+                if name not in seen:
+                    servers.append({
+                        'name': name,
+                        'config': config,
+                        'enabled': True,
+                        'mode': 'gemini' if mode == 'gemini' else 'both'
+                    })
+                    seen.add(name)
+        
+        return sorted(servers, key=lambda x: x['name'])
+    
     def list_all_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
                         mode: str = 'both') -> Tuple[List[str], List[str]]:
         """List all servers (active and disabled) based on mode"""

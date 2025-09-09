@@ -263,20 +263,25 @@ class ConfigController:
         servers = []
         
         try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+            
             # Get enabled servers
-            enabled_servers = self.config_manager.server_manager.get_enabled_servers(self.current_mode)
-            for name, config in enabled_servers.items():
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                claude_data, gemini_data, self.current_mode.value
+            )
+            for server_info in enabled_servers:
                 servers.append({
-                    'name': name,
+                    'name': server_info['name'],
                     'enabled': True,
-                    'command': config.get('command', ''),
-                    'args': config.get('args', []),
-                    'env': config.get('env', {}),
-                    'mode': self.current_mode.value
+                    'command': server_info['config'].get('command', ''),
+                    'args': server_info['config'].get('args', []),
+                    'env': server_info['config'].get('env', {}),
+                    'mode': server_info['mode']
                 })
             
             # Get disabled servers
-            disabled_servers = self.config_manager.server_manager.get_disabled_servers(self.current_mode)
+            disabled_servers = self.config_manager.server_manager.load_disabled_servers()
             for name, config in disabled_servers.items():
                 servers.append({
                     'name': name,

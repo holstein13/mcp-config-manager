@@ -158,7 +158,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             
             item.setText(1, server.name)
             item.setText(2, server.status.value)
-            item.setText(3, server.mode or "Both")
+            item.setText(3, server.source_mode or "Both")
             
             # Store server name in item data
             item.setData(0, Qt.ItemDataRole.UserRole, server.name)
@@ -172,7 +172,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         else:
             # tkinter implementation
             enabled = "✓" if server.status == ServerStatus.ENABLED else ""
-            values = (enabled, server.name, server.status.value, server.mode or "Both")
+            values = (enabled, server.name, server.status.value, server.source_mode or "Both")
             item_id = self.tree.insert("", "end", values=values, tags=(server.status.value.lower(),))
             
             # Store mapping
@@ -230,7 +230,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             server = self.servers[server_name]
             if hasattr(server, '_tree_item'):
                 enabled = "✓" if status == ServerStatus.ENABLED else ""
-                values = (enabled, server.name, status.value, server.mode or "Both")
+                values = (enabled, server.name, status.value, server.source_mode or "Both")
                 self.tree.item(server._tree_item, values=values, tags=(status.value.lower(),))
     
     def _update_item_status(self, item: 'QTreeWidgetItem', status: ServerStatus):
@@ -395,6 +395,22 @@ class ServerListWidget(QWidget if USING_QT else object):
         menu.add_command(label="Remove", command=lambda: self.remove_server(server_name))
         
         menu.post(event.x_root, event.y_root)
+    
+    def load_servers(self, servers: List[ServerListItem]):
+        """Load a list of servers into the widget.
+        
+        Args:
+            servers: List of ServerListItem objects to display
+        """
+        # Clear existing servers
+        self.clear()
+        
+        # Add each server to the list
+        for server in servers:
+            self.add_server(server)
+        
+        # Update status count
+        self.update_status_count()
     
     def clear(self):
         """Clear all servers from the list."""
