@@ -141,11 +141,21 @@ class FieldEditor(ABC):
     def _update_visual_state(self) -> None:
         """Update visual indicators for modified/error states."""
         if USING_QT and hasattr(self, 'widget'):
-            # Update Qt widget styling
+            # Update Qt widget styling with more prominent borders
             if self.validation_error:
-                self.widget.setStyleSheet("border: 1px solid red;")
+                self.widget.setStyleSheet("""
+                    border: 2px solid #FF0000;
+                    border-radius: 3px;
+                    padding: 2px;
+                    background-color: #FFF5F5;
+                """)
             elif self.is_modified:
-                self.widget.setStyleSheet("border: 1px solid orange;")
+                self.widget.setStyleSheet("""
+                    border: 2px solid #FF6B00;
+                    border-radius: 3px;
+                    padding: 2px;
+                    background-color: #FFF9F5;
+                """)
             else:
                 self.widget.setStyleSheet("")
         elif not USING_QT and hasattr(self, 'widget'):

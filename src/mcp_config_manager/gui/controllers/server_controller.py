@@ -583,6 +583,52 @@ class ServerController:
         """
         self.on_server_removed_callbacks.append(callback)
     
+    def update_server(self, server_name: str, config: Dict[str, Any], mode: Optional[str] = None) -> Dict[str, Any]:
+        """Update a server's configuration.
+        
+        Args:
+            server_name: Name of the server to update
+            config: New configuration for the server
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - error: error message if failed
+        """
+        try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+            
+            # Determine mode
+            if not mode:
+                mode = 'both'
+            
+            # Update the server configuration
+            success = self.config_manager.server_manager.update_server_config(
+                claude_data, gemini_data, server_name, config, mode
+            )
+            
+            if success:
+                # Save the updated configs
+                self.config_manager.save_configs(claude_data, gemini_data, mode)
+                
+                return {'success': True}
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to update server configuration'
+                }
+                
+        except Exception as e:
+            error_msg = f"Failed to update server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
     def on_servers_bulk(self, callback: Callable[[Dict[str, Any]], None]):
         """Register callback for bulk operation event.
         

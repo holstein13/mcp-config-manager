@@ -57,6 +57,7 @@ from .controllers.backup_controller import BackupController
 from .events.dispatcher import dispatcher, EventType, Event
 from .widgets.server_list import ServerListWidget
 from .widgets.mode_selector import ModeSelectorWidget
+from .widgets.server_details_panel import ServerDetailsPanel
 from .dialogs.add_server_dialog import AddServerDialog
 from .dialogs.preset_manager_dialog import PresetManagerDialog
 from .dialogs.settings_dialog import SettingsDialog
@@ -193,12 +194,12 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.server_list = ServerListWidget()
         self.splitter.addWidget(self.server_list)
         
-        # Placeholder for details panel
-        self.details_placeholder = QWidget()
-        self.splitter.addWidget(self.details_placeholder)
+        # Server details panel
+        self.server_details_panel = ServerDetailsPanel()
+        self.splitter.addWidget(self.server_details_panel)
         
-        # Set splitter sizes (70% for list, 30% for details)
-        self.splitter.setSizes([700, 300])
+        # Set splitter sizes (60% for list, 40% for details)
+        self.splitter.setSizes([600, 400])
     
     def _setup_tk_ui(self):
         """Set up tkinter UI layout."""
@@ -218,11 +219,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         # Server list widget
         self.server_list = ServerListWidget(self.paned)
-        self.paned.add(self.server_list.frame, weight=7)
+        self.paned.add(self.server_list.frame, weight=6)
         
-        # Placeholder for details
-        details_frame = ttk.Frame(self.paned)
-        self.paned.add(details_frame, weight=3)
+        # Server details panel
+        self.server_details_panel = ServerDetailsPanel(self.paned)
+        self.paned.add(self.server_details_panel.get_widget(), weight=4)
     
     def _setup_menus(self):
         """Set up the menu bar."""
@@ -659,6 +660,14 @@ class MainWindow(QMainWindow if USING_QT else object):
             
         if self.mode_selector_widget:
             self.mode_selector_widget.mode_changed_callback = self._on_mode_changed
+        
+        # Connect server details panel signals
+        if hasattr(self, 'server_details_panel'):
+            if USING_QT:
+                self.server_details_panel.server_updated.connect(self._on_server_updated)
+            else:
+                # For tkinter callbacks
+                self.server_details_panel.update_callbacks.append(self._on_server_updated)
     
     def _register_event_handlers(self):
         """Register handlers for dispatcher events."""
@@ -711,6 +720,33 @@ class MainWindow(QMainWindow if USING_QT else object):
         dispatcher.emit_now(EventType.UI_SELECTION_CHANGED,
                            {'selection': server_name},
                            source='MainWindow')
+        
+        # Load the server configuration into the details panel
+        if hasattr(self, 'server_details_panel'):
+            # Get the server configuration from the servers list
+            if hasattr(self, 'server_list') and self.server_list:
+                server_item = self.server_list.servers.get(server_name)
+                if server_item:
+                    # Load the server configuration into the details panel
+                    self.server_details_panel.load_server(server_name, server_item.config)
+    
+    def _on_server_updated(self, server_name: str, config: dict):
+        """Handle server update from details panel."""
+        # Call the server controller to update the server
+        result = self.server_controller.update_server(server_name, config)
+        
+        if result['success']:
+            # Update the server in the list widget
+            if hasattr(self, 'server_list') and self.server_list:
+                server_item = self.server_list.servers.get(server_name)
+                if server_item:
+                    server_item.config = config
+            
+            # Mark configuration as changed
+            self.mark_unsaved_changes()
+            self.set_status_message(f"Server '{server_name}' updated", timeout=3)
+        else:
+            self.set_status_message(f"Failed to update server: {result.get('error', 'Unknown error')}", timeout=5)
     
     def _on_mode_changed(self, mode: str):
         """Handle mode change from widget."""

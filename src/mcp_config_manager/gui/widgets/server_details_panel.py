@@ -129,6 +129,38 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         
         layout.addWidget(header_frame)
         
+        # Create a stacked widget for empty state and form
+        from PyQt6.QtWidgets import QStackedWidget
+        self.stacked_widget = QStackedWidget()
+        
+        # Empty state widget
+        self.empty_state_widget = QWidget()
+        empty_layout = QVBoxLayout(self.empty_state_widget)
+        empty_layout.addStretch()
+        
+        empty_label = QLabel("👈 Select a server from the list to edit its configuration")
+        empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_label.setStyleSheet("""
+            QLabel {
+                color: #666666;
+                font-size: 16px;
+                padding: 20px;
+            }
+        """)
+        empty_layout.addWidget(empty_label)
+        
+        tip_label = QLabel("💡 Tip: You can use Ctrl+S to save changes and Esc to cancel")
+        tip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tip_label.setStyleSheet("""
+            QLabel {
+                color: #999999;
+                font-size: 13px;
+                padding: 10px;
+            }
+        """)
+        empty_layout.addWidget(tip_label)
+        empty_layout.addStretch()
+        
         # Scrollable form area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -140,7 +172,13 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         
         scroll_area.setWidget(self.form_widget)
-        layout.addWidget(scroll_area, 1)
+        
+        # Add both to stacked widget
+        self.stacked_widget.addWidget(self.empty_state_widget)
+        self.stacked_widget.addWidget(scroll_area)
+        self.stacked_widget.setCurrentWidget(self.empty_state_widget)
+        
+        layout.addWidget(self.stacked_widget, 1)
         
         # Button bar
         button_bar = QFrame()
@@ -175,6 +213,17 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         button_layout.addWidget(self.cancel_btn)
         
         layout.addWidget(button_bar)
+        
+        # Add keyboard shortcuts
+        from PyQt6.QtGui import QShortcut, QKeySequence
+        
+        # Ctrl+S or Cmd+S for save
+        save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)
+        save_shortcut.activated.connect(lambda: self._on_save() if self.save_btn.isEnabled() else None)
+        
+        # Escape for cancel
+        cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
+        cancel_shortcut.activated.connect(lambda: self._on_cancel() if self.cancel_btn.isEnabled() else None)
     
     def _init_tk_ui(self):
         """Initialize tkinter UI components."""
@@ -243,6 +292,8 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.add_field_btn.setEnabled(True)
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
+            # Switch to form view
+            self.stacked_widget.setCurrentIndex(1)  # Show the form
         elif HAS_TKINTER:
             self.server_label.config(text=f"Editing: {server_name}")
             self.add_field_btn.config(state='normal')
@@ -367,10 +418,30 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             self.save_btn.setEnabled(self.has_changes and not self.validation_errors)
             self.cancel_btn.setEnabled(self.has_changes)
+            
+            # Update header styling for unsaved changes
+            if self.has_changes:
+                self.server_label.setStyleSheet("""
+                    font-weight: bold; 
+                    font-size: 14px;
+                    color: #FF6B00;
+                """)
+                self.server_label.setText(f"● Editing: {self.current_server} (unsaved)")
+            else:
+                self.server_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+                self.server_label.setText(f"Editing: {self.current_server}")
         elif HAS_TKINTER:
             state = 'normal' if self.has_changes and not self.validation_errors else 'disabled'
             self.save_btn.config(state=state)
             self.cancel_btn.config(state='normal' if self.has_changes else 'disabled')
+            
+            # Update label for unsaved changes
+            if self.has_changes:
+                self.server_label.config(text=f"● Editing: {self.current_server} (unsaved)",
+                                        foreground='#FF6B00')
+            else:
+                self.server_label.config(text=f"Editing: {self.current_server}",
+                                        foreground='black')
         
         # Emit changes pending signal
         self._emit_changes_pending(self.has_changes)
@@ -436,9 +507,15 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
+            # Reset header styling after save
+            self.server_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            self.server_label.setText(f"Editing: {self.current_server}")
         elif HAS_TKINTER:
             self.save_btn.config(state='disabled')
             self.cancel_btn.config(state='disabled')
+            # Reset label styling after save
+            self.server_label.config(text=f"Editing: {self.current_server}",
+                                    foreground='black')
         
         self._emit_changes_pending(False)
     
