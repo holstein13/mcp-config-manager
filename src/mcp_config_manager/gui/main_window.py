@@ -383,80 +383,68 @@ class MainWindow(QMainWindow if USING_QT else object):
         # Store reference to the action for later use
         self.revert_action_added = False
         
-        # Primary action - Save Configuration
-        save_btn = QPushButton("Save")
-        save_btn.clicked.connect(self.save_configuration)
-        save_btn.setStyleSheet("""
+        # Consistent button style for all toolbar buttons
+        button_style = """
             QPushButton {
-                background-color: #007AFF;
-                color: white;
-                font-weight: bold;
-                padding: 5px 15px;
-                border-radius: 4px;
+                background-color: #F8F8F8;
+                border: 1px solid #CCCCCC;
+                padding: 4px 8px;
+                border-radius: 3px;
+                font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #0051D5;
+                background-color: #E8E8E8;
+                border: 1px solid #999999;
             }
             QPushButton:pressed {
-                background-color: #003D99;
+                background-color: #D0D0D0;
             }
-        """)
+        """
+        
+        # Add spacing at the start of the toolbar
+        spacer = QWidget()
+        spacer.setFixedWidth(8)
+        self.toolbar.addWidget(spacer)
+        
+        # Primary action - Save Configuration
+        save_btn = QPushButton("💾 Save")
+        save_btn.clicked.connect(self.save_configuration)
+        save_btn.setStyleSheet(button_style)
+        save_btn.setToolTip("Save current configuration")
         self.toolbar.addWidget(save_btn)
         
         self.toolbar.addSeparator()
         
         # Secondary action - Add Server
-        add_btn = QPushButton("Add Server")
+        add_btn = QPushButton("➕ Add Server")
         add_btn.clicked.connect(self.add_server)
+        add_btn.setStyleSheet(button_style)
+        add_btn.setToolTip("Add a new server configuration")
         self.toolbar.addWidget(add_btn)
         
         self.toolbar.addSeparator()
         
         # Tertiary action - Validate
-        validate_btn = QPushButton("Validate")
+        validate_btn = QPushButton("✓ Validate")
         validate_btn.clicked.connect(self.validate_configuration)
-        validate_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F0F0F0;
-                padding: 5px 10px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #E0E0E0;
-            }
-        """)
+        validate_btn.setStyleSheet(button_style)
+        validate_btn.setToolTip("Validate current configuration")
         self.toolbar.addWidget(validate_btn)
         
+        self.toolbar.addSeparator()
+        
         # Backup button
-        backup_btn = QPushButton("💾 Backup")
-        backup_btn.setToolTip("Create backup of configuration files in current directory")
+        backup_btn = QPushButton("📦 Backup")
+        backup_btn.setToolTip("Create backup of configuration files")
         backup_btn.clicked.connect(self.quick_backup)
-        backup_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F0F0F0;
-                padding: 5px 10px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #E0E0E0;
-            }
-        """)
+        backup_btn.setStyleSheet(button_style)
         self.toolbar.addWidget(backup_btn)
         
         # Restore button
         restore_btn = QPushButton("📂 Restore")
         restore_btn.setToolTip("Restore configuration from backup files")
         restore_btn.clicked.connect(self.quick_restore)
-        restore_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F0F0F0;
-                padding: 5px 10px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #E0E0E0;
-            }
-        """)
+        restore_btn.setStyleSheet(button_style)
         self.toolbar.addWidget(restore_btn)
     
     def _setup_tk_toolbar(self):
