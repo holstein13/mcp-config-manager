@@ -175,14 +175,14 @@
 **New feature to display and edit MCP server configurations in a detail panel**
 
 ### Phase 3.6.1: Field Editor Components
-- [ ] T085 [P] Create StringEditor widget for text fields (command, cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T086 [P] Create NumberEditor widget for numeric fields (timeout) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T087 [P] Create BooleanEditor widget for checkboxes (trust, disabled) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T088 [P] Create ArrayEditor widget for list fields (args, capabilities) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T089 [P] Create KeyValueEditor widget for environment variables (env) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T090 [P] Create PathEditor widget with browse button for directory fields (cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T091 [P] Create DropdownEditor widget for enum fields (transport, restart) in src/mcp_config_manager/gui/widgets/field_editors.py
-- [ ] T092 [P] Create base FieldEditor class with common validation logic in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T085 [P] Create StringEditor widget for text fields (command, cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T086 [P] Create NumberEditor widget for numeric fields (timeout) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T087 [P] Create BooleanEditor widget for checkboxes (trust, disabled) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T088 [P] Create ArrayEditor widget for list fields (args, capabilities) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T089 [P] Create KeyValueEditor widget for environment variables (env) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T090 [P] Create PathEditor widget with browse button for directory fields (cwd) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T091 [P] Create DropdownEditor widget for enum fields (transport, restart) in src/mcp_config_manager/gui/widgets/field_editors.py
+- [x] T092 [P] Create base FieldEditor class with common validation logic in src/mcp_config_manager/gui/widgets/field_editors.py
 
 ### Phase 3.6.2: Server Details Panel
 - [ ] T093 Create ServerDetailsPanel widget with scrollable form layout in src/mcp_config_manager/gui/widgets/server_details_panel.py
