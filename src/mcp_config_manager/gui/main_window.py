@@ -102,12 +102,15 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.mode_selector_widget = None
         
         self._setup_ui()
-        self._connect_events()
-        self._register_event_handlers()
         self._setup_menus()
         self._setup_toolbar()
         self._setup_status_bar()
         self._setup_shortcuts()
+        self._connect_events()
+        self._register_event_handlers()
+        
+        # Load initial configuration after all UI is ready
+        self.load_configuration()
         self._load_window_state()
     
     def _setup_qt_window(self):
@@ -142,10 +145,9 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(self.splitter)
         
-        # Placeholder for server list (will be replaced in T036)
-        self.server_list_placeholder = QListWidget()
-        self.server_list_placeholder.addItem("Server list will be implemented in T036")
-        self.splitter.addWidget(self.server_list_placeholder)
+        # Server list widget
+        self.server_list = ServerListWidget()
+        self.splitter.addWidget(self.server_list)
         
         # Placeholder for details panel
         self.details_placeholder = QWidget()
@@ -164,12 +166,9 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
         self.paned.pack(fill=tk.BOTH, expand=True)
         
-        # Placeholder for server list
-        list_frame = ttk.Frame(self.paned)
-        self.paned.add(list_frame, weight=7)
-        
-        label = ttk.Label(list_frame, text="Server list will be implemented in T036")
-        label.pack(padx=10, pady=10)
+        # Server list widget
+        self.server_list = ServerListWidget(self.paned)
+        self.paned.add(self.server_list.frame, weight=7)
         
         # Placeholder for details
         details_frame = ttk.Frame(self.paned)
@@ -521,9 +520,16 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _connect_events(self):
         """Connect UI events to controllers."""
         # Connect widget signals to controller methods
-        if self.server_list_widget:
-            self.server_list_widget.server_toggled_callback = self._on_server_toggled
-            self.server_list_widget.server_selected_callback = self._on_server_selected
+        if hasattr(self, 'server_list') and self.server_list:
+            # For Qt signals
+            if USING_QT:
+                self.server_list.server_toggled.connect(self._on_server_toggled)
+                self.server_list.server_selected.connect(self._on_server_selected)
+                self.server_list.servers_bulk_toggled.connect(self._handle_servers_bulk_toggled)
+            else:
+                # For tkinter callbacks
+                self.server_list._toggle_callbacks.append(self._on_server_toggled)
+                self.server_list._selection_callbacks.append(self._on_server_selected)
             
         if self.mode_selector_widget:
             self.mode_selector_widget.mode_changed_callback = self._on_mode_changed
@@ -673,12 +679,12 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def refresh_server_list(self):
         """Refresh the server list widget."""
-        if self.server_list_widget:
+        if hasattr(self, 'server_list') and self.server_list:
             # Get current servers from controller
             result = self.server_controller.get_servers(self.app_state.mode)
             if result['success']:
                 servers = result['data']['servers']
-                self.server_list_widget.load_servers(servers)
+                self.server_list.load_servers(servers)
     
     def load_configuration(self):
         """Load configuration from file."""

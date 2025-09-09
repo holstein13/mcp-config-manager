@@ -452,6 +452,81 @@ Each integration test file validates complete user workflows:
 
 ## Recent Implementation Progress (2025-01-09)
 
+### Current Session 3: Server List Implementation & Backend Integration
+
+#### Key Accomplishments:
+1. **Fixed Server List Placeholder Issue**
+   - Replaced "Server list will be implemented in T036" placeholder with actual ServerListWidget
+   - The message was a leftover development task tracker (T036 was a task number)
+   - Server list now properly displays for managing MCP servers (context7, browsermcp, playwright, etc.)
+
+2. **GUI Launch Stabilization**
+   - Fixed initialization order: UI components must be set up before loading configuration
+   - Status bar, menus, and toolbar now initialized before config load
+   - Proper event connection between server list and main window
+
+#### Current Blockers - Missing Backend Methods:
+The GUI launches successfully but cannot populate the server list due to missing backend implementations:
+
+1. **ServerController.get_servers()** - Missing method
+   - Needs to return: `{success: bool, data: {servers: List[ServerListItem]}}`
+   - Should call ConfigManager to get both active and disabled servers
+   - Must support mode parameter (claude/gemini/both)
+
+2. **ServerManager.get_enabled_servers()** - Missing method  
+   - Called by ConfigController's _get_server_list()
+   - Should return list of enabled servers from configuration
+   - Must handle both Claude and Gemini configs based on mode
+
+3. **ServerListWidget.load_servers()** - Needs implementation
+   - Should accept list of ServerListItem objects
+   - Populate the QTreeWidget/tkinter tree with server data
+   - Display columns: Enabled checkbox, Server name, Status, Mode
+
+#### Key Decisions Made:
+1. **Server List Purpose Clarified**
+   - Displays MCP (Model Context Protocol) servers configured for AI tools
+   - Allows visual enable/disable instead of command-line operations
+   - Shows servers like context7, browsermcp, playwright, supabase, etc.
+
+2. **Widget Integration Pattern**
+   - Use actual widgets (ServerListWidget) not placeholders
+   - Connect Qt signals for PyQt6, callbacks for tkinter
+   - Controllers bridge between GUI widgets and core managers
+
+3. **Initialization Sequence Critical**
+   - UI setup → Menus → Toolbar → Status Bar → Events → Load Config
+   - Cannot call UI methods before components are initialized
+   - Event system must be connected before triggering events
+
+#### Next Immediate Steps:
+1. **Implement ServerController.get_servers()**
+   - Bridge to ConfigManager.list_servers()
+   - Format data as ServerListItem objects
+   - Handle mode filtering
+
+2. **Add ServerManager.get_enabled_servers()**
+   - Parse mcpServers from configs
+   - Return only active servers
+   - Support claude/gemini/both modes
+
+3. **Complete ServerListWidget.load_servers()**
+   - Clear existing items
+   - Add new items from server list
+   - Set checkbox states based on enabled status
+
+4. **Test Full Server Display**
+   - Verify all 9 configured MCP servers appear
+   - Test enable/disable toggles
+   - Ensure persistence on save
+
+#### Important Context for Future Sessions:
+- Interactive CLI mode remains fully functional (primary interface)
+- GUI framework detection working (PyQt6 primary, tkinter fallback)
+- User has 9 active MCP servers configured that should display
+- Config path issue resolved: use ConfigManager attributes not parser attributes
+- Multiple background GUI processes may be running - check with ps/kill if needed
+
 ### Current Session 2: GUI Launch Fixes & Integration
 
 #### Key Accomplishments:

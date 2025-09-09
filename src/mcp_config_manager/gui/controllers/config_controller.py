@@ -50,8 +50,8 @@ class ConfigController:
             config_data = {
                 'mode': self.current_mode.value,
                 'servers': self._get_server_list(),
-                'claude_path': str(self.config_manager.claude_parser.config_path) if self.config_manager.claude_parser else None,
-                'gemini_path': str(self.config_manager.gemini_parser.config_path) if self.config_manager.gemini_parser else None,
+                'claude_path': str(self.config_manager.claude_path) if self.config_manager.claude_path else None,
+                'gemini_path': str(self.config_manager.gemini_path) if self.config_manager.gemini_path else None,
                 'has_unsaved_changes': False
             }
             
