@@ -349,21 +349,22 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         """
         # Create appropriate editor
         editor = None
+        parent_widget = self.form_widget if USING_QT else self.form_frame
         
         if field_type == 'string':
-            editor = StringEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = StringEditor(field_name, value, required, parent_widget)
         elif field_type == 'number':
-            editor = NumberEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = NumberEditor(field_name, value, required, parent_widget)
         elif field_type == 'boolean':
-            editor = BooleanEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = BooleanEditor(field_name, value, required, parent_widget)
         elif field_type == 'array':
-            editor = ArrayEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = ArrayEditor(field_name, value, required, parent_widget)
         elif field_type == 'keyvalue':
-            editor = KeyValueEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = KeyValueEditor(field_name, value, required, parent_widget)
         elif field_type == 'path':
-            editor = PathEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = PathEditor(field_name, value, required, parent_widget)
         elif field_type == 'dropdown':
-            editor = DropdownEditor(self.form_widget if USING_QT else self.form_frame)
+            editor = DropdownEditor(field_name, value, required, parent_widget)
             # Set dropdown options based on field
             if field_name == 'restart':
                 editor.set_options(['never', 'on-failure', 'always'])
@@ -371,18 +372,9 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                 editor.set_options(['stdio', 'http', 'websocket'])
         
         if editor:
-            editor.set_value(value)
-            editor.set_required(required)
             
-            # Connect change signal
-            if USING_QT:
-                editor.value_changed.connect(self._on_field_changed)
-                editor.validation_error.connect(lambda field, error: 
-                                               self._on_validation_error(field_name, error))
-            else:
-                editor.add_change_callback(self._on_field_changed)
-                editor.add_validation_callback(lambda error: 
-                                              self._on_validation_error(field_name, error))
+            # Connect change callbacks
+            editor.add_change_callback(self._on_field_changed)
             
             # Add to form
             label_text = field_name.replace('_', ' ').title()
@@ -393,7 +385,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                 label = QLabel(label_text)
                 if field_name in self.FIELD_DESCRIPTIONS:
                     label.setToolTip(self.FIELD_DESCRIPTIONS[field_name])
-                self.form_layout.addRow(label, editor)
+                self.form_layout.addRow(label, editor.get_widget())
             elif HAS_TKINTER:
                 row_frame = ttk.Frame(self.form_frame)
                 row_frame.pack(fill=tk.X, pady=2)
@@ -405,7 +397,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             
             self.field_editors[field_name] = editor
     
-    def _on_field_changed(self, value: Any = None):
+    def _on_field_changed(self, field_name: str = None, value: Any = None):
         """Handle field value change."""
         if not self.current_server:
             return
