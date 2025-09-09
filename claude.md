@@ -57,10 +57,76 @@ MCP Config Manager is a cross-platform utility for managing Model Context Protoc
 4. **Mode Abstraction**: GUI unaware of Claude/Gemini specifics, uses unified interface
 5. **Comprehensive Workflows**: Integration tests cover real user stories end-to-end
 
-#### 🚀 Phase 3.3 Ready: Core Implementation
-- Can now proceed with implementation to satisfy all test contracts
-- Will implement controllers, models, and event system
-- Target: Make all 25 test files pass
+#### 🚀 Phase 3.3 In Progress: Core Implementation
+
+##### ✅ Data Models Complete (T030-T034)
+All five core data models have been implemented in `src/gui/models/`:
+
+1. **ApplicationState** (`app_state.py`) - Central state management
+   - Tracks mode (Claude/Gemini/Both), active/disabled servers, presets
+   - Manages UI state: current view, selection, search filters
+   - Handles unsaved changes, validation errors, operation states
+   - Methods for server toggling, preset application, state reset
+
+2. **UIConfiguration** (`ui_config.py`) - UI preferences and settings
+   - Theme system (Light/Dark/System) with custom colors
+   - Window geometry persistence and layout preferences
+   - Keyboard shortcuts configuration (fully customizable)
+   - Animation settings, notification preferences, search options
+   - Validation and serialization support
+
+3. **ServerListItem** (`server_list_item.py`) - Server representation
+   - Status tracking (Enabled/Disabled/Error/Loading)
+   - Command configuration with args and environment variables
+   - Validation with error/warning messages
+   - Tag and category support for organization
+   - Filter matching for search functionality
+
+4. **PresetListItem** (`preset_list_item.py`) - Preset configuration
+   - Types: Builtin/Custom/Imported/Recent
+   - Separate enabled/disabled server lists
+   - Mode support (Claude/Gemini/Both) per preset
+   - Usage tracking and favorites
+   - Full CRUD operations for server management
+
+5. **BackupInfo** (`backup_info.py`) - Backup file management
+   - Backup types: Manual/Auto/Scheduled/Pre-change
+   - File validation and integrity checking
+   - Metadata tracking (server counts, versions)
+   - Age calculation and human-readable formatting
+   - Restore history tracking
+
+##### ✅ Main Window & Core Widgets Complete (T035-T039)
+Successfully implemented the main window and essential UI components:
+
+1. **MainWindow** (`main_window.py`) - Primary application window
+   - Complete menu system (File, Edit, Presets, Tools, Help)
+   - Toolbar with quick access buttons for common operations
+   - Status bar with save indicator and status messages
+   - Window state persistence (geometry, maximized state)
+   - Unsaved changes tracking with visual indicators
+   - Dual framework support (PyQt6 and tkinter)
+
+2. **ServerListWidget** (`widgets/server_list.py`) - Server management UI
+   - Tree view with columns: Enabled, Server, Status, Mode
+   - Individual server toggle checkboxes
+   - Enable All/Disable All bulk operations
+   - Context menu for server operations
+   - Server count status display
+   - Search/filter capability foundation
+   - Visual status indicators with color coding
+
+3. **ModeSelectorWidget** (`widgets/mode_selector.py`) - Client mode selection
+   - Radio buttons for Claude Only/Gemini Only/Both modes
+   - Compact combo box alternative for space-constrained layouts
+   - Status indicator with mode-specific color coding
+   - Callback system for mode change notifications
+   - Enable/disable support for configuration locking
+
+##### 🔄 Next Implementation Phase
+- T040-T044: Dialog implementations (Add Server, Preset Manager, Settings, Backup/Restore, Error)
+- T045-T048: Controller implementations (Config, Server, Preset, Backup controllers)
+- T049-T052: Event system and handlers (Dispatcher, state management, shortcuts)
 
 ## Development Commands
 
@@ -193,6 +259,10 @@ tests/test_gui/
 4. **Request/Response Pattern**: All operations follow consistent request validation → execution → response format
 5. **Error Handling**: Every operation returns `{success: bool, data/error: {...}}` structure
 6. **Async Support**: Event system supports both sync and async handlers
+7. **Rich Data Models**: Models include validation, filtering, state management, and serialization
+8. **Type Safety**: Extensive use of Enums and type hints for reliability
+9. **Separation of Concerns**: Each model handles its own validation and business logic
+10. **Human-Readable Formatting**: Models provide user-friendly string representations (age, size, etc.)
 
 ### GUI Component Requirements
 - Server list with enable/disable toggles

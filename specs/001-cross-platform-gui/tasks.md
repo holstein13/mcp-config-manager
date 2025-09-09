@@ -92,11 +92,11 @@
 - [x] T034 [P] BackupInfo model in src/gui/models/backup_info.py
 
 ### Main Window
-- [ ] T035 Create MainWindow class with menu bar and toolbar in src/gui/main_window.py
-- [ ] T036 Implement server list widget in src/gui/widgets/server_list.py
-- [ ] T037 Implement server toggle functionality in src/gui/widgets/server_list.py
-- [ ] T038 Add status bar with save indicator in src/gui/main_window.py
-- [ ] T039 Implement mode selector widget in src/gui/widgets/mode_selector.py
+- [x] T035 Create MainWindow class with menu bar and toolbar in src/gui/main_window.py
+- [x] T036 Implement server list widget in src/gui/widgets/server_list.py
+- [x] T037 Implement server toggle functionality in src/gui/widgets/server_list.py
+- [x] T038 Add status bar with save indicator in src/gui/main_window.py
+- [x] T039 Implement mode selector widget in src/gui/widgets/mode_selector.py
 
 ### Dialogs
 - [ ] T040 [P] Add Server dialog in src/gui/dialogs/add_server_dialog.py
