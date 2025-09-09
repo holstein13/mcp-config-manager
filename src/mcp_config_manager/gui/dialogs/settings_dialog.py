@@ -227,7 +227,7 @@ class SettingsDialog:
         layout.addStretch()
         return widget
     
-    def _create_general_tab_tk(self) -> ttk.Frame:
+    def _create_general_tab_tk(self) -> Any:
         """Create general settings tab for tkinter."""
         frame = ttk.Frame(self.notebook)
         
@@ -324,7 +324,7 @@ class SettingsDialog:
         layout.addStretch()
         return widget
     
-    def _create_appearance_tab_tk(self) -> ttk.Frame:
+    def _create_appearance_tab_tk(self) -> Any:
         """Create appearance settings tab for tkinter."""
         frame = ttk.Frame(self.notebook)
         
@@ -423,7 +423,7 @@ class SettingsDialog:
         layout.addStretch()
         return widget
     
-    def _create_behavior_tab_tk(self) -> ttk.Frame:
+    def _create_behavior_tab_tk(self) -> Any:
         """Create behavior settings tab for tkinter."""
         frame = ttk.Frame(self.notebook)
         
@@ -518,7 +518,7 @@ class SettingsDialog:
         layout.addStretch()
         return widget
     
-    def _create_advanced_tab_tk(self) -> ttk.Frame:
+    def _create_advanced_tab_tk(self) -> Any:
         """Create advanced settings tab for tkinter."""
         frame = ttk.Frame(self.notebook)
         

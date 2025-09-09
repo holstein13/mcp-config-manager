@@ -44,7 +44,7 @@ class ConfigController:
                 self.current_mode = mode_map.get(mode.lower(), self.current_mode)
             
             # Load configuration
-            self.config_manager.load_config(self.current_mode)
+            claude_data, gemini_data = self.config_manager.load_configs()
             
             # Get current configuration
             config_data = {
@@ -94,12 +94,13 @@ class ConfigController:
             
             if create_backup:
                 # Create backup
-                backup_result = self.config_manager.create_backup()
-                if backup_result.get('success'):
-                    backup_file = backup_result.get('backup_file')
+                backups = self.config_manager.create_backups()
+                if backups:
+                    backup_file = str(backups[0][1]) if backups else None
             
-            # Save configuration
-            self.config_manager.save_config()
+            # Save configuration - need to get current data first
+            claude_data, gemini_data = self.config_manager.load_configs()
+            self.config_manager.save_configs(claude_data, gemini_data, self.current_mode.value)
             
             # Notify callbacks
             for callback in self.on_config_saved_callbacks:

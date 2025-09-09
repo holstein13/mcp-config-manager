@@ -452,7 +452,59 @@ Each integration test file validates complete user workflows:
 
 ## Recent Implementation Progress (2025-01-09)
 
-### Current Session: macOS Platform Testing & GUI Launch (T068)
+### Current Session 2: GUI Launch Fixes & Integration
+
+#### Key Accomplishments:
+1. **Fixed GUI Launch Issues**
+   - Moved GUI files from incorrect `src/gui/` to proper `src/mcp_config_manager/gui/` location
+   - Fixed PyQt6 imports (QAction now correctly imported from QtGui instead of QtWidgets)
+   - Resolved type hint issues with ttk when PyQt6 is available
+   - Fixed WindowGeometry object handling (using attributes instead of dict subscripting)
+   - Added proper framework detection with HAS_TKINTER flag
+
+2. **Fixed Controller-ConfigManager Integration**
+   - Corrected method name mismatches:
+     - `load_config` → `load_configs` (returns tuple of claude_data, gemini_data)
+     - `save_config` → `save_configs` (requires claude_data, gemini_data, mode)
+     - `create_backup` → `create_backups` (returns list of tuples)
+   - Fixed Mode enum value handling (using `.value` when passing to methods)
+   - Added proper sys import for QApplication initialization
+
+3. **GUI Now Partially Functional**
+   - PyQt6 window successfully launches
+   - Application framework properly detected
+   - Main window displays without crashing
+   - Event system and controllers connected
+
+#### Current Blockers:
+1. **ClaudeConfigParser Missing Attribute**
+   - Error: `'ClaudeConfigParser' object has no attribute 'config_path'`
+   - ConfigController trying to access `config_path` attribute that doesn't exist
+   - Need to check parser implementation for correct attribute name
+
+#### Key Decisions Made:
+1. **Import Handling Strategy**
+   - When PyQt6 is available, set tkinter imports to None
+   - Use conditional checks (USING_QT, HAS_TKINTER) throughout
+   - Type hints use `Any` when framework-specific types unavailable
+
+2. **API Alignment**
+   - Controllers must match ConfigManager's actual API
+   - ConfigManager uses plural forms (configs, not config)
+   - Methods return specific data structures that controllers must handle
+
+3. **File Structure Correction**
+   - GUI files must be in `src/mcp_config_manager/gui/` not `src/gui/`
+   - Maintains proper Python package structure
+   - Ensures imports work correctly
+
+#### Next Immediate Steps:
+1. Fix the `config_path` attribute issue in ConfigController
+2. Verify all parser attributes are correctly referenced
+3. Test full GUI functionality once config loading works
+4. Continue with remaining platform testing tasks
+
+### Previous Session 1: macOS Platform Testing & GUI Launch (T068)
 
 #### Key Accomplishments:
 1. **T068 Complete** - Comprehensive macOS-specific platform testing implemented

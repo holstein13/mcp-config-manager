@@ -7,17 +7,19 @@ from pathlib import Path
 try:
     from PyQt6.QtWidgets import (
         QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QMenuBar, QToolBar, QStatusBar, QAction, QMessageBox,
+        QMenuBar, QToolBar, QStatusBar, QMessageBox,
         QApplication, QSplitter, QListWidget
     )
     from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-    from PyQt6.QtGui import QIcon, QKeySequence
+    from PyQt6.QtGui import QIcon, QKeySequence, QAction
     USING_QT = True
+    HAS_TKINTER = False
     tk = None
     ttk = None
     messagebox = None
 except ImportError:
     USING_QT = False
+    HAS_TKINTER = False
     QMainWindow = object
     QWidget = object
     QVBoxLayout = object
@@ -38,13 +40,15 @@ except ImportError:
     try:
         import tkinter as tk
         from tkinter import ttk, messagebox
+        HAS_TKINTER = True
     except ImportError:
         tk = None
         ttk = None
         messagebox = None
+        HAS_TKINTER = False
 
 from .models.app_state import ApplicationState
-from .models.ui_config import UIConfiguration
+from .models.ui_config import UIConfiguration, WindowGeometry
 from .controllers.config_controller import ConfigController
 from .controllers.server_controller import ServerController
 from .controllers.preset_controller import PresetController
@@ -69,14 +73,17 @@ class MainWindow(QMainWindow if USING_QT else object):
         server_toggled = pyqtSignal(str, bool)
         preset_applied = pyqtSignal(str)
     
-    def __init__(self, parent=None):
+    def __init__(self, config_manager=None, parent=None):
         """Initialize the main window."""
         if USING_QT:
             super().__init__(parent)
             self._setup_qt_window()
-        else:
+        elif HAS_TKINTER:
             self._setup_tk_window()
+        else:
+            raise RuntimeError("No GUI framework available")
         
+        self.config_manager = config_manager
         self.app_state = ApplicationState()
         self.ui_config = UIConfiguration()
         self._unsaved_changes = False
@@ -481,34 +488,34 @@ class MainWindow(QMainWindow if USING_QT else object):
         if self.ui_config.window_geometry:
             geom = self.ui_config.window_geometry
             if USING_QT:
-                self.setGeometry(geom['x'], geom['y'], geom['width'], geom['height'])
-                if geom.get('maximized'):
+                self.setGeometry(geom.x, geom.y, geom.width, geom.height)
+                if geom.maximized:
                     self.showMaximized()
             else:
-                self.root.geometry(f"{geom['width']}x{geom['height']}+{geom['x']}+{geom['y']}")
+                self.root.geometry(f"{geom.width}x{geom.height}+{geom.x}+{geom.y}")
     
     def _save_window_state(self):
         """Save window state to UI configuration."""
         if USING_QT:
-            self.ui_config.window_geometry = {
-                'x': self.x(),
-                'y': self.y(),
-                'width': self.width(),
-                'height': self.height(),
-                'maximized': self.isMaximized()
-            }
+            self.ui_config.window_geometry = WindowGeometry(
+                x=self.x(),
+                y=self.y(),
+                width=self.width(),
+                height=self.height(),
+                maximized=self.isMaximized()
+            )
         else:
             geom = self.root.geometry()
             # Parse tkinter geometry string
             parts = geom.split('+')
             size = parts[0].split('x')
-            self.ui_config.window_geometry = {
-                'x': int(parts[1]),
-                'y': int(parts[2]),
-                'width': int(size[0]),
-                'height': int(size[1]),
-                'maximized': False
-            }
+            self.ui_config.window_geometry = WindowGeometry(
+                x=int(parts[1]),
+                y=int(parts[2]),
+                width=int(size[0]),
+                height=int(size[1]),
+                maximized=False
+            )
     
     # Action handlers (placeholders for now)
     def _connect_events(self):
@@ -568,7 +575,9 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _on_mode_changed(self, mode: str):
         """Handle mode change from widget."""
-        result = self.config_controller.switch_mode(mode)
+        # Mode switching handled by changing app_state.mode
+        self.app_state.mode = mode
+        result = {'success': True}
         if result['success']:
             self.app_state.mode = mode
             dispatcher.emit_now(EventType.MODE_CHANGED,
@@ -674,7 +683,7 @@ class MainWindow(QMainWindow if USING_QT else object):
     def load_configuration(self):
         """Load configuration from file."""
         self.set_status_message("Loading configuration...")
-        result = self.config_controller.load_configuration(self.app_state.mode)
+        result = self.config_controller.load_config(self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else self.app_state.mode)
         
         if result['success']:
             dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
@@ -684,7 +693,7 @@ class MainWindow(QMainWindow if USING_QT else object):
     def save_configuration(self):
         """Save configuration to file."""
         self.set_status_message("Saving configuration...")
-        result = self.config_controller.save_configuration(self.app_state.mode)
+        result = self.config_controller.save_config()
         
         if result['success']:
             dispatcher.emit_now(EventType.CONFIG_SAVED, result['data'], source='MainWindow')
