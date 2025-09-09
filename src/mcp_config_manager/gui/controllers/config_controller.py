@@ -34,6 +34,7 @@ class ConfigController:
                 - error: error message if failed
         """
         try:
+            print(f"DEBUG: load_config called with mode={mode}")
             if mode:
                 # Convert string to ConfigMode
                 mode_map = {
@@ -43,19 +44,28 @@ class ConfigController:
                 }
                 self.current_mode = mode_map.get(mode.lower(), self.current_mode)
             
+            print(f"DEBUG: Current mode={self.current_mode}")
+            
             # Load configuration
+            print("DEBUG: Loading configs...")
             claude_data, gemini_data = self.config_manager.load_configs()
+            print(f"DEBUG: Configs loaded. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
             
             # Get current configuration
+            print("DEBUG: Getting server list...")
+            server_list = self._get_server_list()
+            print(f"DEBUG: Got {len(server_list)} servers")
+            
             config_data = {
                 'mode': self.current_mode.value,
-                'servers': self._get_server_list(),
+                'servers': server_list,
                 'claude_path': str(self.config_manager.claude_path) if self.config_manager.claude_path else None,
                 'gemini_path': str(self.config_manager.gemini_path) if self.config_manager.gemini_path else None,
                 'has_unsaved_changes': False
             }
             
             # Notify callbacks
+            print(f"DEBUG: Notifying {len(self.on_config_loaded_callbacks)} callbacks")
             for callback in self.on_config_loaded_callbacks:
                 callback(config_data)
             
@@ -263,13 +273,17 @@ class ConfigController:
         servers = []
         
         try:
+            print("DEBUG: _get_server_list: Loading current configs...")
             # Load current configs
             claude_data, gemini_data = self.config_manager.load_configs()
+            print(f"DEBUG: _get_server_list: Configs loaded")
             
             # Get enabled servers
+            print(f"DEBUG: _get_server_list: Getting enabled servers for mode {self.current_mode.value}")
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
                 claude_data, gemini_data, self.current_mode.value
             )
+            print(f"DEBUG: _get_server_list: Got {len(enabled_servers)} enabled servers")
             for server_info in enabled_servers:
                 servers.append({
                     'name': server_info['name'],

@@ -75,6 +75,10 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def __init__(self, config_manager=None, parent=None):
         """Initialize the main window."""
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("MainWindow.__init__ started")
+
         if USING_QT:
             super().__init__(parent)
             self._setup_qt_window()
@@ -83,6 +87,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         else:
             raise RuntimeError("No GUI framework available")
         
+        logging.debug("Framework setup complete")
+
         self.config_manager = config_manager
         self.app_state = ApplicationState()
         self.ui_config = UIConfiguration()
@@ -91,27 +97,48 @@ class MainWindow(QMainWindow if USING_QT else object):
         self._status_label = None
         self._save_indicator = None
         
+        logging.debug("Initializing controllers")
         # Initialize controllers
         self.config_controller = ConfigController()
         self.server_controller = ServerController()
         self.preset_controller = PresetController()
         self.backup_controller = BackupController()
         
+        logging.debug("Initializing widgets")
         # Initialize widgets
         self.server_list_widget = None
         self.mode_selector_widget = None
         
+        logging.debug("Setting up UI")
         self._setup_ui()
+        logging.debug("Setting up menus")
         self._setup_menus()
+        logging.debug("Setting up toolbar")
         self._setup_toolbar()
+        logging.debug("Setting up status bar")
         self._setup_status_bar()
+        logging.debug("Setting up shortcuts")
         self._setup_shortcuts()
+        logging.debug("Connecting events")
         self._connect_events()
+        logging.debug("Registering event handlers")
         self._register_event_handlers()
         
+        logging.debug("Scheduling configuration load")
         # Load initial configuration after all UI is ready
-        self.load_configuration()
+        # Use QTimer to delay loading to allow window to show first
+        print("DEBUG: About to schedule configuration load")
+        if USING_QT:
+            from PyQt6.QtCore import QTimer
+            print("DEBUG: Using QTimer to schedule load_configuration")
+            QTimer.singleShot(100, self.load_configuration)  # Load after 100ms
+        else:
+            print("DEBUG: Using tkinter after to schedule load_configuration")
+            self.root.after(100, self.load_configuration)  # Load after 100ms
+        
+        logging.debug("Loading window state")
         self._load_window_state()
+        logging.debug("MainWindow.__init__ finished")
     
     def _setup_qt_window(self):
         """Set up Qt window properties."""
@@ -688,13 +715,24 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def load_configuration(self):
         """Load configuration from file."""
-        self.set_status_message("Loading configuration...")
-        result = self.config_controller.load_config(self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else self.app_state.mode)
-        
-        if result['success']:
-            dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
-        else:
-            dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
+        try:
+            print("DEBUG: MainWindow.load_configuration called")
+            self.set_status_message("Loading configuration...")
+            result = self.config_controller.load_config(self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else self.app_state.mode)
+            
+            if result['success']:
+                print("DEBUG: Configuration loaded successfully")
+                dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
+                self.set_status_message("Configuration loaded", timeout=3)
+            else:
+                print(f"DEBUG: Configuration load failed: {result['error']}")
+                dispatcher.emit_now(EventType.CONFIG_ERROR, {'error': result['error']}, source='MainWindow')
+                self.set_status_message(f"Error: {result['error']}", timeout=0)
+        except Exception as e:
+            print(f"DEBUG: Exception in load_configuration: {e}")
+            import traceback
+            traceback.print_exc()
+            self.set_status_message(f"Error loading configuration: {str(e)}", timeout=0)
     
     def save_configuration(self):
         """Save configuration to file."""
@@ -988,18 +1026,22 @@ Help:
             self.root.destroy()
 
 
-def main():
-    """Main entry point for GUI application."""
+def run_gui_in_main_thread():
+    """Run the GUI application in the main thread."""
     if USING_QT:
         app = QApplication(sys.argv)
         app.setApplicationName("MCP Config Manager")
-        window = MainWindow()
+        from src.mcp_config_manager.core.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        window = MainWindow(config_manager)
         window.show()
         sys.exit(app.exec())
     else:
-        window = MainWindow()
+        from src.mcp_config_manager.core.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        window = MainWindow(config_manager)
         window.run()
 
 
 if __name__ == "__main__":
-    main()
+    run_gui_in_main_thread()

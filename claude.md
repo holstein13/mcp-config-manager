@@ -20,8 +20,44 @@ MCP Config Manager is a cross-platform utility for managing Model Context Protoc
 
 ## Current Status (Updated 2025-01-09)
 
+### 🔴 CRITICAL BLOCKER: GUI Frozen on Launch
+**The GUI is currently non-functional - it freezes immediately on "Loading configuration..." and never completes.**
+
+### Current Session 5: GUI Freeze Investigation (2025-01-09)
+
+#### Problem Summary:
+- GUI window appears but is completely frozen with "Loading configuration..." in status bar
+- Debug print statements added to code never execute
+- Multiple background GUI processes accumulating (17+ instances)
+- Issue persists even with QTimer delay and extensive error handling
+
+#### Investigation Completed:
+1. **Added QTimer Delay**: Deferred config loading by 100ms to allow window to render first
+2. **Added Debug Logging**: Extensive print statements in:
+   - `ConfigController.load_config()`
+   - `ConfigController._get_server_list()`
+   - `MainWindow.load_configuration()`
+3. **Verified Backend Methods**: Confirmed `ServerManager.get_enabled_servers()` exists and is properly implemented
+4. **Added Error Handling**: Wrapped load_configuration in try-catch with traceback printing
+
+#### Critical Finding:
+**Debug prints never appear in output**, suggesting the freeze happens before Python code executes or the Qt event loop is blocked immediately.
+
+#### Suspected Root Causes:
+1. **Qt Event Loop Issue**: The GUI may be freezing during Qt initialization before Python code runs
+2. **Import/Module Loading**: Could be hanging during module imports or class initialization
+3. **File Lock/Permission**: Possible file system issue when accessing config files
+4. **Background Process Interference**: 17+ zombie GUI processes may be causing conflicts
+
+#### Next Steps for Resolution:
+1. **Kill ALL background processes**: `pkill -f python` and restart system if needed
+2. **Test with minimal example**: Create simple PyQt6 window without config loading
+3. **Add print at module level**: Print immediately when main_window.py is imported
+4. **Check file permissions**: Verify ~/.claude.json and ~/.gemini/settings.json are accessible
+5. **Try without config loading**: Comment out load_configuration entirely
+
 ### ✅ Phase 1 Complete: Core Functionality
-- Interactive CLI interface (fully functional)
+- Interactive CLI interface (fully functional - confirmed working with 9 servers)
 - Multi-client support (Claude + Gemini with syncing)
 - Server enable/disable with separate storage
 - Automatic configuration backups

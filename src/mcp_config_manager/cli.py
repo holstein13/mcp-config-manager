@@ -304,41 +304,9 @@ def interactive():
 @cli.command()
 def gui():
     """Launch the GUI interface"""
-    import sys
-    try:
-        from .gui import is_gui_available, get_framework
-        
-        if not is_gui_available():
-            click.echo("❌ No GUI framework available. Please install PyQt6:")
-            click.echo("   pip install PyQt6")
-            click.echo("\nAlternatively, use 'interactive' mode for CLI interface.")
-            return
-        
-        framework = get_framework()
-        click.echo(f"GUI Framework: {framework}")
-        click.echo(f"🚀 Launching GUI with {framework}...")
-        
-        from .gui.main_window import MainWindow
-        from .core.config_manager import ConfigManager
-        
-        # Initialize config manager
-        config_manager = ConfigManager()
-        
-        # Create and run GUI
-        if get_framework() == "pyqt6":
-            from PyQt6.QtWidgets import QApplication
-            qt_app = QApplication(sys.argv)
-            window = MainWindow(config_manager)
-            window.show()
-            sys.exit(qt_app.exec())
-        else:
-            # For tkinter
-            window = MainWindow(config_manager)
-            window.run()
-            
-    except ImportError as e:
-        click.echo(f"❌ Failed to import GUI module: {e}")
-        click.echo("Please ensure PyQt6 is installed: pip install PyQt6")
+    from .gui.main_window import run_gui_in_main_thread
+    run_gui_in_main_thread()
+
 
 
 @cli.command()
