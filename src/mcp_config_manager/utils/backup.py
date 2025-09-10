@@ -6,9 +6,10 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
+from .file_utils import get_disabled_servers_path, get_project_backups_dir
 
 
-def create_backup(config_path: Path, backup_suffix: str = None) -> Path:
+def create_backup(config_path: Path, backup_suffix: str = None, backup_dir: Path = None) -> Path:
     """Create a timestamped backup of a config file."""
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -17,33 +18,70 @@ def create_backup(config_path: Path, backup_suffix: str = None) -> Path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_suffix = f"backup.{timestamp}"
     
-    backup_path = config_path.parent / f"{config_path.name}.{backup_suffix}"
+    # Use provided backup directory or default to same directory as source
+    if backup_dir is None:
+        backup_dir = config_path.parent
+    
+    # Ensure backup directory exists
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    backup_path = backup_dir / f"{config_path.name}.{backup_suffix}"
     shutil.copy2(config_path, backup_path)
     return backup_path
 
 
 def backup_all_configs(claude_path: Path, gemini_path: Path) -> List[Tuple[str, Path]]:
-    """Create timestamped backups of all config files."""
+    """Create simple-named backups of all config files in the project backups directory."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backups_dir = get_project_backups_dir()
+    backups_dir.mkdir(parents=True, exist_ok=True)
     backups = []
     
-    # Backup Claude config
+    # Backup Claude config with simple naming
     if claude_path.exists():
-        claude_backup = create_backup(claude_path, f"backup.{timestamp}")
+        claude_backup = backups_dir / f"claude-backup-{timestamp}.json"
+        shutil.copy2(claude_path, claude_backup)
         backups.append(('Claude', claude_backup))
     
-    # Backup Gemini config
+    # Backup Gemini config with simple naming  
     if gemini_path.exists():
-        gemini_backup = create_backup(gemini_path, f"backup.{timestamp}")
+        gemini_backup = backups_dir / f"gemini-backup-{timestamp}.json"
+        shutil.copy2(gemini_path, gemini_backup)
         backups.append(('Gemini', gemini_backup))
+    
+    # Backup disabled servers file with simple naming
+    disabled_path = get_disabled_servers_path()
+    if disabled_path.exists():
+        disabled_backup = backups_dir / f"disabled-backup-{timestamp}.json"
+        shutil.copy2(disabled_path, disabled_backup)
+        backups.append(('Disabled Servers', disabled_backup))
     
     return backups
 
 
-def list_backups(config_path: Path) -> List[Path]:
-    """List all backup files for a given config."""
-    backup_pattern = f"{config_path.name}.backup.*"
-    return sorted(config_path.parent.glob(backup_pattern), reverse=True)
+def list_backups(config_type: str = 'all') -> List[Path]:
+    """List backup files of specified type from the backups directory.
+    
+    Args:
+        config_type: 'claude', 'gemini', 'disabled', or 'all'
+    """
+    backups_dir = get_project_backups_dir()
+    if not backups_dir.exists():
+        return []
+    
+    if config_type == 'claude':
+        pattern = "claude-backup-*.json"
+    elif config_type == 'gemini':
+        pattern = "gemini-backup-*.json"
+    elif config_type == 'disabled':
+        pattern = "disabled-backup-*.json"
+    else:  # 'all'
+        claude_backups = sorted(backups_dir.glob("claude-backup-*.json"), reverse=True)
+        gemini_backups = sorted(backups_dir.glob("gemini-backup-*.json"), reverse=True)
+        disabled_backups = sorted(backups_dir.glob("disabled-backup-*.json"), reverse=True)
+        return claude_backups + gemini_backups + disabled_backups
+    
+    return sorted(backups_dir.glob(pattern), reverse=True)
 
 
 def restore_backup(backup_path: Path, target_path: Path) -> None:

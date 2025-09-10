@@ -290,10 +290,10 @@ class ServerController:
             
             # Add each server in the config
             for server_name, config in server_config.items():
-                result = self.config_manager.server_manager.add_server(
+                result = self.config_manager.add_server(
                     server_name,
                     config,
-                    config_mode
+                    config_mode.value
                 )
                 
                 if result.get('success'):
@@ -583,6 +583,52 @@ class ServerController:
         """
         self.on_server_removed_callbacks.append(callback)
     
+    def update_server(self, server_name: str, config: Dict[str, Any], mode: Optional[str] = None) -> Dict[str, Any]:
+        """Update a server's configuration.
+        
+        Args:
+            server_name: Name of the server to update
+            config: New configuration for the server
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - error: error message if failed
+        """
+        try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+            
+            # Determine mode
+            if not mode:
+                mode = 'both'
+            
+            # Update the server configuration
+            success = self.config_manager.server_manager.update_server_config(
+                claude_data, gemini_data, server_name, config, mode
+            )
+            
+            if success:
+                # Save the updated configs
+                self.config_manager.save_configs(claude_data, gemini_data, mode)
+                
+                return {'success': True}
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to update server configuration'
+                }
+                
+        except Exception as e:
+            error_msg = f"Failed to update server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
+    
     def on_servers_bulk(self, callback: Callable[[Dict[str, Any]], None]):
         """Register callback for bulk operation event.
         
@@ -590,3 +636,73 @@ class ServerController:
             callback: Function to call when bulk operation is performed
         """
         self.on_servers_bulk_callbacks.append(callback)
+    
+    def delete_server(self, server_name: str, mode: Optional[str] = None, from_disabled: Optional[bool] = None) -> Dict[str, Any]:
+        """Permanently delete a server from configurations.
+        
+        Args:
+            server_name: Name of the server to delete
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            from_disabled: If provided, explicitly states whether to delete from disabled list.
+                          If None, will auto-detect based on server status.
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - error: error message if failed
+        """
+        try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+            
+            # Determine mode
+            if not mode:
+                mode = 'both'
+            
+            # If from_disabled is not explicitly provided, auto-detect
+            if from_disabled is None:
+                # Check if server is currently disabled
+                from_disabled = False
+                enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                    claude_data, gemini_data, mode
+                )
+                is_enabled = any(s['name'] == server_name for s in enabled_servers)
+                
+                # If not in enabled servers, check if it's in disabled storage
+                if not is_enabled:
+                    disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                    if server_name in disabled_servers:
+                        from_disabled = True
+            
+            # Delete the server with appropriate flag
+            success = self.config_manager.server_manager.delete_server(
+                claude_data, gemini_data, server_name, mode, from_disabled
+            )
+            
+            if success:
+                # Only save configs if we deleted from active configs
+                if not from_disabled:
+                    self.config_manager.save_configs(claude_data, gemini_data, mode)
+                
+                # Notify callbacks
+                for callback in self.on_server_removed_callbacks:
+                    callback({
+                        'server': server_name,
+                        'mode': mode
+                    })
+                
+                return {'success': True}
+            else:
+                return {
+                    'success': False,
+                    'error': f"Server '{server_name}' not found"
+                }
+                
+        except Exception as e:
+            error_msg = f"Failed to delete server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }

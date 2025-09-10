@@ -36,6 +36,20 @@ class ServerManager:
                       server_name: str, mode: str = 'both') -> bool:
         """Move a server from active to disabled storage"""
         disabled = self.load_disabled_servers()
+        
+        # Check if already disabled to prevent duplicates
+        if server_name in disabled:
+            # Server is already disabled, just remove from active configs
+            if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
+                if server_name in claude_data['mcpServers']:
+                    del claude_data['mcpServers'][server_name]
+            
+            if mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
+                if server_name in gemini_data['mcpServers']:
+                    del gemini_data['mcpServers'][server_name]
+            
+            return True
+        
         server_config = None
         
         # Get server config from appropriate source
@@ -65,6 +79,22 @@ class ServerManager:
         if server_name in disabled:
             server_config = disabled[server_name]
             
+            # Check if already exists in active configs to prevent duplicates
+            already_enabled = False
+            if mode in ['claude', 'both']:
+                if 'mcpServers' in claude_data and server_name in claude_data['mcpServers']:
+                    already_enabled = True
+            
+            if mode in ['gemini', 'both']:
+                if 'mcpServers' in gemini_data and server_name in gemini_data['mcpServers']:
+                    already_enabled = True
+            
+            if already_enabled:
+                # Server already exists in active config, just remove from disabled
+                del disabled[server_name]
+                self.save_disabled_servers(disabled)
+                return True
+            
             # Add to appropriate configs based on mode
             if mode in ['claude', 'both']:
                 if 'mcpServers' not in claude_data:
@@ -76,6 +106,7 @@ class ServerManager:
                     gemini_data['mcpServers'] = {}
                 gemini_data['mcpServers'][server_name] = server_config.copy()
             
+            # IMPORTANT: Remove from disabled_servers.json to prevent duplication
             del disabled[server_name]
             self.save_disabled_servers(disabled)
             return True
@@ -181,6 +212,7 @@ class ServerManager:
         """Add a server with a specific name"""
         return self._add_server_to_configs(claude_data, gemini_data, server_name, server_config, mode)
     
+    
     def _add_server_to_configs(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
                               server_name: str, server_config: Dict[str, Any], 
                               mode: str = 'both') -> bool:
@@ -196,3 +228,75 @@ class ServerManager:
             gemini_data['mcpServers'][server_name] = server_config
         
         return True
+    
+    def update_server_config(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
+                            server_name: str, new_config: Dict[str, Any], 
+                            mode: str = 'both') -> bool:
+        """Update an existing server's configuration"""
+        updated = False
+        
+        # Check if server exists in enabled servers
+        if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
+            if server_name in claude_data['mcpServers']:
+                claude_data['mcpServers'][server_name] = new_config
+                updated = True
+        
+        if mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
+            if server_name in gemini_data['mcpServers']:
+                gemini_data['mcpServers'][server_name] = new_config
+                updated = True
+        
+        # Also check disabled servers
+        if not updated:
+            disabled = self.load_disabled_servers()
+            if server_name in disabled:
+                disabled[server_name] = new_config
+                self.save_disabled_servers(disabled)
+                updated = True
+        
+        return updated
+    
+    def delete_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
+                     server_name: str, mode: str = 'both', from_disabled: bool = False) -> bool:
+        """Permanently delete a server from configurations and/or storage.
+        
+        Args:
+            claude_data: Claude configuration dictionary
+            gemini_data: Gemini configuration dictionary
+            server_name: Name of the server to delete
+            mode: Which configs to delete from ('claude', 'gemini', or 'both')
+            from_disabled: If True, only delete from disabled storage.
+                          If False, delete from active configs and disabled storage.
+            
+        Returns:
+            True if server was found and deleted, False otherwise
+        """
+        deleted = False
+        
+        if from_disabled:
+            # Only remove from disabled storage
+            disabled = self.load_disabled_servers()
+            if server_name in disabled:
+                del disabled[server_name]
+                self.save_disabled_servers(disabled)
+                deleted = True
+        else:
+            # Remove from active configs
+            if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
+                if server_name in claude_data['mcpServers']:
+                    del claude_data['mcpServers'][server_name]
+                    deleted = True
+            
+            if mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
+                if server_name in gemini_data['mcpServers']:
+                    del gemini_data['mcpServers'][server_name]
+                    deleted = True
+            
+            # Also check and remove from disabled storage to prevent duplication
+            disabled = self.load_disabled_servers()
+            if server_name in disabled:
+                del disabled[server_name]
+                self.save_disabled_servers(disabled)
+                deleted = True
+        
+        return deleted

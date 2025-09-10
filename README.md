@@ -19,6 +19,12 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
+- **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
+- **🔧 Field Editor System** - Dynamic field editing with real-time validation
+- **🗑️ Bulk Server Deletion** - Delete multiple servers with confirmation dialog
+- **➕ Enhanced Server Addition** - Add servers with improved JSON validation and cleanup
+- **💾 Advanced Backup System** - Organized backups in dedicated directory with GUI integration
+- **🔄 Server Restore** - Restore servers from backup files including disabled servers
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages both `.claude.json` and `.gemini/settings.json` files
 - **Server Enable/Disable** - Toggle servers on/off without losing configurations
@@ -32,10 +38,11 @@ The graphical interface is complete and working with all major features operatio
 - **Command Line Interface** - Full CLI with individual commands
 - **Configuration Validation** - Validate config file structure
 - **Visual Status Indicators** - Clear enabled/disabled status with colors
-- **Keyboard Shortcuts** - Professional keyboard navigation (Cmd+S to save, etc.)
+- **Keyboard Shortcuts** - Professional keyboard navigation (Ctrl+S to save, Esc to cancel)
+- **Visual Polish** - Blue selection highlights, orange unsaved indicators, red validation errors
 
 ### 🚧 Next Features (Planning Phase)
-- **Server Detail View** - Edit server configurations directly in the GUI (in planning)
+- **Tkinter Support** - Alternative GUI backend for systems without Qt
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore entire configurations
 - **Auto-Discovery** - Automatically find and suggest MCP servers
@@ -68,12 +75,31 @@ mcp-config-manager gui
 
 The GUI provides:
 - 🖥️ Visual server list with checkboxes
-- ☑ Master checkbox for bulk operations
+- ☑ Master checkbox for bulk operations (☐/☑/⊟ states)
+- 📝 **Server Detail Editor** - Click any server to edit its configuration
+- 🔧 **Dynamic Field Editors** - Smart editors for each field type:
+  - Text fields for strings and commands
+  - Number fields with validation
+  - Boolean toggles for true/false values
+  - Array editors for list management
+  - Object editors for nested configurations
+- ✅ **Real-time Validation** - Immediate feedback on configuration errors
+- 🎨 **Visual Feedback**:
+  - Blue highlights for selected servers
+  - Orange indicators for unsaved changes
+  - Red borders for validation errors
+  - Empty state guidance when no server selected
+- 💾 **Backup & Restore**:
+  - Backup button creates timestamped backups
+  - Restore button lists and restores previous backups
+  - Automatic backups before any changes
 - 🔄 Mode switching between Claude/Gemini/Both
 - 💾 Save button with visual feedback
-- ➕ Add new servers via JSON
+- ➕ Add new servers via JSON with enhanced validation
+- 🗑️ Bulk delete servers with confirmation
+- 💾 Quick backup and restore with GUI feedback
 - 📁 Preset management dialog
-- ⌨️ Full keyboard shortcuts (Cmd+S to save, etc.)
+- ⌨️ Full keyboard shortcuts (Ctrl+S to save, Esc to cancel)
 
 ### Interactive CLI Mode
 Launch the command-line interactive interface:
@@ -102,6 +128,14 @@ mcp-config-manager disable server-name
 # Bulk operations
 mcp-config-manager enable-all
 mcp-config-manager disable-all
+
+# Backup and restore
+mcp-config-manager backup           # Create timestamped backup
+mcp-config-manager restore backup-file.json   # Restore from backup
+
+# Server management
+mcp-config-manager add-server server-name config.json  # Add server from file
+mcp-config-manager delete-server server-name           # Delete server permanently
 
 # Apply preset modes
 mcp-config-manager preset minimal    # Only context7 + browsermcp
@@ -175,9 +209,97 @@ src/mcp_config_manager/
 │   ├── backup.py           # Backup functionality
 │   ├── sync.py             # Config synchronization
 │   └── file_utils.py       # File path utilities
-├── gui/                    # Future GUI components
-└── cli.py                  # Command line interface
+├── gui/                    # GUI components
+│   ├── main_window.py      # Main application window
+│   ├── controllers/        # GUI-library bridge
+│   │   └── server_controller.py
+│   ├── widgets/           # UI components
+│   │   ├── server_list.py
+│   │   ├── server_details_panel.py
+│   │   └── field_editors/  # Dynamic field editors
+│   │       ├── base.py
+│   │       ├── text.py
+│   │       ├── number.py
+│   │       ├── boolean.py
+│   │       ├── array.py
+│   │       └── object.py
+│   └── dialogs/           # Modal dialogs
+└── cli.py                 # Command line interface
 ```
+
+### Field Editor System
+
+The field editor system provides dynamic, type-specific editors for server configuration fields:
+
+#### Architecture
+- **Base Editor** (`field_editors/base.py`): Abstract base class defining the interface
+- **Type-Specific Editors**: Specialized editors for each data type
+- **Factory Pattern**: `FieldEditorFactory` creates appropriate editor based on field type
+- **Validation**: Real-time validation with visual feedback
+
+#### Supported Field Types
+1. **Text Editor** - Single/multi-line text fields for strings and commands
+2. **Number Editor** - Integer/float fields with min/max validation
+3. **Boolean Editor** - Checkbox for true/false values
+4. **Array Editor** - List management with add/remove/reorder capabilities
+5. **Object Editor** - Nested object editing with key-value pairs
+
+#### Visual Feedback
+- **Orange Border** - Field has been modified (unsaved changes)
+- **Red Border** - Validation error with 2px width
+- **Light Red Background** - Additional error indication (#FFF5F5)
+- **Tooltip** - Error message on hover for invalid fields
+
+#### Usage Example
+```python
+# The ServerDetailsPanel automatically creates appropriate editors
+field_editor = FieldEditorFactory.create_editor(
+    field_name="command",
+    field_value="npx @modelcontextprotocol/server-sqlite",
+    field_type="string",
+    parent=self
+)
+
+# Connect signals for change tracking
+field_editor.value_changed.connect(self.on_field_changed)
+field_editor.validation_error.connect(self.on_validation_error)
+```
+
+### Core API Functions
+
+The following new functions have been added across recent commits:
+
+#### ConfigManager (core/config_manager.py)
+- **`create_backup()`** - Create timestamped backups and return GUI-compatible results
+- **`add_server()`** - Add a server with the interface expected by ServerController
+- **Enhanced error handling** - Improved error reporting for GUI integration
+
+#### ServerManager (core/server_manager.py)  
+- **`add_server_with_name()`** - Add server with explicit name and configuration
+- **`delete_server()`** - Permanently delete servers from configurations and storage
+- **`update_server_config()`** - Update existing server configurations
+- **Enhanced mode support** - Better handling of 'claude', 'gemini', 'both' modes
+
+#### Backup System (utils/backup.py)
+- **`backup_all_configs()`** - Create organized backups in dedicated directory
+- **`list_backups()`** - List available backup files by type
+- **`restore_backup()`** - Restore configurations from backup files
+- **Organized storage** - Backups now stored in dedicated `backups/` directory
+
+#### GUI Controllers (gui/controllers/server_controller.py)
+- **`add_server()`** - GUI integration for server addition
+- **`delete_servers()`** - Bulk deletion with confirmation dialog
+- **Enhanced event handling** - Better signal/slot management for GUI updates
+
+#### New Dialog Components
+- **`DeleteServersDialog`** - Bulk deletion with safety confirmations
+- **Enhanced `AddServerDialog`** - JSON validation and cleanup features
+- **`BackupRestoreDialog`** - GUI for backup and restore operations
+
+#### JSON Processing Enhancements
+- **JSON cleanup** - Remove comments and fix malformed JSON in AddServerDialog
+- **Enhanced validation** - Better error reporting for invalid JSON configurations
+- **Batch processing** - Support for adding multiple servers from single JSON input
 
 ### Development Setup
 
@@ -205,7 +327,11 @@ mcp-config-manager interactive
 - **Gemini config:** `~/.gemini/settings.json`
 - **Presets:** `~/.mcp_presets.json`
 - **Disabled servers:** `./disabled_servers.json` (in project directory)
-- **Backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
+- **Organized backups:** `./backups/` directory with timestamped files:
+  - `./backups/claude-backup-YYYYMMDD_HHMMSS.json`
+  - `./backups/gemini-backup-YYYYMMDD_HHMMSS.json`
+  - `./backups/disabled-backup-YYYYMMDD_HHMMSS.json`
+- **Legacy backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
 
 ## 🗺️ Roadmap
 
@@ -240,12 +366,14 @@ Current focus:
 - ⏳ Performance optimization for large server lists
 - ⏳ PyInstaller packaging
 
-### 📋 Phase 4: Advanced Features - PLANNED
+### 📋 Phase 4: Advanced Features - IN PROGRESS
 
-Next major features:
-- **Server Detail View** - Click server name to edit configuration in side panel
-- **Field Editors** - Visual editors for each configuration field type
-- **Real-time Validation** - Immediate feedback on configuration changes
+Completed:
+- ✅ **Server Detail View** - Click server name to edit configuration in side panel
+- ✅ **Field Editors** - Visual editors for each configuration field type
+- ✅ **Real-time Validation** - Immediate feedback on configuration changes
+
+Next features:
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore configurations
 - **Server Discovery** - Auto-detect available MCP servers

@@ -64,6 +64,28 @@ class ConfigManager:
         """Create timestamped backups of all config files"""
         return backup_all_configs(self.claude_path, self.gemini_path)
     
+    def create_backup(self) -> Dict[str, Any]:
+        """Create timestamped backups of all config files and return GUI-compatible result"""
+        try:
+            backups = backup_all_configs(self.claude_path, self.gemini_path)
+            if backups:
+                # Return the first backup file path for compatibility
+                return {
+                    'success': True,
+                    'backup_file': str(backups[0][1]),  # First backup file path as string
+                    'all_backups': [(name, str(path)) for name, path in backups]
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'No backup files were created'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to create backup: {str(e)}'
+            }
+    
     def sync_configurations(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Synchronize servers between Claude and Gemini configs"""
         return sync_server_configs(claude_data, gemini_data)
@@ -201,3 +223,39 @@ class ConfigManager:
             servers.update(gemini_data.get('mcpServers', {}))
         
         self.preset_manager.save_preset(preset_name, description, servers)
+    
+    def add_server(self, server_name: str, server_config: Dict[str, Any], 
+                   mode: str = 'both') -> Dict[str, Any]:
+        """Add a server - interface expected by ServerController
+        
+        Args:
+            server_name: Name of the server to add
+            server_config: Server configuration dictionary
+            mode: Which configs to add to ('claude', 'gemini', or 'both')
+            
+        Returns:
+            Dictionary with 'success' and 'error' keys
+        """
+        try:
+            claude_data, gemini_data = self.load_configs()
+            success = self.server_manager.add_server_with_name(
+                claude_data, gemini_data, server_name, server_config, mode)
+            
+            if success:
+                self.save_configs(claude_data, gemini_data, mode)
+                return {
+                    'success': True,
+                    'server_name': server_name,
+                    'message': f"Added server: {server_name}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"Failed to add server: {server_name}"
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f"Error adding server: {str(e)}"
+            }
