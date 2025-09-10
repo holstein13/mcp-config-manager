@@ -637,12 +637,14 @@ class ServerController:
         """
         self.on_servers_bulk_callbacks.append(callback)
     
-    def delete_server(self, server_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
+    def delete_server(self, server_name: str, mode: Optional[str] = None, from_disabled: Optional[bool] = None) -> Dict[str, Any]:
         """Permanently delete a server from configurations.
         
         Args:
             server_name: Name of the server to delete
             mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            from_disabled: If provided, explicitly states whether to delete from disabled list.
+                          If None, will auto-detect based on server status.
             
         Returns:
             Dictionary with:
@@ -657,18 +659,20 @@ class ServerController:
             if not mode:
                 mode = 'both'
             
-            # Check if server is currently disabled
-            from_disabled = False
-            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, mode
-            )
-            is_enabled = any(s['name'] == server_name for s in enabled_servers)
-            
-            # If not in enabled servers, check if it's in disabled storage
-            if not is_enabled:
-                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-                if server_name in disabled_servers:
-                    from_disabled = True
+            # If from_disabled is not explicitly provided, auto-detect
+            if from_disabled is None:
+                # Check if server is currently disabled
+                from_disabled = False
+                enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                    claude_data, gemini_data, mode
+                )
+                is_enabled = any(s['name'] == server_name for s in enabled_servers)
+                
+                # If not in enabled servers, check if it's in disabled storage
+                if not is_enabled:
+                    disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                    if server_name in disabled_servers:
+                        from_disabled = True
             
             # Delete the server with appropriate flag
             success = self.config_manager.server_manager.delete_server(

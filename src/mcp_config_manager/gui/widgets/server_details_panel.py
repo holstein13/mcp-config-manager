@@ -54,7 +54,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
     
     # Qt signals
     server_updated = pyqtSignal(str, dict) if USING_QT else None
-    server_deleted = pyqtSignal(str) if USING_QT else None
+    server_deleted = pyqtSignal(str, bool) if USING_QT else None  # Added bool for is_disabled
     changes_pending = pyqtSignal(bool) if USING_QT else None
     
     # Required MCP fields that are always shown
@@ -97,6 +97,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self._init_tk_ui()
         
         self.current_server = None
+        self.current_server_disabled = False  # Track if current server is disabled
         self.original_data = None
         self.field_editors = {}
         self.has_changes = False
@@ -310,14 +311,16 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                                      command=self._on_cancel, state='disabled')
         self.cancel_btn.pack(side=tk.RIGHT)
     
-    def load_server(self, server_name: str, server_config: Dict[str, Any]):
+    def load_server(self, server_name: str, server_config: Dict[str, Any], is_disabled: bool = False):
         """Load a server configuration into the form.
         
         Args:
             server_name: Name of the server
             server_config: Server configuration dictionary
+            is_disabled: Whether the server is currently disabled
         """
         self.current_server = server_name
+        self.current_server_disabled = is_disabled  # Store disabled state
         self.original_data = json.loads(json.dumps(server_config))  # Deep copy
         self.has_changes = False
         self.validation_errors.clear()
@@ -578,17 +581,17 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                # Emit server deleted signal
-                self.server_deleted.emit(self.current_server)
+                # Emit server deleted signal with disabled status
+                self.server_deleted.emit(self.current_server, self.current_server_disabled)
                 # Clear the panel
                 self.clear()
         elif HAS_TKINTER:
             import tkinter.messagebox as messagebox
             if messagebox.askyesno("Delete Server", 
                                   f"Are you sure you want to delete '{self.current_server}'?\n\nThis action cannot be undone."):
-                # Call callbacks for server deletion
+                # Call callbacks for server deletion with disabled status
                 for callback in self.server_deleted_callbacks:
-                    callback(self.current_server)
+                    callback(self.current_server, self.current_server_disabled)
                 # Clear the panel
                 self.clear()
     
@@ -641,6 +644,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
     def clear(self):
         """Clear the panel and show empty state."""
         self.current_server = None
+        self.current_server_disabled = False
         self.original_data = None
         self.has_changes = False
         self.validation_errors.clear()

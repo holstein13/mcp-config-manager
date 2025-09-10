@@ -62,6 +62,7 @@ from .dialogs.add_server_dialog import AddServerDialog
 from .dialogs.preset_manager_dialog import PresetManagerDialog
 from .dialogs.settings_dialog import SettingsDialog
 from .dialogs.backup_restore_dialog import BackupRestoreDialog
+from .dialogs.delete_servers_dialog import DeleteServersDialog
 
 
 class MainWindow(QMainWindow if USING_QT else object):
@@ -422,6 +423,13 @@ class MainWindow(QMainWindow if USING_QT else object):
         add_btn.setToolTip("Add a new server configuration")
         self.toolbar.addWidget(add_btn)
         
+        # Delete Server button
+        delete_btn = QPushButton("🗑️ Delete Server")
+        delete_btn.clicked.connect(self.delete_servers)
+        delete_btn.setStyleSheet(button_style)
+        delete_btn.setToolTip("Delete multiple server configurations")
+        self.toolbar.addWidget(delete_btn)
+        
         self.toolbar.addSeparator()
         
         # Tertiary action - Validate
@@ -464,8 +472,9 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
         
-        # Secondary action
+        # Secondary actions
         ttk.Button(toolbar, text="Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
         
@@ -749,8 +758,11 @@ class MainWindow(QMainWindow if USING_QT else object):
             if hasattr(self, 'server_list') and self.server_list:
                 server_item = self.server_list.servers.get(server_name)
                 if server_item:
+                    # Check if server is disabled (using string comparison for safety)
+                    from mcp_config_manager.gui.models.server_list_item import ServerStatus
+                    is_disabled = server_item.status == ServerStatus.DISABLED
                     # Load the server configuration into the details panel
-                    self.server_details_panel.load_server(server_name, server_item.config)
+                    self.server_details_panel.load_server(server_name, server_item.config, is_disabled)
     
     def _on_server_updated(self, server_name: str, config: dict):
         """Handle server update from details panel."""
@@ -770,11 +782,16 @@ class MainWindow(QMainWindow if USING_QT else object):
         else:
             self.set_status_message(f"Failed to update server: {result.get('error', 'Unknown error')}", timeout=5)
     
-    def _on_server_deleted(self, server_name: str):
-        """Handle server deletion from details panel."""
+    def _on_server_deleted(self, server_name: str, is_disabled: bool = False):
+        """Handle server deletion from details panel.
+        
+        Args:
+            server_name: Name of the server to delete
+            is_disabled: Whether the server is from the disabled list
+        """
         # Call the server controller to delete the server
         mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.delete_server(server_name, mode_value)
+        result = self.server_controller.delete_server(server_name, mode_value, from_disabled=is_disabled)
         
         if result['success']:
             # Refresh the server list to remove the deleted server
@@ -982,6 +999,75 @@ class MainWindow(QMainWindow if USING_QT else object):
                 dispatcher.emit_now(EventType.APP_ERROR,
                                    {'error': result['error']},
                                    source='MainWindow')
+    
+    def delete_servers(self):
+        """Show delete servers dialog for bulk deletion."""
+        # Get current servers
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.server_controller.get_servers(mode_value)
+        
+        if not result['success']:
+            self.set_status_message(f"Failed to get servers: {result.get('error', 'Unknown error')}", timeout=5)
+            return
+        
+        servers_list = result['data']['servers']
+        if not servers_list:
+            if USING_QT:
+                QMessageBox.information(self, "No Servers", "There are no servers to delete.")
+            else:
+                messagebox.showinfo("No Servers", "There are no servers to delete.")
+            return
+        
+        # Convert list of ServerListItem objects to dict with server names as keys
+        servers = {}
+        for server_item in servers_list:
+            # ServerListItem has name and config attributes
+            servers[server_item.name] = {
+                'config': server_item.config,
+                'status': server_item.status
+            }
+        
+        # Show delete dialog
+        dialog = DeleteServersDialog(self if USING_QT else self.root, servers)
+        if dialog.exec() if USING_QT else dialog.show():
+            selected_servers = dialog.get_selected_servers()
+            
+            if selected_servers:
+                # Delete each selected server
+                deleted_count = 0
+                failed_servers = []
+                
+                for server_name in selected_servers:
+                    delete_result = self.server_controller.delete_server(server_name, mode_value)
+                    if delete_result['success']:
+                        deleted_count += 1
+                    else:
+                        failed_servers.append((server_name, delete_result.get('error', 'Unknown error')))
+                
+                # Refresh the server list
+                self.refresh_server_list()
+                
+                # Mark configuration as changed
+                if deleted_count > 0:
+                    self.set_unsaved_changes(True)
+                
+                # Show results
+                if deleted_count > 0 and not failed_servers:
+                    self.set_status_message(f"Successfully deleted {deleted_count} server(s)", timeout=5)
+                elif deleted_count > 0 and failed_servers:
+                    error_msg = f"Deleted {deleted_count} server(s), but {len(failed_servers)} failed:\n"
+                    error_msg += "\n".join(f"• {name}: {error}" for name, error in failed_servers)
+                    if USING_QT:
+                        QMessageBox.warning(self, "Partial Deletion", error_msg)
+                    else:
+                        messagebox.showwarning("Partial Deletion", error_msg)
+                elif failed_servers:
+                    error_msg = "Failed to delete servers:\n"
+                    error_msg += "\n".join(f"• {name}: {error}" for name, error in failed_servers)
+                    if USING_QT:
+                        QMessageBox.critical(self, "Deletion Failed", error_msg)
+                    else:
+                        messagebox.showerror("Deletion Failed", error_msg)
     
     def enable_all_servers(self):
         """Enable all servers."""
