@@ -71,14 +71,5 @@
     ],
     "env": {},
     "enabled": true
-  },
-  "playwright": {
-    "type": "stdio",
-    "command": "npx",
-    "args": [
-      "@playwright/mcp@latest"
-    ],
-    "env": {},
-    "enabled": true
   }
 }

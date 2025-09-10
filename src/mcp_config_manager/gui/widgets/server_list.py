@@ -66,6 +66,21 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         
+        # Apply custom stylesheet for blue selection highlight
+        self.tree.setStyleSheet("""
+            QTreeWidget::item:selected {
+                background-color: #0078D4;
+                color: white;
+            }
+            QTreeWidget::item:selected:!active {
+                background-color: #0078D4;
+                color: white;
+            }
+            QTreeWidget::item:hover {
+                background-color: #E3F2FD;
+            }
+        """)
+        
         # Add master checkbox to header
         self._setup_master_checkbox()
         
@@ -328,13 +343,16 @@ class ServerListWidget(QWidget if USING_QT else object):
         if not USING_QT:
             return
         
-        server_name = item.data(0, Qt.ItemDataRole.UserRole)
-        if server_name:
-            self.selected_server = server_name
-            self.server_selected.emit(server_name)
-            
-            for callback in self._selection_callbacks:
-                callback(server_name)
+        # Only emit server_selected for non-checkbox columns
+        # Column 0 is the checkbox column, handled by itemChanged signal
+        if column != 0:
+            server_name = item.data(0, Qt.ItemDataRole.UserRole)
+            if server_name:
+                self.selected_server = server_name
+                self.server_selected.emit(server_name)
+                
+                for callback in self._selection_callbacks:
+                    callback(server_name)
     
     
     def _on_selection_changed(self, event=None):

@@ -28,6 +28,12 @@ def get_disabled_servers_path() -> Path:
     return script_dir / 'disabled_servers.json'
 
 
+def get_project_backups_dir() -> Path:
+    """Get the project backups directory path."""
+    script_dir = Path(__file__).parent.parent.parent.parent
+    return script_dir / 'backups'
+
+
 def ensure_gemini_config_exists() -> None:
     """Ensure Gemini config directory and file exist."""
     gemini_path = get_gemini_config_path()
@@ -56,3 +62,7 @@ def ensure_config_directories() -> None:
     # Ensure disabled servers directory exists
     disabled_path = get_disabled_servers_path()
     disabled_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Ensure backups directory exists
+    backups_dir = get_project_backups_dir()
+    backups_dir.mkdir(parents=True, exist_ok=True)
