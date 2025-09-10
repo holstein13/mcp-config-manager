@@ -1,12 +1,21 @@
 {
-  "XcodeBuildMCP": {
+  "browsermcp": {
     "type": "stdio",
     "command": "npx",
     "args": [
-      "-y",
-      "xcodebuildmcp@latest"
+      "@browsermcp/mcp@latest"
     ],
-    "enabled": false
+    "env": {},
+    "enabled": true
+  },
+  "clerk": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@clerk/agent-toolkit",
+      "-p=local-mcp"
+    ],
+    "enabled": true
   },
   "memory": {
     "command": "npx",
@@ -15,5 +24,61 @@
       "@modelcontextprotocol/server-memory"
     ],
     "enabled": true
+  },
+  "playwright": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@playwright/mcp@latest"
+    ],
+    "enabled": true
+  },
+  "railway": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@railway/mcp-server"
+    ],
+    "enabled": true
+  },
+  "screenshot": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@kazuph/mcp-screenshot"
+    ],
+    "enabled": true
+  },
+  "sentry": {
+    "command": "uvx",
+    "args": [
+      "mcp-server-sentry",
+      "--auth-token",
+      "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"
+    ],
+    "enabled": true
+  },
+  "supabase": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@supabase/mcp-server-supabase@latest",
+      "--project-ref=ubodishzdgjbyqabrsgn"
+    ],
+    "env": {
+      "SUPABASE_ACCESS_TOKEN": "sbp_b07fbf4713f94e0570af9f452fdde920fbb147bc"
+    },
+    "enabled": true
+  },
+  "XcodeBuildMCP": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "xcodebuildmcp@latest"
+    ],
+    "enabled": false
   }
 }
