@@ -290,10 +290,10 @@ class ServerController:
             
             # Add each server in the config
             for server_name, config in server_config.items():
-                result = self.config_manager.server_manager.add_server(
+                result = self.config_manager.add_server(
                     server_name,
                     config,
-                    config_mode
+                    config_mode.value
                 )
                 
                 if result.get('success'):

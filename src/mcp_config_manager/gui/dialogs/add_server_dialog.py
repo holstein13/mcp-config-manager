@@ -1,6 +1,7 @@
 """Dialog for adding new servers via JSON paste."""
 
 import json
+import re
 from typing import Dict, Any, Optional, Callable
 
 try:
@@ -88,7 +89,7 @@ class AddServerDialog:
         
         # Validate button
         validate_btn = QPushButton("Validate JSON")
-        validate_btn.clicked.connect(self._validate_json_qt)
+        validate_btn.clicked.connect(lambda: self._validate_json_qt(cleanup_on_validate=True))
         button_box.addButton(validate_btn, QDialogButtonBox.ButtonRole.ActionRole)
         
         layout.addWidget(button_box)
@@ -164,7 +165,7 @@ class AddServerDialog:
         validate_btn = ttk.Button(
             button_frame,
             text="Validate JSON",
-            command=self._validate_json_tk
+            command=lambda: self._validate_json_tk(cleanup_on_validate=True)
         )
         validate_btn.pack(side=tk.LEFT, padx=(0, 5))
         
@@ -185,14 +186,100 @@ class AddServerDialog:
         # Bind text change for live validation
         self.json_input.bind("<KeyRelease>", self._on_tk_text_changed)
     
-    def _validate_json_qt(self) -> bool:
-        """Validate JSON input for Qt version."""
+    def _cleanup_json_input(self, json_text: str) -> str:
+        """Clean up and format messy JSON input.
+        
+        Args:
+            json_text: Raw JSON input that might be malformed
+            
+        Returns:
+            Cleaned up JSON string
+        """
+        if not json_text.strip():
+            return json_text
+            
+        # Remove escape characters like \\ at the end
+        json_text = re.sub(r'\\+$', '', json_text.strip())
+        
+        # Remove extra escape characters in the middle
+        json_text = re.sub(r'\\\\', '', json_text)
+        
+        # Remove extra braces or brackets at the end that might be malformed
+        json_text = re.sub(r'[}\]]+\\*$', '', json_text)
+        
+        # Try to parse the JSON as-is first
+        try:
+            # If it's valid JSON, just reformat it nicely
+            parsed = json.loads(json_text)
+            return json.dumps(parsed, indent=2, ensure_ascii=False)
+        except json.JSONDecodeError:
+            pass
+        
+        # If it's not wrapped in outer braces, try to detect if it's a server config
+        # and wrap it appropriately
+        cleaned_text = json_text.strip()
+        if not cleaned_text.startswith('{') or not cleaned_text.endswith('}'):
+            # Look for server name pattern at the start (e.g., "playwright": {)
+            server_pattern = r'^"([^"]+)":\s*\{'
+            match = re.match(server_pattern, cleaned_text)
+            
+            if match:
+                # It looks like a server config, wrap it in outer braces
+                # Make sure the closing brace matches the opening structure
+                json_text = '{\n' + cleaned_text + '\n}'
+            else:
+                # Try to add outer braces anyway and see if it parses
+                json_text = '{\n' + cleaned_text + '\n}'
+        
+        # Try to parse again after cleanup
+        try:
+            parsed = json.loads(json_text)
+            return json.dumps(parsed, indent=2, ensure_ascii=False)
+        except json.JSONDecodeError:
+            # If still failing, try some more aggressive cleanup
+            # Remove trailing commas
+            json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
+            
+            # Fix common bracket/brace issues
+            json_text = re.sub(r'}\s*{', '},{', json_text)
+            json_text = re.sub(r']\s*\[', '],[', json_text)
+            
+            # Try to fix missing closing braces by counting
+            open_braces = json_text.count('{')
+            close_braces = json_text.count('}')
+            if open_braces > close_braces:
+                json_text += '}' * (open_braces - close_braces)
+            
+            # Try one more time
+            try:
+                parsed = json.loads(json_text)
+                return json.dumps(parsed, indent=2, ensure_ascii=False)
+            except json.JSONDecodeError:
+                # Return original if we can't fix it
+                return json_text
+    
+    def _validate_json_qt(self, cleanup_on_validate: bool = False) -> bool:
+        """Validate JSON input for Qt version.
+        
+        Args:
+            cleanup_on_validate: If True, attempt to cleanup the JSON first
+        """
         json_text = self.json_input.toPlainText().strip()
         
         if not json_text or json_text == self.json_input.placeholderText():
             self.status_label.setText("Please enter server configuration")
             self.status_label.setStyleSheet("color: orange;")
             return False
+        
+        # If cleanup is requested, try to clean up the JSON first
+        if cleanup_on_validate:
+            cleaned_json = self._cleanup_json_input(json_text)
+            if cleaned_json != json_text:
+                # Update the text field with cleaned JSON
+                self.json_input.setPlainText(cleaned_json)
+                json_text = cleaned_json
+                self.status_label.setText("JSON cleaned up and formatted")
+                self.status_label.setStyleSheet("color: blue;")
         
         try:
             config = json.loads(json_text)
@@ -225,18 +312,32 @@ class AddServerDialog:
             return True
             
         except json.JSONDecodeError as e:
-            self.status_label.setText(f"Invalid JSON: {str(e)}")
+            self.status_label.setText(f"Invalid JSON: {str(e)}. Click 'Validate JSON' button below to fix.")
             self.status_label.setStyleSheet("color: red;")
             return False
     
-    def _validate_json_tk(self) -> bool:
-        """Validate JSON input for tkinter version."""
+    def _validate_json_tk(self, cleanup_on_validate: bool = False) -> bool:
+        """Validate JSON input for tkinter version.
+        
+        Args:
+            cleanup_on_validate: If True, attempt to cleanup the JSON first
+        """
         json_text = self.json_input.get("1.0", "end").strip()
         
         # Check if it's placeholder text
         if not json_text or "placeholder" in self.json_input.tag_names("1.0"):
             self.status_label.config(text="Please enter server configuration", foreground="orange")
             return False
+        
+        # If cleanup is requested, try to clean up the JSON first
+        if cleanup_on_validate:
+            cleaned_json = self._cleanup_json_input(json_text)
+            if cleaned_json != json_text:
+                # Update the text field with cleaned JSON
+                self.json_input.delete("1.0", "end")
+                self.json_input.insert("1.0", cleaned_json)
+                json_text = cleaned_json
+                self.status_label.config(text="JSON cleaned up and formatted", foreground="blue")
         
         try:
             config = json.loads(json_text)
@@ -264,7 +365,7 @@ class AddServerDialog:
             return True
             
         except json.JSONDecodeError as e:
-            self.status_label.config(text=f"Invalid JSON: {str(e)}", foreground="red")
+            self.status_label.config(text=f"Invalid JSON: {str(e)}. Click 'Validate JSON' button below to fix.", foreground="red")
             return False
     
     def _on_qt_text_changed(self):

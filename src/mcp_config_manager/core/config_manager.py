@@ -223,3 +223,39 @@ class ConfigManager:
             servers.update(gemini_data.get('mcpServers', {}))
         
         self.preset_manager.save_preset(preset_name, description, servers)
+    
+    def add_server(self, server_name: str, server_config: Dict[str, Any], 
+                   mode: str = 'both') -> Dict[str, Any]:
+        """Add a server - interface expected by ServerController
+        
+        Args:
+            server_name: Name of the server to add
+            server_config: Server configuration dictionary
+            mode: Which configs to add to ('claude', 'gemini', or 'both')
+            
+        Returns:
+            Dictionary with 'success' and 'error' keys
+        """
+        try:
+            claude_data, gemini_data = self.load_configs()
+            success = self.server_manager.add_server_with_name(
+                claude_data, gemini_data, server_name, server_config, mode)
+            
+            if success:
+                self.save_configs(claude_data, gemini_data, mode)
+                return {
+                    'success': True,
+                    'server_name': server_name,
+                    'message': f"Added server: {server_name}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"Failed to add server: {server_name}"
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f"Error adding server: {str(e)}"
+            }

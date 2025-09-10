@@ -991,10 +991,12 @@ class MainWindow(QMainWindow if USING_QT else object):
             mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
             result = self.server_controller.add_server(server_json, mode_value)
             if result['success']:
-                server_name = result['data'].get('server')
-                dispatcher.emit_now(EventType.SERVER_ADDED,
-                                   {'server': server_name},
-                                   source='MainWindow')
+                server_names = result.get('server_names', [])
+                # For now, emit event for each server added
+                for server_name in server_names:
+                    dispatcher.emit_now(EventType.SERVER_ADDED,
+                                       {'server': server_name},
+                                       source='MainWindow')
             else:
                 dispatcher.emit_now(EventType.APP_ERROR,
                                    {'error': result['error']},
