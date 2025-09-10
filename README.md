@@ -21,6 +21,10 @@ The graphical interface is complete and working with all major features operatio
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
+- **🗑️ Bulk Server Deletion** - Delete multiple servers with confirmation dialog
+- **➕ Enhanced Server Addition** - Add servers with improved JSON validation and cleanup
+- **💾 Advanced Backup System** - Organized backups in dedicated directory with GUI integration
+- **🔄 Server Restore** - Restore servers from backup files including disabled servers
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages both `.claude.json` and `.gemini/settings.json` files
 - **Server Enable/Disable** - Toggle servers on/off without losing configurations
@@ -91,7 +95,9 @@ The GUI provides:
   - Automatic backups before any changes
 - 🔄 Mode switching between Claude/Gemini/Both
 - 💾 Save button with visual feedback
-- ➕ Add new servers via JSON
+- ➕ Add new servers via JSON with enhanced validation
+- 🗑️ Bulk delete servers with confirmation
+- 💾 Quick backup and restore with GUI feedback
 - 📁 Preset management dialog
 - ⌨️ Full keyboard shortcuts (Ctrl+S to save, Esc to cancel)
 
@@ -122,6 +128,14 @@ mcp-config-manager disable server-name
 # Bulk operations
 mcp-config-manager enable-all
 mcp-config-manager disable-all
+
+# Backup and restore
+mcp-config-manager backup           # Create timestamped backup
+mcp-config-manager restore backup-file.json   # Restore from backup
+
+# Server management
+mcp-config-manager add-server server-name config.json  # Add server from file
+mcp-config-manager delete-server server-name           # Delete server permanently
 
 # Apply preset modes
 mcp-config-manager preset minimal    # Only context7 + browsermcp
@@ -251,6 +265,42 @@ field_editor.value_changed.connect(self.on_field_changed)
 field_editor.validation_error.connect(self.on_validation_error)
 ```
 
+### Core API Functions
+
+The following new functions have been added across recent commits:
+
+#### ConfigManager (core/config_manager.py)
+- **`create_backup()`** - Create timestamped backups and return GUI-compatible results
+- **`add_server()`** - Add a server with the interface expected by ServerController
+- **Enhanced error handling** - Improved error reporting for GUI integration
+
+#### ServerManager (core/server_manager.py)  
+- **`add_server_with_name()`** - Add server with explicit name and configuration
+- **`delete_server()`** - Permanently delete servers from configurations and storage
+- **`update_server_config()`** - Update existing server configurations
+- **Enhanced mode support** - Better handling of 'claude', 'gemini', 'both' modes
+
+#### Backup System (utils/backup.py)
+- **`backup_all_configs()`** - Create organized backups in dedicated directory
+- **`list_backups()`** - List available backup files by type
+- **`restore_backup()`** - Restore configurations from backup files
+- **Organized storage** - Backups now stored in dedicated `backups/` directory
+
+#### GUI Controllers (gui/controllers/server_controller.py)
+- **`add_server()`** - GUI integration for server addition
+- **`delete_servers()`** - Bulk deletion with confirmation dialog
+- **Enhanced event handling** - Better signal/slot management for GUI updates
+
+#### New Dialog Components
+- **`DeleteServersDialog`** - Bulk deletion with safety confirmations
+- **Enhanced `AddServerDialog`** - JSON validation and cleanup features
+- **`BackupRestoreDialog`** - GUI for backup and restore operations
+
+#### JSON Processing Enhancements
+- **JSON cleanup** - Remove comments and fix malformed JSON in AddServerDialog
+- **Enhanced validation** - Better error reporting for invalid JSON configurations
+- **Batch processing** - Support for adding multiple servers from single JSON input
+
 ### Development Setup
 
 ```bash
@@ -277,7 +327,11 @@ mcp-config-manager interactive
 - **Gemini config:** `~/.gemini/settings.json`
 - **Presets:** `~/.mcp_presets.json`
 - **Disabled servers:** `./disabled_servers.json` (in project directory)
-- **Backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
+- **Organized backups:** `./backups/` directory with timestamped files:
+  - `./backups/claude-backup-YYYYMMDD_HHMMSS.json`
+  - `./backups/gemini-backup-YYYYMMDD_HHMMSS.json`
+  - `./backups/disabled-backup-YYYYMMDD_HHMMSS.json`
+- **Legacy backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
 
 ## 🗺️ Roadmap
 
