@@ -156,6 +156,12 @@ The tool supports three modes:
 
 ## 🖼️ Screenshots
 
+### GUI Interface
+
+![MCP Config Manager GUI](docs/images/mcp-config-manager-gui.png)
+
+*The MCP Config Manager GUI showing server configuration editing with visual feedback*
+
 ### Interactive Mode
 
 ```
