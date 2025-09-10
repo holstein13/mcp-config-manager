@@ -212,6 +212,7 @@ class ServerManager:
         """Add a server with a specific name"""
         return self._add_server_to_configs(claude_data, gemini_data, server_name, server_config, mode)
     
+    
     def _add_server_to_configs(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
                               server_name: str, server_config: Dict[str, Any], 
                               mode: str = 'both') -> bool:
