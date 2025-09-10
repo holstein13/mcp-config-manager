@@ -1131,62 +1131,62 @@ class MainWindow(QMainWindow if USING_QT else object):
                                source='MainWindow')
     
     def quick_backup(self):
-        """Quick backup to current directory with -backup suffix."""
-        import shutil
-        from pathlib import Path
-        import os
-        
+        """Quick backup using the BackupController to centralized backups directory."""
         try:
-            mode = self.app_state.mode
-            mode_value = mode.value if hasattr(mode, 'value') else str(mode)
+            self.set_status_message("Creating backup...")
+            result = self.backup_controller.create_backup()
             
-            # Get the config paths
-            claude_path = Path.home() / '.claude.json'
-            gemini_path = Path.home() / '.gemini' / 'settings.json'
-            
-            # Create backup file names in current directory
-            current_dir = Path.cwd()
-            backup_files = []
-            
-            # Backup based on mode
-            if mode_value in ['claude', 'both'] and claude_path.exists():
-                backup_name = current_dir / 'claude-backup.json'
-                shutil.copy2(claude_path, backup_name)
-                backup_files.append(backup_name)
-            
-            if mode_value in ['gemini', 'both'] and gemini_path.exists():
-                backup_name = current_dir / 'gemini-backup.json'
-                shutil.copy2(gemini_path, backup_name)
-                backup_files.append(backup_name)
-            
-            if backup_files:
-                files_str = ', '.join([f.name for f in backup_files])
-                self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
-                if USING_QT:
-                    QMessageBox.information(self, "Backup Complete", 
-                                          f"Configuration backed up to:\n{files_str}")
-            else:
-                self.set_status_message("No configuration files to backup", timeout=5000)
+            if result['success']:
+                backup_file = result.get('backup_file', '')
+                all_backups = result.get('all_backups', [])
                 
+                if all_backups:
+                    # Show all backed up files
+                    files_str = ', '.join([name for name, path in all_backups])
+                    self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
+                    
+                    if USING_QT:
+                        backup_paths = '\n'.join([f"{name}: {path}" for name, path in all_backups])
+                        QMessageBox.information(self, "Backup Complete", 
+                                              f"Configuration backed up to backups/ directory:\n\n{backup_paths}")
+                else:
+                    self.set_status_message(f"✅ Backup created: {backup_file}", timeout=5000)
+                    if USING_QT:
+                        QMessageBox.information(self, "Backup Complete", 
+                                              f"Configuration backed up to:\n{backup_file}")
+                        
+                # Emit backup created event
+                dispatcher.emit_now(EventType.BACKUP_CREATED,
+                                   {'file': backup_file, 'all_backups': all_backups},
+                                   source='MainWindow')
+            else:
+                error_msg = result.get('error', 'Unknown backup error')
+                self.set_status_message(f"❌ Backup failed: {error_msg}", timeout=0)
+                if USING_QT:
+                    QMessageBox.critical(self, "Backup Error", f"Backup failed: {error_msg}")
+                    
         except Exception as e:
             error_msg = f"Backup failed: {str(e)}"
-            self.set_status_message(error_msg, timeout=0)
+            self.set_status_message(f"❌ {error_msg}", timeout=0)
             if USING_QT:
                 QMessageBox.critical(self, "Backup Error", error_msg)
     
     def quick_restore(self):
-        """Quick restore from backup files in current directory."""
+        """Quick restore from backup files in the backups directory."""
         import shutil
         from pathlib import Path
+        from ..utils.file_utils import get_project_backups_dir, get_disabled_servers_path
         
         if USING_QT:
             from PyQt6.QtWidgets import QFileDialog
             
-            # Show file selection dialog
+            backups_dir = get_project_backups_dir()
+            
+            # Show file selection dialog starting from backups directory
             files, _ = QFileDialog.getOpenFileNames(
                 self,
                 "Select Backup Files to Restore",
-                str(Path.cwd()),
+                str(backups_dir) if backups_dir.exists() else str(Path.cwd()),
                 "JSON Files (*.json);;All Files (*.*)"
             )
             
@@ -1210,17 +1210,23 @@ class MainWindow(QMainWindow if USING_QT else object):
                 restored = []
                 for backup_file in files:
                     backup_path = Path(backup_file)
+                    filename = backup_path.name.lower()
                     
                     # Determine destination based on filename
-                    if 'claude' in backup_path.name.lower():
+                    if filename.startswith('claude-backup'):
                         dest = Path.home() / '.claude.json'
                         shutil.copy2(backup_path, dest)
                         restored.append('Claude')
-                    elif 'gemini' in backup_path.name.lower():
+                    elif filename.startswith('gemini-backup'):
                         dest = Path.home() / '.gemini' / 'settings.json'
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(backup_path, dest)
                         restored.append('Gemini')
+                    elif filename.startswith('disabled-backup'):
+                        dest = get_disabled_servers_path()
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Disabled Servers')
                 
                 if restored:
                     self.set_status_message(f"✅ Restored: {', '.join(restored)}", timeout=5000)
@@ -1230,7 +1236,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                     self.load_configuration()
                 else:
                     QMessageBox.warning(self, "No Files Restored",
-                                       "Could not determine configuration type from filenames.\nFiles should contain 'claude' or 'gemini' in the name.")
+                                       "Could not determine configuration type from filenames.\nFiles should start with 'claude-backup', 'gemini-backup', or 'disabled-backup'.")
                     
             except Exception as e:
                 error_msg = f"Restore failed: {str(e)}"
