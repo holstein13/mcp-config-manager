@@ -685,9 +685,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         if hasattr(self, 'server_details_panel'):
             if USING_QT:
                 self.server_details_panel.server_updated.connect(self._on_server_updated)
+                self.server_details_panel.server_deleted.connect(self._on_server_deleted)
             else:
                 # For tkinter callbacks
                 self.server_details_panel.update_callbacks.append(self._on_server_updated)
+                self.server_details_panel.server_deleted_callbacks.append(self._on_server_deleted)
     
     def _register_event_handlers(self):
         """Register handlers for dispatcher events."""
@@ -763,10 +765,26 @@ class MainWindow(QMainWindow if USING_QT else object):
                     server_item.config = config
             
             # Mark configuration as changed
-            self.mark_unsaved_changes()
+            self.set_unsaved_changes(True)
             self.set_status_message(f"Server '{server_name}' updated", timeout=3)
         else:
             self.set_status_message(f"Failed to update server: {result.get('error', 'Unknown error')}", timeout=5)
+    
+    def _on_server_deleted(self, server_name: str):
+        """Handle server deletion from details panel."""
+        # Call the server controller to delete the server
+        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
+        result = self.server_controller.delete_server(server_name, mode_value)
+        
+        if result['success']:
+            # Refresh the server list to remove the deleted server
+            self.refresh_server_list()
+            
+            # Mark configuration as changed
+            self.set_unsaved_changes(True)
+            self.set_status_message(f"Server '{server_name}' deleted successfully", timeout=3)
+        else:
+            self.set_status_message(f"Failed to delete server: {result.get('error', 'Unknown error')}", timeout=5)
     
     def _on_mode_changed(self, mode: str):
         """Handle mode change from widget."""

@@ -54,6 +54,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
     
     # Qt signals
     server_updated = pyqtSignal(str, dict) if USING_QT else None
+    server_deleted = pyqtSignal(str) if USING_QT else None
     changes_pending = pyqtSignal(bool) if USING_QT else None
     
     # Required MCP fields that are always shown
@@ -103,6 +104,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         
         # Callbacks for tkinter
         self.server_updated_callbacks = []
+        self.server_deleted_callbacks = []
         self.changes_pending_callbacks = []
     
     def _init_qt_ui(self):
@@ -184,6 +186,28 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         button_bar = QFrame()
         button_layout = QHBoxLayout(button_bar)
         button_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Delete button on the left
+        self.delete_btn = QPushButton("Delete Server")
+        self.delete_btn.setDefault(False)
+        self.delete_btn.setAutoDefault(False)
+        self.delete_btn.clicked.connect(self._on_delete)
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #DC3545;
+                color: white;
+                padding: 6px 15px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #C82333;
+            }
+            QPushButton:disabled {
+                background-color: #CCCCCC;
+            }
+        """)
+        button_layout.addWidget(self.delete_btn)
         
         button_layout.addStretch()
         
@@ -302,6 +326,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             self.server_label.setText(f"Editing: {server_name}")
             self.add_field_btn.setEnabled(True)
+            self.delete_btn.setEnabled(True)  # Enable delete button
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
             self._update_save_button_style(False)  # Clear any custom styles
@@ -536,6 +561,37 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         # Reload original data
         self.load_server(self.current_server, self.original_data)
     
+    def _on_delete(self):
+        """Delete the current server."""
+        if not self.current_server:
+            return
+        
+        # Confirm deletion
+        if USING_QT:
+            from PyQt6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self, 
+                "Delete Server",
+                f"Are you sure you want to delete '{self.current_server}'?\n\nThis action cannot be undone.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # Emit server deleted signal
+                self.server_deleted.emit(self.current_server)
+                # Clear the panel
+                self.clear()
+        elif HAS_TKINTER:
+            import tkinter.messagebox as messagebox
+            if messagebox.askyesno("Delete Server", 
+                                  f"Are you sure you want to delete '{self.current_server}'?\n\nThis action cannot be undone."):
+                # Call callbacks for server deletion
+                for callback in self.server_deleted_callbacks:
+                    callback(self.current_server)
+                # Clear the panel
+                self.clear()
+    
     def get_server_data(self) -> Dict[str, Any]:
         """Get the current server configuration from the form.
         
@@ -594,9 +650,12 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             self.server_label.setText("Select a server to edit")
             self.add_field_btn.setEnabled(False)
+            self.delete_btn.setEnabled(False)  # Disable delete button
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
             self._update_save_button_style(False)  # Clear any custom styles
+            # Switch back to empty state
+            self.stacked_widget.setCurrentWidget(self.empty_state_widget)
         elif HAS_TKINTER:
             self.server_label.config(text="Select a server to edit")
             self.add_field_btn.config(state='disabled')

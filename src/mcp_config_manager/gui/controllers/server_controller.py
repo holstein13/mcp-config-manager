@@ -636,3 +636,69 @@ class ServerController:
             callback: Function to call when bulk operation is performed
         """
         self.on_servers_bulk_callbacks.append(callback)
+    
+    def delete_server(self, server_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
+        """Permanently delete a server from configurations.
+        
+        Args:
+            server_name: Name of the server to delete
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            
+        Returns:
+            Dictionary with:
+                - success: bool
+                - error: error message if failed
+        """
+        try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+            
+            # Determine mode
+            if not mode:
+                mode = 'both'
+            
+            # Check if server is currently disabled
+            from_disabled = False
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                claude_data, gemini_data, mode
+            )
+            is_enabled = any(s['name'] == server_name for s in enabled_servers)
+            
+            # If not in enabled servers, check if it's in disabled storage
+            if not is_enabled:
+                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                if server_name in disabled_servers:
+                    from_disabled = True
+            
+            # Delete the server with appropriate flag
+            success = self.config_manager.server_manager.delete_server(
+                claude_data, gemini_data, server_name, mode, from_disabled
+            )
+            
+            if success:
+                # Only save configs if we deleted from active configs
+                if not from_disabled:
+                    self.config_manager.save_configs(claude_data, gemini_data, mode)
+                
+                # Notify callbacks
+                for callback in self.on_server_removed_callbacks:
+                    callback({
+                        'server': server_name,
+                        'mode': mode
+                    })
+                
+                return {'success': True}
+            else:
+                return {
+                    'success': False,
+                    'error': f"Server '{server_name}' not found"
+                }
+                
+        except Exception as e:
+            error_msg = f"Failed to delete server: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'error': error_msg
+            }
