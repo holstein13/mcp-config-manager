@@ -10,7 +10,6 @@ from ..controllers.server_controller import ServerController
 from ..controllers.preset_controller import PresetController
 from ..controllers.backup_controller import BackupController
 from ..widgets.server_list import ServerListWidget
-from ..widgets.mode_selector import ModeSelectorWidget
 from ..models.app_state import ApplicationState
 
 logger = logging.getLogger(__name__)
@@ -118,12 +117,7 @@ class TkinterMainWindow:
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Mode selector at the top
-        mode_frame = ttk.Frame(main_frame)
-        mode_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        self.mode_selector = ModeSelectorWidget(mode_frame)
-        self.mode_selector.get_widget().pack(side=tk.LEFT)
+        # Mode selector removed - using per-client checkboxes instead
         
         # Server list
         list_frame = ttk.LabelFrame(main_frame, text="Servers", padding=10)
@@ -158,9 +152,7 @@ class TkinterMainWindow:
         self.server_list.add_toggle_callback(self._on_server_toggled)
         self.server_list.add_selection_callback(self._on_server_selected)
         
-        # Mode selector callback
-        if hasattr(self.mode_selector, 'add_callback'):
-            self.mode_selector.add_callback(self._on_mode_changed)
+        # Mode selector callback removed - using per-client operations instead
     
     def _load_config(self):
         """Load the initial configuration."""

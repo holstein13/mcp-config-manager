@@ -26,83 +26,131 @@ class ServerController:
         self.on_servers_bulk_callbacks: List[Callable] = []
     
     def get_servers(self, mode: Optional[str] = None) -> Dict[str, Any]:
-        """Get list of all servers as ServerListItem objects.
-        
+        """Get list of all servers with per-client enable flags.
+
         Args:
             mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+
         Returns:
             Dictionary with:
                 - success: bool
-                - data: {'servers': list of ServerListItem objects}
+                - data: {'servers': list of ServerListItem objects with claude_enabled and gemini_enabled flags}
                 - error: error message if failed
         """
         try:
             # Get current mode from config manager if not specified
             if not mode:
                 mode = 'both'  # Default to both
-            
+
             # Load configs once
             claude_data, gemini_data = self.config_manager.load_configs()
-            
-            server_items = []
-            
-            # Get enabled servers using the same method as ConfigController
+
+            # Build unified server list with per-client states
+            server_dict = {}  # name -> ServerListItem
+
+            # Get enabled servers - now includes per-client state info
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
                 claude_data, gemini_data, mode
             )
-            
-            # Add enabled servers
+
+            # Process enabled servers
             for server_info in enabled_servers:
+                name = server_info['name']
                 config = server_info['config']
-                command_obj = ServerCommand(
-                    command=config.get('command', ''),
-                    args=config.get('args', []),
-                    env=config.get('env', {})
-                )
-                
-                server_item = ServerListItem(
-                    name=server_info['name'],
-                    status=ServerStatus.ENABLED,
-                    command=command_obj,
-                    source_mode=server_info['mode'],
-                    config=config
-                )
-                server_items.append(server_item)
-            
-            # Get disabled servers if they exist
-            try:
-                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-                for server_name, config in disabled_servers.items():
+
+                if name not in server_dict:
                     command_obj = ServerCommand(
                         command=config.get('command', ''),
                         args=config.get('args', []),
                         env=config.get('env', {})
                     )
-                    
+
                     server_item = ServerListItem(
-                        name=server_name,
-                        status=ServerStatus.DISABLED,
+                        name=name,
+                        status=ServerStatus.ENABLED,
                         command=command_obj,
-                        source_mode=mode,
+                        source_mode=server_info['mode'],
                         config=config
                     )
-                    server_items.append(server_item)
+
+                    # Set per-client flags based on the returned data
+                    server_item.claude_enabled = server_info.get('claude_enabled', False)
+                    server_item.gemini_enabled = server_info.get('gemini_enabled', False)
+
+                    server_dict[name] = server_item
+
+            # Get disabled servers and update their states
+            try:
+                disabled_data = self.config_manager.server_manager.load_disabled_servers()
+
+                for server_name, server_info in disabled_data.items():
+                    # New format has 'config' and 'disabled_for'
+                    if isinstance(server_info, dict) and 'config' in server_info:
+                        config = server_info['config']
+                        disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+
+                        if server_name not in server_dict:
+                            command_obj = ServerCommand(
+                                command=config.get('command', ''),
+                                args=config.get('args', []),
+                                env=config.get('env', {})
+                            )
+
+                            server_item = ServerListItem(
+                                name=server_name,
+                                status=ServerStatus.DISABLED,
+                                command=command_obj,
+                                source_mode='both',
+                                config=config
+                            )
+
+                            # Set per-client flags based on disabled_for
+                            server_item.claude_enabled = 'claude' not in disabled_for
+                            server_item.gemini_enabled = 'gemini' not in disabled_for
+
+                            server_dict[server_name] = server_item
+                    else:
+                        # Old format - treat as disabled for both
+                        config = server_info if isinstance(server_info, dict) else {}
+
+                        if server_name not in server_dict:
+                            command_obj = ServerCommand(
+                                command=config.get('command', ''),
+                                args=config.get('args', []),
+                                env=config.get('env', {})
+                            )
+
+                            server_item = ServerListItem(
+                                name=server_name,
+                                status=ServerStatus.DISABLED,
+                                command=command_obj,
+                                source_mode='both',
+                                config=config
+                            )
+
+                            # Old format means disabled for both
+                            server_item.claude_enabled = False
+                            server_item.gemini_enabled = False
+
+                            server_dict[server_name] = server_item
             except:
                 # No disabled servers file yet, that's OK
                 pass
-            
+
+            # Convert to list
+            server_items = list(server_dict.values())
+
             return {
                 'success': True,
                 'data': {'servers': server_items}
             }
-            
+
         except Exception as e:
             error_msg = f"Failed to get servers: {str(e)}"
             logger.error(error_msg)
             import traceback
             traceback.print_exc()
-            
+
             return {
                 'success': False,
                 'data': {'servers': []},  # Keep consistent structure
@@ -184,13 +232,73 @@ class ServerController:
                 'error': error_msg
             }
     
+    def set_server_enabled(self, server_name: str, client: str, enabled: bool) -> Dict[str, Any]:
+        """Set a server's enabled state for a specific client.
+
+        Args:
+            server_name: Name of the server
+            client: Client to set state for ('claude' or 'gemini')
+            enabled: Whether to enable or disable
+
+        Returns:
+            Dictionary with:
+                - success: bool
+                - enabled: new enabled state
+                - error: error message if failed
+        """
+        try:
+            # Load current configs
+            claude_data, gemini_data = self.config_manager.load_configs()
+
+            if enabled:
+                # Enable the server for the specific client
+                success = self.config_manager.server_manager.enable_server(
+                    claude_data, gemini_data, server_name, client
+                )
+            else:
+                # Disable the server for the specific client
+                success = self.config_manager.server_manager.disable_server(
+                    claude_data, gemini_data, server_name, client
+                )
+
+            if success:
+                # Save the configs
+                self.config_manager.save_configs(claude_data, gemini_data, client)
+
+                # Notify callbacks
+                for callback in self.on_server_toggled_callbacks:
+                    callback({
+                        'server': server_name,
+                        'client': client,
+                        'enabled': enabled
+                    })
+
+                return {
+                    'success': True,
+                    'enabled': enabled
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to set server state'
+                }
+
+        except Exception as e:
+            error_msg = f"Failed to set server state: {str(e)}"
+            logger.error(error_msg)
+
+            return {
+                'success': False,
+                'error': error_msg
+            }
+
     def toggle_server(self, server_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
-        """Toggle a server's enabled/disabled state.
-        
+        """Toggle a server's enabled/disabled state (backward compatibility).
+
         Args:
             server_name: Name of the server to toggle
             mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -377,14 +485,15 @@ class ServerController:
             }
     
     def bulk_operation(self, operation: str, server_names: Optional[List[str]] = None,
-                       mode: Optional[str] = None) -> Dict[str, Any]:
+                       mode: Optional[str] = None, client: Optional[str] = None) -> Dict[str, Any]:
         """Perform bulk operations on servers.
-        
+
         Args:
             operation: Operation to perform ('enable_all', 'disable_all', 'enable', 'disable')
             server_names: List of server names (for 'enable' and 'disable' operations)
-            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+            mode: Configuration mode ('claude', 'gemini', 'both', or None for current) - backward compat
+            client: Target client ('claude', 'gemini', or None for both) - new parameter
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -405,64 +514,123 @@ class ServerController:
             
             affected_servers = []
             
+            # Use client if provided, otherwise fall back to mode for backward compatibility
+            target = client or mode or 'both'
+
             if operation == 'enable_all':
                 # Enable all disabled servers
                 # Load current configs
                 claude_data, gemini_data = self.config_manager.load_configs()
-                disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-                for server_name in disabled_servers.keys():
-                    success = self.config_manager.server_manager.enable_server(
-                        claude_data, gemini_data, server_name, mode or 'both'
+
+                # If targeting specific client, use bulk_enable_for_client
+                if target in ['claude', 'gemini']:
+                    # Get all disabled servers for this client
+                    disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                    servers_to_enable = []
+
+                    for server_name, server_info in disabled_servers.items():
+                        if isinstance(server_info, dict) and 'disabled_for' in server_info:
+                            if target in server_info['disabled_for']:
+                                servers_to_enable.append(server_name)
+                        else:
+                            # Old format - treat as disabled for both
+                            servers_to_enable.append(server_name)
+
+                    # Use bulk enable method
+                    result = self.config_manager.server_manager.bulk_enable_for_client(
+                        claude_data, gemini_data, target, servers_to_enable
                     )
-                    if success:
-                        affected_servers.append(server_name)
+                    affected_servers = servers_to_enable if result else []
+                else:
+                    # Enable for both clients
+                    disabled_servers = self.config_manager.server_manager.load_disabled_servers()
+                    for server_name in disabled_servers.keys():
+                        success = self.config_manager.server_manager.enable_server(
+                            claude_data, gemini_data, server_name, 'both'
+                        )
+                        if success:
+                            affected_servers.append(server_name)
+
                 # Save the updated configs
                 if affected_servers:
-                    self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
+                    self.config_manager.save_configs(claude_data, gemini_data, target)
             
             elif operation == 'disable_all':
                 # Disable all enabled servers
                 # Load current configs
                 claude_data, gemini_data = self.config_manager.load_configs()
                 enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                    claude_data, gemini_data, mode or 'both'
+                    claude_data, gemini_data, target
                 )
-                for server in enabled_servers:
-                    server_name = server['name']
-                    success = self.config_manager.server_manager.disable_server(
-                        claude_data, gemini_data, server_name, mode or 'both'
+
+                # If targeting specific client, use bulk_disable_for_client
+                if target in ['claude', 'gemini']:
+                    servers_to_disable = [server['name'] for server in enabled_servers]
+
+                    # Use bulk disable method
+                    result = self.config_manager.server_manager.bulk_disable_for_client(
+                        claude_data, gemini_data, target, servers_to_disable
                     )
-                    if success:
-                        affected_servers.append(server_name)
+                    affected_servers = servers_to_disable if result else []
+                else:
+                    # Disable for both clients
+                    for server in enabled_servers:
+                        server_name = server['name']
+                        success = self.config_manager.server_manager.disable_server(
+                            claude_data, gemini_data, server_name, 'both'
+                        )
+                        if success:
+                            affected_servers.append(server_name)
+
                 # Save the updated configs
                 if affected_servers:
-                    self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
+                    self.config_manager.save_configs(claude_data, gemini_data, target)
             
             elif operation == 'enable' and server_names:
                 # Enable specific servers
                 # Load current configs
                 claude_data, gemini_data = self.config_manager.load_configs()
-                for server_name in server_names:
-                    success = self.config_manager.server_manager.enable_server(
-                        claude_data, gemini_data, server_name, mode or 'both'
+
+                # If targeting specific client, use bulk_enable_for_client
+                if target in ['claude', 'gemini']:
+                    result = self.config_manager.server_manager.bulk_enable_for_client(
+                        claude_data, gemini_data, target, server_names
                     )
-                    if success:
-                        affected_servers.append(server_name)
+                    affected_servers = server_names if result else []
+                else:
+                    # Enable for both clients
+                    for server_name in server_names:
+                        success = self.config_manager.server_manager.enable_server(
+                            claude_data, gemini_data, server_name, 'both'
+                        )
+                        if success:
+                            affected_servers.append(server_name)
+
                 # Save the updated configs
-                self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
+                self.config_manager.save_configs(claude_data, gemini_data, target)
             
             elif operation == 'disable' and server_names:
                 # Disable specific servers
                 # Load current configs
                 claude_data, gemini_data = self.config_manager.load_configs()
-                for server_name in server_names:
-                    success = self.config_manager.server_manager.disable_server(
-                        claude_data, gemini_data, server_name, mode or 'both'
+
+                # If targeting specific client, use bulk_disable_for_client
+                if target in ['claude', 'gemini']:
+                    result = self.config_manager.server_manager.bulk_disable_for_client(
+                        claude_data, gemini_data, target, server_names
                     )
-                    if success:
-                        affected_servers.append(server_name)
+                    affected_servers = server_names if result else []
+                else:
+                    # Disable for both clients
+                    for server_name in server_names:
+                        success = self.config_manager.server_manager.disable_server(
+                            claude_data, gemini_data, server_name, 'both'
+                        )
+                        if success:
+                            affected_servers.append(server_name)
+
                 # Save the updated configs
-                self.config_manager.save_configs(claude_data, gemini_data, mode or 'both')
+                self.config_manager.save_configs(claude_data, gemini_data, target)
             
             else:
                 return {
@@ -475,7 +643,8 @@ class ServerController:
                 callback({
                     'operation': operation,
                     'servers': affected_servers,
-                    'mode': mode
+                    'mode': mode,  # Keep for backward compat
+                    'client': client  # New field
                 })
             
             return {
@@ -629,9 +798,62 @@ class ServerController:
                 'error': error_msg
             }
     
+    def get_server_states(self) -> Dict[str, Dict[str, bool]]:
+        """Get per-client enabled states for all servers.
+
+        Returns:
+            Dictionary mapping server_name -> {'claude_enabled': bool, 'gemini_enabled': bool}
+        """
+        try:
+            # Load configs once
+            claude_data, gemini_data = self.config_manager.load_configs()
+
+            server_states = {}
+
+            # Get enabled servers - includes per-client state info
+            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
+                claude_data, gemini_data, 'both'
+            )
+
+            # Process enabled servers
+            for server_info in enabled_servers:
+                name = server_info['name']
+                server_states[name] = {
+                    'claude_enabled': server_info.get('claude_enabled', False),
+                    'gemini_enabled': server_info.get('gemini_enabled', False)
+                }
+
+            # Add disabled servers
+            try:
+                disabled_data = self.config_manager.server_manager.load_disabled_servers()
+
+                for server_name, server_info in disabled_data.items():
+                    if server_name not in server_states:
+                        if isinstance(server_info, dict) and 'disabled_for' in server_info:
+                            disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+                            server_states[server_name] = {
+                                'claude_enabled': 'claude' not in disabled_for,
+                                'gemini_enabled': 'gemini' not in disabled_for
+                            }
+                        else:
+                            # Old format - treat as disabled for both
+                            server_states[server_name] = {
+                                'claude_enabled': False,
+                                'gemini_enabled': False
+                            }
+            except:
+                # No disabled servers file yet, that's OK
+                pass
+
+            return server_states
+
+        except Exception as e:
+            logger.error(f"Failed to get server states: {str(e)}")
+            return {}
+
     def on_servers_bulk(self, callback: Callable[[Dict[str, Any]], None]):
         """Register callback for bulk operation event.
-        
+
         Args:
             callback: Function to call when bulk operation is performed
         """

@@ -16,7 +16,7 @@ class ConfigController:
     def __init__(self):
         """Initialize the config controller."""
         self.config_manager = ConfigManager()
-        self.current_mode = ConfigMode.CLAUDE
+        # No more current_mode - always work with both configs
         self.on_config_loaded_callbacks: List[Callable] = []
         self.on_config_saved_callbacks: List[Callable] = []
         self.on_config_error_callbacks: List[Callable] = []
@@ -34,38 +34,22 @@ class ConfigController:
                 - error: error message if failed
         """
         try:
-            print(f"DEBUG: load_config called with mode={mode}")
-            if mode:
-                # Convert string to ConfigMode
-                mode_map = {
-                    'claude': ConfigMode.CLAUDE,
-                    'gemini': ConfigMode.GEMINI,
-                    'both': ConfigMode.BOTH
-                }
-                self.current_mode = mode_map.get(mode.lower(), self.current_mode)
-            
-            print(f"DEBUG: Current mode={self.current_mode}")
-            
-            # Load configuration
-            print("DEBUG: Loading configs...")
+            # Always load both configurations
             claude_data, gemini_data = self.config_manager.load_configs()
-            print(f"DEBUG: Configs loaded. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
-            
-            # Get current configuration
-            print("DEBUG: Getting server list...")
+            logger.debug(f"Configs loaded. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
+
+            # Get server list with per-client states
             server_list = self._get_server_list()
-            print(f"DEBUG: Got {len(server_list)} servers")
-            
+            logger.debug(f"Got {len(server_list)} total servers")
+
             config_data = {
-                'mode': self.current_mode.value,
                 'servers': server_list,
                 'claude_path': str(self.config_manager.claude_path) if self.config_manager.claude_path else None,
                 'gemini_path': str(self.config_manager.gemini_path) if self.config_manager.gemini_path else None,
                 'has_unsaved_changes': False
             }
-            
+
             # Notify callbacks
-            print(f"DEBUG: Notifying {len(self.on_config_loaded_callbacks)} callbacks")
             for callback in self.on_config_loaded_callbacks:
                 callback(config_data)
             
@@ -87,12 +71,13 @@ class ConfigController:
                 'error': error_msg
             }
     
-    def save_config(self, create_backup: bool = True) -> Dict[str, Any]:
-        """Save the current configuration.
-        
+    def save_config(self, create_backup: bool = True, client: Optional[str] = None) -> Dict[str, Any]:
+        """Save configuration with per-client state handling.
+
         Args:
             create_backup: Whether to create a backup before saving
-            
+            client: Optional client to save for ('claude', 'gemini', or None for both)
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -101,34 +86,36 @@ class ConfigController:
         """
         try:
             backup_file = None
-            
+
             if create_backup:
                 # Create backup
                 backups = self.config_manager.create_backups()
                 if backups:
                     backup_file = str(backups[0][1]) if backups else None
-            
-            # Save configuration - need to get current data first
+
+            # Save configuration - always get current data first
             claude_data, gemini_data = self.config_manager.load_configs()
-            self.config_manager.save_configs(claude_data, gemini_data, self.current_mode.value)
-            
+            # Save for specific client or both
+            target = client if client else 'both'
+            self.config_manager.save_configs(claude_data, gemini_data, target)
+
             # Notify callbacks
             for callback in self.on_config_saved_callbacks:
-                callback({'backup_file': backup_file})
-            
+                callback({'backup_file': backup_file, 'client': client})
+
             return {
                 'success': True,
                 'backup_file': backup_file
             }
-            
+
         except Exception as e:
             error_msg = f"Failed to save configuration: {str(e)}"
             logger.error(error_msg)
-            
+
             # Notify error callbacks
             for callback in self.on_config_error_callbacks:
                 callback(error_msg)
-            
+
             return {
                 'success': False,
                 'error': error_msg
@@ -151,27 +138,18 @@ class ConfigController:
             errors = []
             warnings = []
 
-            if mode:
-                # Convert string to ConfigMode
-                mode_map = {
-                    'claude': ConfigMode.CLAUDE,
-                    'gemini': ConfigMode.GEMINI,
-                    'both': ConfigMode.BOTH
-                }
-                self.current_mode = mode_map.get(mode.lower(), self.current_mode)
-
+            # Always load and validate both configs
             claude_data, gemini_data = self.config_manager.load_configs()
 
-            # Validate current configuration
-            if self.current_mode in [ConfigMode.CLAUDE, ConfigMode.BOTH]:
-                if self.config_manager.claude_parser:
-                    if not self.config_manager.claude_parser.validate(claude_data):
-                        errors.append("Claude configuration is invalid.")
+            # Validate Claude configuration
+            if self.config_manager.claude_parser:
+                if not self.config_manager.claude_parser.validate(claude_data):
+                    errors.append("Claude configuration is invalid.")
 
-            if self.current_mode in [ConfigMode.GEMINI, ConfigMode.BOTH]:
-                if self.config_manager.gemini_parser:
-                    if not self.config_manager.gemini_parser.validate(gemini_data):
-                        errors.append("Gemini configuration is invalid.")
+            # Validate Gemini configuration
+            if self.config_manager.gemini_parser:
+                if not self.config_manager.gemini_parser.validate(gemini_data):
+                    errors.append("Gemini configuration is invalid.")
 
             return {
                 'success': True,
@@ -208,54 +186,7 @@ class ConfigController:
             'presets': str(self.config_manager.preset_manager.presets_file) if self.config_manager.preset_manager else None
         }
     
-    def change_mode(self, mode: str) -> Dict[str, Any]:
-        """Change the configuration mode.
-        
-        Args:
-            mode: New mode ('claude', 'gemini', or 'both')
-            
-        Returns:
-            Dictionary with:
-                - success: bool
-                - previous_mode: previous mode value
-                - error: error message if failed
-        """
-        try:
-            previous_mode = self.current_mode.value
-            
-            # Convert string to ConfigMode
-            mode_map = {
-                'claude': ConfigMode.CLAUDE,
-                'gemini': ConfigMode.GEMINI,
-                'both': ConfigMode.BOTH
-            }
-            
-            new_mode = mode_map.get(mode.lower())
-            if not new_mode:
-                return {
-                    'success': False,
-                    'error': f"Invalid mode: {mode}"
-                }
-            
-            self.current_mode = new_mode
-            
-            # Reload configuration for new mode
-            result = self.load_config(mode)
-            
-            return {
-                'success': result['success'],
-                'previous_mode': previous_mode,
-                'error': result.get('error')
-            }
-            
-        except Exception as e:
-            error_msg = f"Failed to change mode: {str(e)}"
-            logger.error(error_msg)
-            
-            return {
-                'success': False,
-                'error': error_msg
-            }
+    # Note: change_mode() method removed - no longer needed without mode concept
     
     def _get_server_list(self) -> List[Dict[str, Any]]:
         """Get list of servers from current configuration.
@@ -266,38 +197,62 @@ class ConfigController:
         servers = []
         
         try:
-            print("DEBUG: _get_server_list: Loading current configs...")
             # Load current configs
             claude_data, gemini_data = self.config_manager.load_configs()
-            print(f"DEBUG: _get_server_list: Configs loaded")
-            
-            # Get enabled servers
-            print(f"DEBUG: _get_server_list: Getting enabled servers for mode {self.current_mode.value}")
-            enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, self.current_mode.value
+
+            # Get all servers (enabled and disabled) with per-client states
+            all_servers = self.config_manager.server_manager.get_enabled_servers(
+                claude_data, gemini_data, 'both'  # Always get all servers
             )
-            print(f"DEBUG: _get_server_list: Got {len(enabled_servers)} enabled servers")
-            for server_info in enabled_servers:
-                servers.append({
-                    'name': server_info['name'],
-                    'enabled': True,
-                    'command': server_info['config'].get('command', ''),
-                    'args': server_info['config'].get('args', []),
-                    'env': server_info['config'].get('env', {}),
-                    'mode': server_info['mode']
-                })
-            
-            # Get disabled servers
-            disabled_servers = self.config_manager.server_manager.load_disabled_servers()
-            for name, config in disabled_servers.items():
-                servers.append({
-                    'name': name,
-                    'enabled': False,
-                    'command': config.get('command', ''),
-                    'args': config.get('args', []),
-                    'env': config.get('env', {}),
-                    'mode': self.current_mode.value
-                })
+
+            # Build unified server list with per-client states
+            server_dict = {}  # name -> server info
+
+            # Process enabled servers
+            for server_info in all_servers:
+                name = server_info['name']
+                if name not in server_dict:
+                    server_dict[name] = {
+                        'name': name,
+                        'command': server_info['config'].get('command', ''),
+                        'args': server_info['config'].get('args', []),
+                        'env': server_info['config'].get('env', {}),
+                        'claude_enabled': server_info.get('claude_enabled', False),
+                        'gemini_enabled': server_info.get('gemini_enabled', False),
+                        'config': server_info['config']
+                    }
+
+            # Get disabled servers and add their states
+            disabled_data = self.config_manager.server_manager.load_disabled_servers()
+            for name, server_info in disabled_data.items():
+                if name not in server_dict:
+                    # Handle new format with 'config' and 'disabled_for'
+                    if isinstance(server_info, dict) and 'config' in server_info:
+                        config = server_info['config']
+                        disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+                        server_dict[name] = {
+                            'name': name,
+                            'command': config.get('command', ''),
+                            'args': config.get('args', []),
+                            'env': config.get('env', {}),
+                            'claude_enabled': 'claude' not in disabled_for,
+                            'gemini_enabled': 'gemini' not in disabled_for,
+                            'config': config
+                        }
+                    else:
+                        # Old format - treat as disabled for both
+                        config = server_info if isinstance(server_info, dict) else {}
+                        server_dict[name] = {
+                            'name': name,
+                            'command': config.get('command', ''),
+                            'args': config.get('args', []),
+                            'env': config.get('env', {}),
+                            'claude_enabled': False,
+                            'gemini_enabled': False,
+                            'config': config
+                        }
+
+            servers = list(server_dict.values())
             
         except Exception as e:
             logger.error(f"Failed to get server list: {str(e)}")
