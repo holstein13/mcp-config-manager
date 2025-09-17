@@ -70,6 +70,10 @@ class ServerListItem:
     is_expanded: bool = False
     is_modified: bool = False
     is_new: bool = False
+
+    # Per-LLM enablement state
+    claude_enabled: bool = False
+    gemini_enabled: bool = False
     
     # Validation state
     is_valid: bool = True
@@ -107,27 +111,70 @@ class ServerListItem:
         }
         return icon_map.get(self.server_type, "server")
     
-    def enable(self) -> None:
-        """Enable the server."""
-        if self.status != ServerStatus.ERROR:
-            self.status = ServerStatus.ENABLED
-            self.is_modified = True
-    
-    def disable(self) -> None:
-        """Disable the server."""
-        self.status = ServerStatus.DISABLED
+    def enable(self, client: Optional[str] = None) -> None:
+        """Enable the server for a specific client or both."""
+        if client == "claude":
+            self.claude_enabled = True
+        elif client == "gemini":
+            self.gemini_enabled = True
+        elif client is None:
+            # Enable for both if no client specified
+            self.claude_enabled = True
+            self.gemini_enabled = True
+
+        # Update overall status based on enablement
+        if self.claude_enabled or self.gemini_enabled:
+            if self.status != ServerStatus.ERROR:
+                self.status = ServerStatus.ENABLED
         self.is_modified = True
-        self.is_running = False
-        self.pid = None
-        self.port = None
+
+    def disable(self, client: Optional[str] = None) -> None:
+        """Disable the server for a specific client or both."""
+        if client == "claude":
+            self.claude_enabled = False
+        elif client == "gemini":
+            self.gemini_enabled = False
+        elif client is None:
+            # Disable for both if no client specified
+            self.claude_enabled = False
+            self.gemini_enabled = False
+
+        # Update overall status based on enablement
+        if not self.claude_enabled and not self.gemini_enabled:
+            self.status = ServerStatus.DISABLED
+            self.is_running = False
+            self.pid = None
+            self.port = None
+        self.is_modified = True
+
+    def toggle(self, client: Optional[str] = None) -> None:
+        """Toggle server status for a specific client."""
+        if client == "claude":
+            if self.claude_enabled:
+                self.disable("claude")
+            else:
+                self.enable("claude")
+        elif client == "gemini":
+            if self.gemini_enabled:
+                self.disable("gemini")
+            else:
+                self.enable("gemini")
+        elif client is None:
+            # Toggle both when no client specified
+            if self.claude_enabled or self.gemini_enabled:
+                self.disable()
+            else:
+                self.enable()
     
-    def toggle(self) -> None:
-        """Toggle server status."""
-        if self.status == ServerStatus.ENABLED:
-            self.disable()
-        elif self.status == ServerStatus.DISABLED:
-            self.enable()
-    
+    def get_enabled_state(self, client: str) -> bool:
+        """Get the enabled state for a specific client."""
+        if client == "claude":
+            return self.claude_enabled
+        elif client == "gemini":
+            return self.gemini_enabled
+        else:
+            return False
+
     def set_error(self, error_message: str) -> None:
         """Set server to error state."""
         self.status = ServerStatus.ERROR
@@ -240,6 +287,8 @@ class ServerListItem:
             "icon": self.icon,
             "category": self.category,
             "tags": self.tags,
+            "claude_enabled": self.claude_enabled,
+            "gemini_enabled": self.gemini_enabled,
             "source_mode": self.source_mode,
             "version": self.version,
             "config": self.config,
@@ -256,6 +305,8 @@ class ServerListItem:
             icon=data.get("icon"),
             category=data.get("category"),
             tags=data.get("tags", []),
+            claude_enabled=data.get("claude_enabled", False),
+            gemini_enabled=data.get("gemini_enabled", False),
             source_mode=data.get("source_mode"),
             version=data.get("version"),
             config=data.get("config", {}),
@@ -285,6 +336,8 @@ class ServerListItem:
             is_expanded=self.is_expanded,
             is_modified=self.is_modified,
             is_new=self.is_new,
+            claude_enabled=self.claude_enabled,
+            gemini_enabled=self.gemini_enabled,
             is_valid=self.is_valid,
             validation_errors=self.validation_errors.copy(),
             validation_warnings=self.validation_warnings.copy(),

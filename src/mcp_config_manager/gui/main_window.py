@@ -56,7 +56,6 @@ from .controllers.preset_controller import PresetController
 from .controllers.backup_controller import BackupController
 from .events.dispatcher import dispatcher, EventType, Event
 from .widgets.server_list import ServerListWidget
-from .widgets.mode_selector import ModeSelectorWidget
 from .widgets.server_details_panel import ServerDetailsPanel
 from .dialogs.add_server_dialog import AddServerDialog
 from .dialogs.preset_manager_dialog import PresetManagerDialog
@@ -89,7 +88,7 @@ class MainWindow(QMainWindow if USING_QT else object):
             self._setup_tk_window()
         else:
             raise RuntimeError("No GUI framework available")
-        
+
         logging.debug("Framework setup complete")
 
         self.config_manager = config_manager
@@ -99,6 +98,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         self._status_bar = None
         self._status_label = None
         self._save_indicator = None
+        # Remove mode from app_state as we're using per-client states now
+        # Mode is deprecated and will be removed completely in phase 8
         
         logging.debug("Initializing controllers")
         # Initialize controllers
@@ -110,7 +111,6 @@ class MainWindow(QMainWindow if USING_QT else object):
         logging.debug("Initializing widgets")
         # Initialize widgets
         self.server_list_widget = None
-        self.mode_selector_widget = None
         
         logging.debug("Setting up UI")
         self._setup_ui()
@@ -180,13 +180,6 @@ class MainWindow(QMainWindow if USING_QT else object):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)  # Remove spacing between widgets
         
-        # Mode selector at the top
-        from .widgets.mode_selector import ModeSelectorWidget
-        self.mode_selector = ModeSelectorWidget()
-        self.mode_selector_widget = self.mode_selector  # For compatibility
-        self.mode_selector.mode_changed.connect(self._on_mode_changed)
-        main_layout.addWidget(self.mode_selector)
-        
         # Content splitter (for future server list and details)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(self.splitter)
@@ -207,12 +200,6 @@ class MainWindow(QMainWindow if USING_QT else object):
         # Main frame
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
-        
-        # Mode selector at the top
-        from .widgets.mode_selector import ModeSelectorWidget
-        self.mode_selector = ModeSelectorWidget(main_frame)
-        self.mode_selector_widget = self.mode_selector  # For compatibility
-        self.mode_selector.frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Paned window (splitter)
         self.paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
@@ -609,11 +596,6 @@ class MainWindow(QMainWindow if USING_QT else object):
             QShortcut(QKeySequence("Ctrl+Y"), self, self._redo_action)
             QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self._redo_action)
             QShortcut(QKeySequence("Escape"), self, self._clear_selection)
-            
-            # Mode switching shortcuts
-            QShortcut(QKeySequence("Ctrl+1"), self, lambda: self._switch_mode('claude'))
-            QShortcut(QKeySequence("Ctrl+2"), self, lambda: self._switch_mode('gemini'))
-            QShortcut(QKeySequence("Ctrl+3"), self, lambda: self._switch_mode('both'))
         else:
             # Tkinter key bindings
             self.root.bind("<Control-s>", lambda e: self.save_configuration())
@@ -632,11 +614,6 @@ class MainWindow(QMainWindow if USING_QT else object):
             self.root.bind("<Control-y>", lambda e: self._redo_action())
             self.root.bind("<Control-Shift-Z>", lambda e: self._redo_action())
             self.root.bind("<Escape>", lambda e: self._clear_selection())
-            
-            # Mode switching shortcuts
-            self.root.bind("<Control-Key-1>", lambda e: self._switch_mode('claude'))
-            self.root.bind("<Control-Key-2>", lambda e: self._switch_mode('gemini'))
-            self.root.bind("<Control-Key-3>", lambda e: self._switch_mode('both'))
     
     def _load_window_state(self):
         """Load window state from UI configuration."""
@@ -686,9 +663,6 @@ class MainWindow(QMainWindow if USING_QT else object):
                 # For tkinter callbacks
                 self.server_list._toggle_callbacks.append(self._on_server_toggled)
                 self.server_list._selection_callbacks.append(self._on_server_selected)
-            
-        if self.mode_selector_widget:
-            self.mode_selector_widget.mode_changed_callback = self._on_mode_changed
         
         # Connect server details panel signals
         if hasattr(self, 'server_details_panel'):
@@ -716,8 +690,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         dispatcher.subscribe(EventType.PRESET_APPLIED, self._handle_preset_applied)
         dispatcher.subscribe(EventType.PRESET_SAVED, self._handle_preset_saved)
         
-        # Mode events
-        dispatcher.subscribe(EventType.MODE_CHANGED, self._handle_mode_changed)
+        # Mode events removed - no longer needed with per-client operations
         
         # Backup events
         dispatcher.subscribe(EventType.BACKUP_CREATED, self._handle_backup_created)
@@ -727,19 +700,37 @@ class MainWindow(QMainWindow if USING_QT else object):
         dispatcher.subscribe(EventType.APP_ERROR, self._handle_app_error)
     
     # Widget event callbacks
-    def _on_server_toggled(self, server_name: str, enabled: bool):
-        """Handle server toggle from widget."""
-        logging.debug(f"_on_server_toggled called with server={server_name}, enabled={enabled}")
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        # Use bulk_operation with 'enable' or 'disable' for individual servers
-        operation = 'enable' if enabled else 'disable'
-        result = self.server_controller.bulk_operation(operation, [server_name], mode_value)
-        
+    def _on_server_toggled(self, *args):
+        """Handle server toggle from widget.
+
+        Can be called with either:
+        - (server_name, enabled) - old style, toggles for both clients
+        - (server_name, client, enabled) - new style, toggles for specific client
+
+        Args:
+            *args: Variable arguments depending on calling style
+        """
+        if len(args) == 2:
+            # Old style: (server_name, enabled)
+            server_name, enabled = args
+            client = 'both'  # Default to both for backward compatibility
+            logging.debug(f"_on_server_toggled called with old style: server={server_name}, enabled={enabled}")
+        elif len(args) == 3:
+            # New style: (server_name, client, enabled)
+            server_name, client, enabled = args
+            logging.debug(f"_on_server_toggled called with new style: server={server_name}, client={client}, enabled={enabled}")
+        else:
+            logging.error(f"_on_server_toggled called with unexpected args: {args}")
+            return
+
+        # Use the new per-client method
+        result = self.server_controller.set_server_enabled(server_name, client, enabled)
+
         if result['success']:
             logging.debug(f"Server toggle successful, calling set_unsaved_changes(True)")
             self.set_unsaved_changes(True)
-            dispatcher.emit_now(EventType.SERVER_TOGGLED, 
-                                {'server': server_name, 'enabled': enabled},
+            dispatcher.emit_now(EventType.SERVER_TOGGLED,
+                                {'server': server_name, 'client': client, 'enabled': enabled},
                                 source='MainWindow')
         else:
             logging.error(f"Server toggle failed: {result.get('error')}")
@@ -784,14 +775,13 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _on_server_deleted(self, server_name: str, is_disabled: bool = False):
         """Handle server deletion from details panel.
-        
+
         Args:
             server_name: Name of the server to delete
             is_disabled: Whether the server is from the disabled list
         """
-        # Call the server controller to delete the server
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.delete_server(server_name, mode_value, from_disabled=is_disabled)
+        # Call the server controller to delete the server (uses 'both' mode by default)
+        result = self.server_controller.delete_server(server_name, 'both', from_disabled=is_disabled)
         
         if result['success']:
             # Refresh the server list to remove the deleted server
@@ -803,19 +793,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         else:
             self.set_status_message(f"Failed to delete server: {result.get('error', 'Unknown error')}", timeout=5)
     
-    def _on_mode_changed(self, mode: str):
-        """Handle mode change from widget."""
-        # Mode switching handled by changing app_state.mode
-        self.app_state.mode = mode
-        result = {'success': True}
-        if result['success']:
-            self.app_state.mode = mode
-            dispatcher.emit_now(EventType.MODE_CHANGED,
-                               {'mode': mode},
-                               source='MainWindow')
-            self.refresh_server_list()
-        else:
-            self.set_status_message(f"Error: {result['error']}", timeout=5)
+    # Mode change handler removed - no longer needed with per-client operations
     
     # Dispatcher event handlers
     def _handle_config_loaded(self, event: Event):
@@ -883,12 +861,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         preset = event.data.get('preset')
         self.set_status_message(f"Preset '{preset}' saved", timeout=3)
     
-    def _handle_mode_changed(self, event: Event):
-        """Handle mode changed event."""
-        mode = event.data.get('mode')
-        self.app_state.mode = mode
-        self.set_status_message(f"Switched to {mode} mode", timeout=3)
-        self.refresh_server_list()
+    # Mode changed handler removed - no longer needed with per-client operations
     
     def _handle_backup_created(self, event: Event):
         """Handle backup created event."""
@@ -916,10 +889,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         print("DEBUG: refresh_server_list called")
         if hasattr(self, 'server_list') and self.server_list:
             print("DEBUG: server_list exists, getting servers...")
-            # Get current servers from controller
-            # Convert Mode enum to string value
-            mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-            result = self.server_controller.get_servers(mode_value)
+            # Get current servers from controller - use 'both' to get all servers
+            result = self.server_controller.get_servers('both')
             print(f"DEBUG: get_servers result: {result}")
             if result['success']:
                 servers = result['data']['servers']
@@ -935,7 +906,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         try:
             print("DEBUG: MainWindow.load_configuration called")
             self.set_status_message("Loading configuration...")
-            result = self.config_controller.load_config(self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else self.app_state.mode)
+            # Always load both configs now
+            result = self.config_controller.load_config()
             
             if result['success']:
                 print("DEBUG: Configuration loaded successfully")
@@ -954,7 +926,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def save_configuration(self):
         """Save configuration to file."""
         self.set_status_message("Saving configuration...")
-        result = self.config_controller.save_config()
+        # Save both configs by default
+        result = self.config_controller.save_config(client=None)
         
         if result['success']:
             dispatcher.emit_now(EventType.CONFIG_SAVED, result.get('data', {}), source='MainWindow')
@@ -988,8 +961,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         dialog = AddServerDialog(self if USING_QT else self.root)
         server_json = dialog.show()
         if server_json:
-            mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-            result = self.server_controller.add_server(server_json, mode_value)
+            # Add to both clients by default
+            result = self.server_controller.add_server(server_json, 'both')
             if result['success']:
                 server_names = result.get('server_names', [])
                 # For now, emit event for each server added
@@ -1004,9 +977,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def delete_servers(self):
         """Show delete servers dialog for bulk deletion."""
-        # Get current servers
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.get_servers(mode_value)
+        # Get all servers from both clients
+        result = self.server_controller.get_servers('both')
         
         if not result['success']:
             self.set_status_message(f"Failed to get servers: {result.get('error', 'Unknown error')}", timeout=5)
@@ -1040,7 +1012,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                 failed_servers = []
                 
                 for server_name in selected_servers:
-                    delete_result = self.server_controller.delete_server(server_name, mode_value)
+                    delete_result = self.server_controller.delete_server(server_name, 'both')
                     if delete_result['success']:
                         deleted_count += 1
                     else:
@@ -1072,9 +1044,8 @@ class MainWindow(QMainWindow if USING_QT else object):
                         messagebox.showerror("Deletion Failed", error_msg)
     
     def enable_all_servers(self):
-        """Enable all servers."""
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.bulk_toggle(True, mode_value)
+        """Enable all servers for both clients."""
+        result = self.server_controller.bulk_toggle(True, 'both')
         if result['success']:
             count = result['data'].get('count', 0)
             dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
@@ -1086,9 +1057,8 @@ class MainWindow(QMainWindow if USING_QT else object):
                                source='MainWindow')
     
     def disable_all_servers(self):
-        """Disable all servers."""
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.server_controller.bulk_toggle(False, mode_value)
+        """Disable all servers for both clients."""
+        result = self.server_controller.bulk_toggle(False, 'both')
         if result['success']:
             count = result['data'].get('count', 0)
             dispatcher.emit_now(EventType.SERVERS_BULK_TOGGLED,
@@ -1120,8 +1090,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def backup_configuration(self):
         """Create configuration backup."""
         self.set_status_message("Creating backup...")
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.backup_controller.create_backup(mode_value)
+        # Backup both configs by default
+        result = self.backup_controller.create_backup('both')
         if result['success']:
             backup_file = result['data'].get('file')
             dispatcher.emit_now(EventType.BACKUP_CREATED,
@@ -1259,8 +1229,8 @@ class MainWindow(QMainWindow if USING_QT else object):
     def validate_configuration(self):
         """Validate current configuration."""
         self.set_status_message("Validating configuration...")
-        mode_value = self.app_state.mode.value if hasattr(self.app_state.mode, 'value') else str(self.app_state.mode)
-        result = self.config_controller.validate_configuration(mode_value)
+        # Validate both configs
+        result = self.config_controller.validate_configuration()
         if result['success']:
             if result['data'].get('valid'):
                 self.set_status_message("Configuration is valid", timeout=0)
@@ -1288,11 +1258,6 @@ Server Management:
   Ctrl+E        Enable all servers
   Ctrl+D        Disable all servers
   Ctrl+R / F5   Refresh server list
-  
-Mode Switching:
-  Ctrl+1        Claude mode
-  Ctrl+2        Gemini mode
-  Ctrl+3        Both mode
   
 Tools:
   Ctrl+P        Manage presets
@@ -1357,13 +1322,7 @@ Help:
         else:
             self.set_status_message("Search not available", 2)
     
-    def _switch_mode(self, mode: str):
-        """Switch to a specific mode."""
-        if self.mode_selector_widget:
-            self.mode_selector_widget.set_mode(mode)
-            self._on_mode_changed(mode)
-        else:
-            self.set_status_message(f"Cannot switch to {mode} mode", 2)
+    # Mode switching removed - no longer needed with per-client operations
     
     def _undo_action(self):
         """Undo the last action."""

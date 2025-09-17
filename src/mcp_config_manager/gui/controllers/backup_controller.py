@@ -58,16 +58,28 @@ class BackupController:
                     
                     # Try to read server count from backup
                     server_count = 0
+                    claude_count = 0
+                    gemini_count = 0
                     mode = "Unknown"
                     try:
                         with open(backup_file, 'r') as f:
                             backup_data = json.load(f)
                             if 'mcpServers' in backup_data:
-                                server_count = len(backup_data.get('mcpServers', {}))
+                                claude_count = len(backup_data.get('mcpServers', {}))
+                                server_count = claude_count
                                 mode = "Claude"
                             elif 'servers' in backup_data:
-                                server_count = len(backup_data.get('servers', {}))
+                                gemini_count = len(backup_data.get('servers', {}))
+                                server_count = gemini_count
                                 mode = "Gemini"
+                            # Check for new format with per-client states
+                            if 'disabled_servers' in backup_data:
+                                disabled = backup_data['disabled_servers']
+                                if isinstance(disabled, dict) and disabled:
+                                    # Check if it's the new format with disabled_for
+                                    first_value = next(iter(disabled.values()))
+                                    if isinstance(first_value, dict) and 'disabled_for' in first_value:
+                                        mode = "Both (per-client)"
                     except:
                         pass
                     
@@ -76,6 +88,8 @@ class BackupController:
                         'timestamp': timestamp.isoformat(),
                         'size_bytes': size_bytes,
                         'server_count': server_count,
+                        'claude_count': claude_count,
+                        'gemini_count': gemini_count,
                         'mode': mode,
                         'is_auto': False  # Could be enhanced to detect auto backups
                     })
@@ -101,12 +115,13 @@ class BackupController:
                 'error': error_msg
             }
     
-    def create_backup(self, description: str = "") -> Dict[str, Any]:
+    def create_backup(self, description: str = "", client: Optional[str] = None) -> Dict[str, Any]:
         """Create a new backup of current configuration.
-        
+
         Args:
             description: Optional description for the backup
-            
+            client: Optional client to backup ('claude', 'gemini', or None for both)
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -114,18 +129,20 @@ class BackupController:
                 - error: error message if failed
         """
         try:
+            # Create backup (config_manager handles per-client if needed)
             result = self.config_manager.create_backup()
-            
+
             if result.get('success'):
                 backup_file = result.get('backup_file')
-                
+
                 # Notify callbacks
                 for callback in self.on_backup_created_callbacks:
                     callback({
                         'backup_file': backup_file,
-                        'description': description
+                        'description': description,
+                        'client': client
                     })
-                
+
                 return {
                     'success': True,
                     'backup_file': backup_file
@@ -145,16 +162,19 @@ class BackupController:
                 'error': error_msg
             }
     
-    def restore_backup(self, backup_file: str) -> Dict[str, Any]:
+    def restore_backup(self, backup_file: str, client: Optional[str] = None) -> Dict[str, Any]:
         """Restore configuration from a backup file.
-        
+
         Args:
             backup_file: Path to backup file to restore
-            
+            client: Optional client to restore for ('claude', 'gemini', or None for both)
+
         Returns:
             Dictionary with:
                 - success: bool
                 - servers_restored: number of servers restored
+                - claude_restored: number of Claude servers restored
+                - gemini_restored: number of Gemini servers restored
                 - error: error message if failed
         """
         try:
@@ -165,36 +185,58 @@ class BackupController:
                     'success': False,
                     'error': f"Backup file not found: {backup_file}"
                 }
-            
+
             # Create a backup of current config before restoring
             self.config_manager.create_backup()
-            
+
             # Restore from backup
             result = self.config_manager.restore_backup(backup_file)
-            
+
             if result.get('success'):
                 # Count servers in restored config
                 servers_restored = 0
+                claude_restored = 0
+                gemini_restored = 0
                 try:
                     with open(backup_file, 'r') as f:
                         backup_data = json.load(f)
                         if 'mcpServers' in backup_data:
-                            servers_restored = len(backup_data.get('mcpServers', {}))
+                            claude_restored = len(backup_data.get('mcpServers', {}))
+                            servers_restored = claude_restored
                         elif 'servers' in backup_data:
-                            servers_restored = len(backup_data.get('servers', {}))
+                            gemini_restored = len(backup_data.get('servers', {}))
+                            servers_restored = gemini_restored
+                        # Check for new format with per-client states
+                        if 'disabled_servers' in backup_data:
+                            disabled = backup_data['disabled_servers']
+                            if isinstance(disabled, dict) and disabled:
+                                # Count based on disabled_for arrays
+                                for server_name, server_data in disabled.items():
+                                    if isinstance(server_data, dict) and 'disabled_for' in server_data:
+                                        disabled_for = server_data['disabled_for']
+                                        if 'claude' not in disabled_for:
+                                            claude_restored += 1
+                                        if 'gemini' not in disabled_for:
+                                            gemini_restored += 1
+                                servers_restored = max(claude_restored, gemini_restored)
                 except:
                     pass
-                
+
                 # Notify callbacks
                 for callback in self.on_backup_restored_callbacks:
                     callback({
                         'backup_file': backup_file,
-                        'servers_restored': servers_restored
+                        'servers_restored': servers_restored,
+                        'claude_restored': claude_restored,
+                        'gemini_restored': gemini_restored,
+                        'client': client
                     })
-                
+
                 return {
                     'success': True,
-                    'servers_restored': servers_restored
+                    'servers_restored': servers_restored,
+                    'claude_restored': claude_restored,
+                    'gemini_restored': gemini_restored
                 }
             else:
                 return {
@@ -384,15 +426,35 @@ class BackupController:
                 backup_data = json.load(f)
             
             # Determine type and count servers
+            claude_servers = {}
+            gemini_servers = {}
             if 'mcpServers' in backup_data:
                 mode = "Claude"
-                servers = backup_data.get('mcpServers', {})
+                claude_servers = backup_data.get('mcpServers', {})
+                servers = claude_servers
             elif 'servers' in backup_data:
                 mode = "Gemini"
-                servers = backup_data.get('servers', {})
+                gemini_servers = backup_data.get('servers', {})
+                servers = gemini_servers
             else:
                 mode = "Unknown"
                 servers = {}
+
+            # Check for new format with per-client states
+            if 'disabled_servers' in backup_data:
+                disabled = backup_data['disabled_servers']
+                if isinstance(disabled, dict) and disabled:
+                    first_value = next(iter(disabled.values()), None)
+                    if first_value and isinstance(first_value, dict) and 'disabled_for' in first_value:
+                        mode = "Both (per-client)"
+                        # Count enabled servers per client
+                        for server_name, server_data in disabled.items():
+                            if isinstance(server_data, dict) and 'disabled_for' in server_data:
+                                disabled_for = server_data['disabled_for']
+                                if 'claude' not in disabled_for:
+                                    claude_servers[server_name] = server_data.get('config', {})
+                                if 'gemini' not in disabled_for:
+                                    gemini_servers[server_name] = server_data.get('config', {})
             
             info = {
                 'filename': str(backup_path),
@@ -401,6 +463,10 @@ class BackupController:
                 'mode': mode,
                 'server_count': len(servers),
                 'servers': list(servers.keys()),
+                'claude_count': len(claude_servers),
+                'gemini_count': len(gemini_servers),
+                'claude_servers': list(claude_servers.keys()),
+                'gemini_servers': list(gemini_servers.keys()),
                 'has_env_vars': any('env' in s for s in servers.values() if isinstance(s, dict))
             }
             

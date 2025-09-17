@@ -25,7 +25,7 @@ class PresetController:
     
     def get_preset_list(self) -> Dict[str, Any]:
         """Get list of available presets.
-        
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -34,16 +34,21 @@ class PresetController:
         """
         try:
             presets = []
-            
+
             # Get all presets from preset manager
             all_presets = self.config_manager.preset_manager.list_presets()
-            
+
             for preset_name, preset_data in all_presets.items():
                 # Count servers
                 enabled_count = len(preset_data.get('enabled_servers', {}))
                 disabled_count = len(preset_data.get('disabled_servers', {}))
                 total_count = enabled_count + disabled_count
-                
+
+                # Check for per-client enablement in preset
+                claude_servers = preset_data.get('claude_servers', {})
+                gemini_servers = preset_data.get('gemini_servers', {})
+                has_per_client = bool(claude_servers or gemini_servers)
+
                 presets.append({
                     'name': preset_name,
                     'description': preset_data.get('description', ''),
@@ -52,7 +57,9 @@ class PresetController:
                     'disabled_count': disabled_count,
                     'is_builtin': preset_name in ['minimal', 'web_dev', 'data_science', 'full'],
                     'is_favorite': preset_data.get('is_favorite', False),
-                    'mode': preset_data.get('mode', 'both')
+                    'has_per_client': has_per_client,
+                    'claude_servers': claude_servers,
+                    'gemini_servers': gemini_servers
                 })
             
             return {
@@ -70,22 +77,23 @@ class PresetController:
                 'error': error_msg
             }
     
-    def load_preset(self, preset_name: str, mode: Optional[str] = None) -> Dict[str, Any]:
+    def load_preset(self, preset_name: str, client: Optional[str] = None) -> Dict[str, Any]:
         """Load and apply a preset configuration.
-        
+
         Args:
             preset_name: Name of the preset to load
-            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+            client: Target client ('claude', 'gemini', or None for both)
+
         Returns:
             Dictionary with:
                 - success: bool
-                - servers_enabled: list of enabled server names
-                - servers_disabled: list of disabled server names
+                - servers_enabled: list of enabled server names (or dict with per-client if available)
+                - servers_disabled: list of disabled server names (or dict with per-client if available)
                 - error: error message if failed
         """
         try:
-            # Determine mode
+            # For backward compatibility, convert mode to client if provided
+            mode = client  # Keep mode name for backward compatibility with config_manager
             if mode:
                 mode_map = {
                     'claude': ConfigMode.CLAUDE,
@@ -95,26 +103,39 @@ class PresetController:
                 config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
             else:
                 config_mode = ConfigMode.BOTH
-            
+
             # Apply the preset
             result = self.config_manager.apply_preset(preset_name, config_mode)
-            
+
             if result.get('success'):
                 # Get the preset data to return details
                 preset_data = self.config_manager.preset_manager.get_preset(preset_name)
-                
-                servers_enabled = list(preset_data.get('enabled_servers', {}).keys())
-                servers_disabled = list(preset_data.get('disabled_servers', {}).keys())
-                
+
+                # Check if preset has per-client data
+                claude_servers = preset_data.get('claude_servers', {})
+                gemini_servers = preset_data.get('gemini_servers', {})
+
+                if claude_servers or gemini_servers:
+                    # Return per-client data
+                    servers_enabled = {
+                        'claude': list(claude_servers.keys()) if claude_servers else [],
+                        'gemini': list(gemini_servers.keys()) if gemini_servers else []
+                    }
+                    servers_disabled = preset_data.get('disabled_servers', {})
+                else:
+                    # Fallback to legacy format
+                    servers_enabled = list(preset_data.get('enabled_servers', {}).keys())
+                    servers_disabled = list(preset_data.get('disabled_servers', {}).keys())
+
                 # Notify callbacks
                 for callback in self.on_preset_loaded_callbacks:
                     callback({
                         'preset': preset_name,
                         'servers_enabled': servers_enabled,
                         'servers_disabled': servers_disabled,
-                        'mode': mode
+                        'client': client
                     })
-                
+
                 return {
                     'success': True,
                     'servers_enabled': servers_enabled,
@@ -136,21 +157,23 @@ class PresetController:
             }
     
     def save_preset(self, preset_name: str, description: str = "",
-                   mode: Optional[str] = None) -> Dict[str, Any]:
+                   client: Optional[str] = None, save_per_client: bool = False) -> Dict[str, Any]:
         """Save current configuration as a preset.
-        
+
         Args:
             preset_name: Name for the preset
             description: Description of the preset
-            mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+            client: Target client ('claude', 'gemini', or None for both)
+            save_per_client: If True, save per-client enablement states
+
         Returns:
             Dictionary with:
                 - success: bool
                 - error: error message if failed
         """
         try:
-            # Determine mode
+            # For backward compatibility with mode parameter
+            mode = client
             if mode:
                 mode_map = {
                     'claude': ConfigMode.CLAUDE,
@@ -160,31 +183,56 @@ class PresetController:
                 config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
             else:
                 config_mode = ConfigMode.BOTH
-            
+
             # Get current server configuration
-            enabled_servers = self.config_manager.server_manager.get_enabled_servers(config_mode)
+            enabled_servers_list = self.config_manager.server_manager.get_enabled_servers(config_mode)
             disabled_servers = self.config_manager.server_manager.get_disabled_servers(config_mode)
-            
+
             # Create preset data
             preset_data = {
-                'description': description,
-                'enabled_servers': enabled_servers,
-                'disabled_servers': disabled_servers,
-                'mode': config_mode.value
+                'description': description
             }
-            
+
+            if save_per_client:
+                # Save per-client enablement states
+                claude_enabled = {}
+                gemini_enabled = {}
+
+                # Process enabled servers to extract per-client states
+                for server in enabled_servers_list:
+                    if isinstance(server, dict):
+                        name = server.get('name', '')
+                        if server.get('claude_enabled', False):
+                            claude_enabled[name] = server.get('config', {})
+                        if server.get('gemini_enabled', False):
+                            gemini_enabled[name] = server.get('config', {})
+
+                preset_data['claude_servers'] = claude_enabled
+                preset_data['gemini_servers'] = gemini_enabled
+                preset_data['disabled_servers'] = disabled_servers
+            else:
+                # Legacy format - single enabled/disabled lists
+                if isinstance(enabled_servers_list, list) and enabled_servers_list and isinstance(enabled_servers_list[0], dict):
+                    # Convert list of dicts to dict format
+                    enabled_servers = {s['name']: s.get('config', {}) for s in enabled_servers_list if isinstance(s, dict)}
+                else:
+                    enabled_servers = enabled_servers_list
+
+                preset_data['enabled_servers'] = enabled_servers
+                preset_data['disabled_servers'] = disabled_servers
+
             # Save the preset
             result = self.config_manager.preset_manager.save_preset(preset_name, preset_data)
-            
+
             if result.get('success'):
                 # Notify callbacks
                 for callback in self.on_preset_saved_callbacks:
                     callback({
                         'preset': preset_name,
                         'description': description,
-                        'mode': mode
+                        'client': client
                     })
-                
+
                 return {'success': True}
             else:
                 return {
@@ -267,7 +315,8 @@ class PresetController:
                     'description': preset_data.get('description', ''),
                     'enabled_servers': preset_data.get('enabled_servers', {}),
                     'disabled_servers': preset_data.get('disabled_servers', {}),
-                    'mode': preset_data.get('mode', 'both'),
+                    'claude_servers': preset_data.get('claude_servers', {}),
+                    'gemini_servers': preset_data.get('gemini_servers', {}),
                     'is_builtin': preset_name in ['minimal', 'web_dev', 'data_science', 'full'],
                     'is_favorite': preset_data.get('is_favorite', False)
                 }
