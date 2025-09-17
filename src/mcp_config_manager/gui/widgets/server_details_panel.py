@@ -95,18 +95,21 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         elif HAS_TKINTER:
             self.parent = parent
             self._init_tk_ui()
-        
+
         self.current_server = None
         self.current_server_disabled = False  # Track if current server is disabled
         self.original_data = None
         self.field_editors = {}
         self.has_changes = False
         self.validation_errors = {}
-        
+        self.claude_enabled = False  # Track per-client enablement
+        self.gemini_enabled = False
+
         # Callbacks for tkinter
         self.server_updated_callbacks = []
         self.server_deleted_callbacks = []
         self.changes_pending_callbacks = []
+        self.client_enablement_changed_callbacks = []  # New callback for client enablement
     
     def _init_qt_ui(self):
         """Initialize Qt UI components."""
@@ -117,19 +120,35 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         header_frame = QFrame()
         header_frame.setFrameStyle(QFrame.Shape.Box)
         header_layout = QHBoxLayout(header_frame)
-        
+
         self.server_label = QLabel("Select a server to edit")
         self.server_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         header_layout.addWidget(self.server_label)
-        
+
         header_layout.addStretch()
-        
+
+        # Add client enablement checkboxes
+        from PyQt6.QtWidgets import QCheckBox
+
+        enablement_label = QLabel("Enabled for:")
+        header_layout.addWidget(enablement_label)
+
+        self.claude_checkbox = QCheckBox("Claude")
+        self.claude_checkbox.setEnabled(False)
+        self.claude_checkbox.stateChanged.connect(self._on_client_enablement_changed)
+        header_layout.addWidget(self.claude_checkbox)
+
+        self.gemini_checkbox = QCheckBox("Gemini")
+        self.gemini_checkbox.setEnabled(False)
+        self.gemini_checkbox.stateChanged.connect(self._on_client_enablement_changed)
+        header_layout.addWidget(self.gemini_checkbox)
+
         # Add field button
         self.add_field_btn = QPushButton("+ Add Field")
         self.add_field_btn.clicked.connect(self._on_add_field)
         self.add_field_btn.setEnabled(False)
         header_layout.addWidget(self.add_field_btn)
-        
+
         layout.addWidget(header_frame)
         
         # Create a stacked widget for empty state and form
@@ -266,18 +285,38 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         """Initialize tkinter UI components."""
         if not self.parent:
             return
-            
+
         # Main frame
         self.frame = ttk.Frame(self.parent)
-        
+
         # Header
         header_frame = ttk.Frame(self.frame)
         header_frame.pack(fill=tk.X, padx=5, pady=5)
-        
+
         self.server_label = ttk.Label(header_frame, text="Select a server to edit",
                                       font=('', 12, 'bold'))
         self.server_label.pack(side=tk.LEFT)
-        
+
+        # Add client enablement checkboxes
+        enablement_frame = ttk.Frame(header_frame)
+        enablement_frame.pack(side=tk.LEFT, padx=(20, 0))
+
+        ttk.Label(enablement_frame, text="Enabled for:").pack(side=tk.LEFT)
+
+        self.claude_var = tk.BooleanVar()
+        self.claude_checkbox = ttk.Checkbutton(enablement_frame, text="Claude",
+                                               variable=self.claude_var,
+                                               command=self._on_client_enablement_changed,
+                                               state='disabled')
+        self.claude_checkbox.pack(side=tk.LEFT, padx=(5, 0))
+
+        self.gemini_var = tk.BooleanVar()
+        self.gemini_checkbox = ttk.Checkbutton(enablement_frame, text="Gemini",
+                                               variable=self.gemini_var,
+                                               command=self._on_client_enablement_changed,
+                                               state='disabled')
+        self.gemini_checkbox.pack(side=tk.LEFT, padx=(5, 0))
+
         self.add_field_btn = ttk.Button(header_frame, text="+ Add Field",
                                         command=self._on_add_field, state='disabled')
         self.add_field_btn.pack(side=tk.RIGHT, padx=(10, 0))
@@ -311,20 +350,25 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                                      command=self._on_cancel, state='disabled')
         self.cancel_btn.pack(side=tk.RIGHT)
     
-    def load_server(self, server_name: str, server_config: Dict[str, Any], is_disabled: bool = False):
+    def load_server(self, server_name: str, server_config: Dict[str, Any], is_disabled: bool = False,
+                   claude_enabled: bool = True, gemini_enabled: bool = True):
         """Load a server configuration into the form.
-        
+
         Args:
             server_name: Name of the server
             server_config: Server configuration dictionary
             is_disabled: Whether the server is currently disabled
+            claude_enabled: Whether the server is enabled for Claude
+            gemini_enabled: Whether the server is enabled for Gemini
         """
         self.current_server = server_name
         self.current_server_disabled = is_disabled  # Store disabled state
         self.original_data = json.loads(json.dumps(server_config))  # Deep copy
+        self.claude_enabled = claude_enabled
+        self.gemini_enabled = gemini_enabled
         self.has_changes = False
         self.validation_errors.clear()
-        
+
         # Update header
         if USING_QT:
             self.server_label.setText(f"Editing: {server_name}")
@@ -333,6 +377,13 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
             self._update_save_button_style(False)  # Clear any custom styles
+
+            # Update client checkboxes
+            self.claude_checkbox.setEnabled(True)
+            self.gemini_checkbox.setEnabled(True)
+            self.claude_checkbox.setChecked(claude_enabled)
+            self.gemini_checkbox.setChecked(gemini_enabled)
+
             # Switch to form view
             self.stacked_widget.setCurrentIndex(1)  # Show the form
         elif HAS_TKINTER:
@@ -340,7 +391,13 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.add_field_btn.config(state='normal')
             self.save_btn.config(state='disabled')
             self.cancel_btn.config(state='disabled')
-        
+
+            # Update client checkboxes
+            self.claude_checkbox.config(state='normal')
+            self.gemini_checkbox.config(state='normal')
+            self.claude_var.set(claude_enabled)
+            self.gemini_var.set(gemini_enabled)
+
         # Clear existing form
         self._clear_form()
         
@@ -438,26 +495,65 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             
             self.field_editors[field_name] = editor
     
+    def _on_client_enablement_changed(self):
+        """Handle client enablement checkbox change."""
+        if not self.current_server:
+            return
+
+        # Update enablement states
+        if USING_QT:
+            claude_enabled = self.claude_checkbox.isChecked()
+            gemini_enabled = self.gemini_checkbox.isChecked()
+        elif HAS_TKINTER:
+            claude_enabled = self.claude_var.get()
+            gemini_enabled = self.gemini_var.get()
+        else:
+            return
+
+        # Check if client states have changed
+        if claude_enabled != self.claude_enabled or gemini_enabled != self.gemini_enabled:
+            # Emit client enablement change
+            if USING_QT:
+                # We'll emit a signal for client enablement changes
+                pass  # Signal will be emitted via callbacks
+
+            # Call callbacks for client enablement changes
+            for callback in self.client_enablement_changed_callbacks:
+                callback(self.current_server, "claude", claude_enabled)
+                callback(self.current_server, "gemini", gemini_enabled)
+
+            # Update stored states
+            self.claude_enabled = claude_enabled
+            self.gemini_enabled = gemini_enabled
+
+            # Mark as having changes
+            self.has_changes = True
+            self._update_ui_for_changes()
+
     def _on_field_changed(self, field_name: str = None, value: Any = None):
         """Handle field value change."""
         if not self.current_server:
             return
-        
+
         # Check if data has actually changed
         current_data = self.get_server_data()
         self.has_changes = current_data != self.original_data
-        
+
+        # Update UI for changes
+        self._update_ui_for_changes()
+
+    def _update_ui_for_changes(self):
+        """Update UI based on whether there are unsaved changes."""
         # Enable/disable save and cancel buttons
         if USING_QT:
             self.save_btn.setEnabled(self.has_changes and not self.validation_errors)
             self._update_save_button_style(self.has_changes)
             self.cancel_btn.setEnabled(self.has_changes)
-            self._update_save_button_style(self.has_changes)
-            
+
             # Update header styling for unsaved changes
             if self.has_changes:
                 self.server_label.setStyleSheet("""
-                    font-weight: bold; 
+                    font-weight: bold;
                     font-size: 14px;
                     color: #FF6B00;
                 """)
@@ -469,7 +565,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             state = 'normal' if self.has_changes and not self.validation_errors else 'disabled'
             self.save_btn.config(state=state)
             self.cancel_btn.config(state='normal' if self.has_changes else 'disabled')
-            
+
             # Update label for unsaved changes
             if self.has_changes:
                 self.server_label.config(text=f"● Editing: {self.current_server} (unsaved)",
@@ -477,7 +573,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             else:
                 self.server_label.config(text=f"Editing: {self.current_server}",
                                         foreground='black')
-        
+
         # Emit changes pending signal
         self._emit_changes_pending(self.has_changes)
     
@@ -634,13 +730,158 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
     
     def add_changes_pending_callback(self, callback: Callable):
         """Add callback for changes pending event (tkinter).
-        
+
         Args:
             callback: Function to call with (has_changes)
         """
         if not USING_QT:
             self.changes_pending_callbacks.append(callback)
+
+    def add_client_enablement_changed_callback(self, callback: Callable):
+        """Add callback for client enablement changed event.
+
+        Args:
+            callback: Function to call with (server_name, client, enabled)
+        """
+        self.client_enablement_changed_callbacks.append(callback)
     
+    def refresh_current_server(self, updated_config: Optional[Dict[str, Any]] = None,
+                              claude_enabled: Optional[bool] = None,
+                              gemini_enabled: Optional[bool] = None) -> bool:
+        """Refresh the current server configuration from disk or with provided data.
+
+        Args:
+            updated_config: New configuration data (if None, server was deleted)
+            claude_enabled: New Claude enablement state
+            gemini_enabled: New Gemini enablement state
+
+        Returns:
+            True if refresh successful, False if server was deleted or error
+        """
+        if not self.current_server:
+            return True
+
+        # Handle server deletion case
+        if updated_config is None:
+            logger.debug(f"Server '{self.current_server}' no longer exists")
+
+            # Check for unsaved changes
+            if self.has_changes:
+                # Warn user
+                if USING_QT:
+                    from PyQt6.QtWidgets import QMessageBox
+                    QMessageBox.warning(
+                        self,
+                        "Server Deleted",
+                        f"The server '{self.current_server}' has been deleted from disk.\n"
+                        "Your unsaved changes will be lost."
+                    )
+                elif HAS_TKINTER:
+                    import tkinter.messagebox as messagebox
+                    messagebox.showwarning(
+                        "Server Deleted",
+                        f"The server '{self.current_server}' has been deleted from disk.\n"
+                        "Your unsaved changes will be lost."
+                    )
+
+            # Clear the panel
+            self.clear()
+            return False
+
+        # Check if configuration changed externally
+        config_changed = (json.dumps(updated_config, sort_keys=True) !=
+                         json.dumps(self.original_data, sort_keys=True))
+
+        # Check if client states changed
+        client_states_changed = False
+        if claude_enabled is not None and claude_enabled != self.claude_enabled:
+            client_states_changed = True
+        if gemini_enabled is not None and gemini_enabled != self.gemini_enabled:
+            client_states_changed = True
+
+        if config_changed or client_states_changed:
+            # Handle unsaved changes
+            if self.has_changes:
+                # Offer conflict resolution
+                if USING_QT:
+                    from PyQt6.QtWidgets import QMessageBox
+
+                    message = f"The server '{self.current_server}' has been modified externally.\n\n"
+                    if config_changed:
+                        message += "• Configuration changed\n"
+                    if client_states_changed:
+                        message += "• Client enablement states changed\n"
+                    message += "\nWhat would you like to do?"
+
+                    msg_box = QMessageBox(self)
+                    msg_box.setWindowTitle("External Changes Detected")
+                    msg_box.setText(message)
+                    msg_box.setIcon(QMessageBox.Icon.Question)
+
+                    keep_btn = msg_box.addButton("Keep My Changes", QMessageBox.ButtonRole.AcceptRole)
+                    accept_btn = msg_box.addButton("Accept External Changes", QMessageBox.ButtonRole.RejectRole)
+                    msg_box.setDefaultButton(keep_btn)
+
+                    msg_box.exec()
+
+                    if msg_box.clickedButton() == accept_btn:
+                        # Accept external changes
+                        self.load_server(
+                            self.current_server,
+                            updated_config,
+                            self.current_server_disabled,
+                            claude_enabled or self.claude_enabled,
+                            gemini_enabled or self.gemini_enabled
+                        )
+                        logger.debug(f"Accepted external changes for server '{self.current_server}'")
+                    else:
+                        # Keep current changes
+                        logger.debug(f"Keeping local changes for server '{self.current_server}'")
+
+                elif HAS_TKINTER:
+                    import tkinter.messagebox as messagebox
+
+                    message = f"The server '{self.current_server}' has been modified externally.\n\n"
+                    if config_changed:
+                        message += "• Configuration changed\n"
+                    if client_states_changed:
+                        message += "• Client enablement states changed\n"
+                    message += "\n\nAccept external changes? (Choose No to keep your changes)"
+
+                    if messagebox.askyesno("External Changes Detected", message):
+                        # Accept external changes
+                        self.load_server(
+                            self.current_server,
+                            updated_config,
+                            self.current_server_disabled,
+                            claude_enabled or self.claude_enabled,
+                            gemini_enabled or self.gemini_enabled
+                        )
+                        logger.debug(f"Accepted external changes for server '{self.current_server}'")
+                    else:
+                        # Keep current changes
+                        logger.debug(f"Keeping local changes for server '{self.current_server}'")
+            else:
+                # No unsaved changes, just reload
+                self.load_server(
+                    self.current_server,
+                    updated_config,
+                    self.current_server_disabled,
+                    claude_enabled or self.claude_enabled,
+                    gemini_enabled or self.gemini_enabled
+                )
+                logger.debug(f"Reloaded server '{self.current_server}' from external changes")
+        else:
+            logger.debug(f"No external changes for server '{self.current_server}'")
+
+        return True
+
+    def clear_cache(self):
+        """Clear any cached data for the current server."""
+        # Currently no cache in the details panel, but this method
+        # provides a hook for future caching implementations
+        logger.debug(f"Clearing cache for details panel (server: {self.current_server})")
+
     def clear(self):
         """Clear the panel and show empty state."""
         self.current_server = None
@@ -648,9 +889,11 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.original_data = None
         self.has_changes = False
         self.validation_errors.clear()
-        
+        self.claude_enabled = False
+        self.gemini_enabled = False
+
         self._clear_form()
-        
+
         if USING_QT:
             self.server_label.setText("Select a server to edit")
             self.add_field_btn.setEnabled(False)
@@ -658,6 +901,11 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.save_btn.setEnabled(False)
             self.cancel_btn.setEnabled(False)
             self._update_save_button_style(False)  # Clear any custom styles
+            # Disable client checkboxes
+            self.claude_checkbox.setEnabled(False)
+            self.gemini_checkbox.setEnabled(False)
+            self.claude_checkbox.setChecked(False)
+            self.gemini_checkbox.setChecked(False)
             # Switch back to empty state
             self.stacked_widget.setCurrentWidget(self.empty_state_widget)
         elif HAS_TKINTER:
@@ -665,7 +913,12 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             self.add_field_btn.config(state='disabled')
             self.save_btn.config(state='disabled')
             self.cancel_btn.config(state='disabled')
-        
+            # Disable client checkboxes
+            self.claude_checkbox.config(state='disabled')
+            self.gemini_checkbox.config(state='disabled')
+            self.claude_var.set(False)
+            self.gemini_var.set(False)
+
         self._emit_changes_pending(False)
 
 

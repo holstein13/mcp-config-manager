@@ -21,12 +21,13 @@ class ConfigController:
         self.on_config_saved_callbacks: List[Callable] = []
         self.on_config_error_callbacks: List[Callable] = []
     
-    def load_config(self, mode: Optional[str] = None) -> Dict[str, Any]:
+    def load_config(self, mode: Optional[str] = None, force_reload: bool = False) -> Dict[str, Any]:
         """Load configuration for the specified mode.
-        
+
         Args:
             mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
-            
+            force_reload: If True, force a fresh read from disk bypassing any caches
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -35,8 +36,15 @@ class ConfigController:
         """
         try:
             # Always load both configurations
+            if force_reload:
+                # Force fresh read from disk - clear any potential caches
+                self.config_manager._claude_config = None
+                self.config_manager._gemini_config = None
+                # Also reload disabled servers
+                self.config_manager.server_manager.disabled_servers = None
+
             claude_data, gemini_data = self.config_manager.load_configs()
-            logger.debug(f"Configs loaded. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
+            logger.debug(f"Configs loaded{' (forced reload)' if force_reload else ''}. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
 
             # Get server list with per-client states
             server_list = self._get_server_list()
@@ -70,7 +78,23 @@ class ConfigController:
                 'success': False,
                 'error': error_msg
             }
-    
+
+    def reload_config(self) -> Dict[str, Any]:
+        """Force reload configuration from disk, clearing all caches.
+
+        This method ensures a fresh read of all configuration files,
+        bypassing any cached data. Useful when files have been modified
+        externally or when user explicitly requests a refresh.
+
+        Returns:
+            Dictionary with:
+                - success: bool
+                - data: config data if successful (same format as load_config)
+                - error: error message if failed
+        """
+        logger.debug("Forcing configuration reload from disk")
+        return self.load_config(force_reload=True)
+
     def save_config(self, create_backup: bool = True, client: Optional[str] = None) -> Dict[str, Any]:
         """Save configuration with per-client state handling.
 

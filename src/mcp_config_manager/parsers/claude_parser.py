@@ -66,12 +66,67 @@ class ClaudeConfigParser(BaseConfigParser):
         return True
     
     def get_servers(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Get active servers from config"""
-        return config.get('mcpServers', {})
+        """Get active servers from config, including project-specific servers"""
+        servers = {}
+
+        # Get global servers
+        if 'mcpServers' in config:
+            servers.update(config['mcpServers'])
+
+        # Get project-specific servers (they are stored under project paths)
+        for key, value in config.items():
+            if isinstance(value, dict) and 'mcpServers' in value:
+                # This is a project-specific configuration
+                servers.update(value['mcpServers'])
+
+        return servers
     
     def set_servers(self, config: Dict[str, Any], servers: Dict[str, Any]) -> Dict[str, Any]:
-        """Set active servers in config"""
-        config['mcpServers'] = servers
+        """Set active servers in config, preserving project structure"""
+        # Create a map to track which server belongs to which section
+        server_locations = {}
+
+        # First, identify where each existing server is located
+        if 'mcpServers' in config:
+            for server_name in config['mcpServers']:
+                server_locations[server_name] = None  # Global server
+
+        for key, value in config.items():
+            if isinstance(value, dict) and 'mcpServers' in value:
+                for server_name in value['mcpServers']:
+                    server_locations[server_name] = key  # Project-specific server
+
+        # Update servers in their original locations or add to global
+        for server_name, server_config in servers.items():
+            location = server_locations.get(server_name)
+            if location is None:
+                # Global server or new server - add to global
+                if 'mcpServers' not in config:
+                    config['mcpServers'] = {}
+                config['mcpServers'][server_name] = server_config
+            else:
+                # Project-specific server - update in project section
+                if location in config and isinstance(config[location], dict):
+                    if 'mcpServers' not in config[location]:
+                        config[location]['mcpServers'] = {}
+                    config[location]['mcpServers'][server_name] = server_config
+
+        # Remove servers that are not in the new set
+        all_current_servers = set(self.get_servers(config).keys())
+        servers_to_remove = all_current_servers - set(servers.keys())
+
+        for server_name in servers_to_remove:
+            location = server_locations.get(server_name)
+            if location is None:
+                # Global server
+                if 'mcpServers' in config and server_name in config['mcpServers']:
+                    del config['mcpServers'][server_name]
+            else:
+                # Project-specific server
+                if location in config and isinstance(config[location], dict):
+                    if 'mcpServers' in config[location] and server_name in config[location]['mcpServers']:
+                        del config[location]['mcpServers'][server_name]
+
         return config
     
     def add_server(self, config: Dict[str, Any], name: str, server_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -83,7 +138,17 @@ class ClaudeConfigParser(BaseConfigParser):
         return config
     
     def remove_server(self, config: Dict[str, Any], name: str) -> Dict[str, Any]:
-        """Remove a server from the configuration"""
+        """Remove a server from the configuration, checking all locations"""
+        # Check global servers
         if 'mcpServers' in config and name in config['mcpServers']:
             del config['mcpServers'][name]
+            return config
+
+        # Check project-specific servers
+        for key, value in config.items():
+            if isinstance(value, dict) and 'mcpServers' in value:
+                if name in value['mcpServers']:
+                    del value['mcpServers'][name]
+                    return config
+
         return config
