@@ -23,14 +23,16 @@ class AddServerDialog:
     
     def __init__(self, parent=None):
         """Initialize the Add Server dialog.
-        
+
         Args:
             parent: Parent widget/window
         """
         self.parent = parent
         self.result = None
         self.on_server_added_callbacks = []
-        
+        self.claude_enabled = True  # Default to enabled for both
+        self.gemini_enabled = True
+
         if USING_QT:
             self._init_qt()
         else:
@@ -73,7 +75,26 @@ class AddServerDialog:
         
         input_group.setLayout(input_layout)
         layout.addWidget(input_group)
-        
+
+        # Client enablement checkboxes
+        from PyQt6.QtWidgets import QCheckBox
+        enablement_group = QGroupBox("Enable for:")
+        enablement_layout = QHBoxLayout()
+
+        self.claude_checkbox = QCheckBox("Claude")
+        self.claude_checkbox.setChecked(True)  # Default to enabled
+        self.claude_checkbox.stateChanged.connect(self._on_client_enablement_changed)
+        enablement_layout.addWidget(self.claude_checkbox)
+
+        self.gemini_checkbox = QCheckBox("Gemini")
+        self.gemini_checkbox.setChecked(True)  # Default to enabled
+        self.gemini_checkbox.stateChanged.connect(self._on_client_enablement_changed)
+        enablement_layout.addWidget(self.gemini_checkbox)
+
+        enablement_layout.addStretch()
+        enablement_group.setLayout(enablement_layout)
+        layout.addWidget(enablement_group)
+
         # Validation status
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
@@ -153,10 +174,32 @@ class AddServerDialog:
         
         self.json_input.bind("<FocusIn>", clear_placeholder)
         
+        # Client enablement checkboxes
+        enablement_frame = ttk.LabelFrame(main_frame, text="Enable for:", padding="5")
+        enablement_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.claude_var = tk.BooleanVar(value=True)  # Default to enabled
+        self.claude_checkbox = ttk.Checkbutton(
+            enablement_frame,
+            text="Claude",
+            variable=self.claude_var,
+            command=self._on_client_enablement_changed
+        )
+        self.claude_checkbox.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.gemini_var = tk.BooleanVar(value=True)  # Default to enabled
+        self.gemini_checkbox = ttk.Checkbutton(
+            enablement_frame,
+            text="Gemini",
+            variable=self.gemini_var,
+            command=self._on_client_enablement_changed
+        )
+        self.gemini_checkbox.pack(side=tk.LEFT)
+
         # Validation status
         self.status_label = ttk.Label(main_frame, text="", foreground="red")
         self.status_label.pack(pady=(0, 10))
-        
+
         # Button frame
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X)
@@ -380,16 +423,31 @@ class AddServerDialog:
         if self.json_input.get("1.0", "end").strip():
             self._validate_json_tk()
     
+    def _on_client_enablement_changed(self):
+        """Handle client enablement checkbox change."""
+        if USING_QT:
+            self.claude_enabled = self.claude_checkbox.isChecked()
+            self.gemini_enabled = self.gemini_checkbox.isChecked()
+        else:
+            self.claude_enabled = self.claude_var.get()
+            self.gemini_enabled = self.gemini_var.get()
+
     def _on_qt_accept(self):
         """Handle accept action in Qt version."""
         if self._validate_json_qt():
             json_text = self.json_input.toPlainText().strip()
             self.result = json.loads(json_text)
-            
+
+            # Add client enablement info to result
+            self.result['_client_enablement'] = {
+                'claude': self.claude_enabled,
+                'gemini': self.gemini_enabled
+            }
+
             # Notify callbacks
             for callback in self.on_server_added_callbacks:
                 callback(self.result)
-            
+
             self.dialog.accept()
         else:
             QMessageBox.warning(
@@ -403,11 +461,17 @@ class AddServerDialog:
         if self._validate_json_tk():
             json_text = self.json_input.get("1.0", "end").strip()
             self.result = json.loads(json_text)
-            
+
+            # Add client enablement info to result
+            self.result['_client_enablement'] = {
+                'claude': self.claude_enabled,
+                'gemini': self.gemini_enabled
+            }
+
             # Notify callbacks
             for callback in self.on_server_added_callbacks:
                 callback(self.result)
-            
+
             self.dialog.destroy()
         else:
             messagebox.showwarning(

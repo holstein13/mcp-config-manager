@@ -71,3 +71,4 @@ gemini-backup.json
 *.rpm
 *.deb
 *.app
+backups/

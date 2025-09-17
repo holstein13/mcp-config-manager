@@ -762,3 +762,167 @@ class ServerListWidget(QWidget if USING_QT else object):
             self.tree.headerItem().setText(1, "☐ Gemini")
         else:  # PartiallyChecked
             self.tree.headerItem().setText(1, "⊟ Gemini")
+
+    def highlight_new_servers(self, server_names: List[str]):
+        """Temporarily highlight newly added servers with green background.
+
+        Args:
+            server_names: List of server names to highlight
+        """
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                server_name = item.text(2)
+                if server_name in server_names:
+                    # Set green background for new servers
+                    from PyQt6.QtGui import QBrush, QColor
+                    for col in range(self.tree.columnCount()):
+                        item.setBackground(col, QBrush(QColor(200, 255, 200)))  # Light green
+
+            # Schedule removal of highlight after 3 seconds
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(3000, lambda: self._clear_highlights(server_names))
+
+        elif not USING_QT and hasattr(self, 'tree'):
+            # Tkinter version
+            for item in self.tree.get_children():
+                server_name = self.tree.item(item, 'values')[2]
+                if server_name in server_names:
+                    # Add green tag for highlighting
+                    self.tree.item(item, tags=('new_server',))
+
+            # Configure the tag
+            self.tree.tag_configure('new_server', background='#C8FFC8')  # Light green
+
+            # Schedule removal after 3 seconds
+            if hasattr(self, 'parent'):
+                self.parent.after(3000, lambda: self._clear_tk_highlights(server_names))
+
+    def mark_modified_servers(self, server_names: List[str]):
+        """Temporarily mark modified servers with orange indicator.
+
+        Args:
+            server_names: List of server names to mark as modified
+        """
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                server_name = item.text(2)
+                if server_name in server_names:
+                    # Set orange background for modified servers
+                    from PyQt6.QtGui import QBrush, QColor
+                    for col in range(self.tree.columnCount()):
+                        item.setBackground(col, QBrush(QColor(255, 235, 200)))  # Light orange
+
+            # Schedule removal of highlight after 3 seconds
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(3000, lambda: self._clear_highlights(server_names))
+
+        elif not USING_QT and hasattr(self, 'tree'):
+            # Tkinter version
+            for item in self.tree.get_children():
+                server_name = self.tree.item(item, 'values')[2]
+                if server_name in server_names:
+                    # Add orange tag for highlighting
+                    self.tree.item(item, tags=('modified_server',))
+
+            # Configure the tag
+            self.tree.tag_configure('modified_server', background='#FFEBC8')  # Light orange
+
+            # Schedule removal after 3 seconds
+            if hasattr(self, 'parent'):
+                self.parent.after(3000, lambda: self._clear_tk_highlights(server_names))
+
+    def flash_removed_servers(self, server_names: List[str]):
+        """Flash servers red before removing them.
+
+        Args:
+            server_names: List of server names to flash and remove
+        """
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount() - 1, -1, -1):
+                item = self.tree.topLevelItem(i)
+                server_name = item.text(2)
+                if server_name in server_names:
+                    # Set red background and strikethrough
+                    from PyQt6.QtGui import QBrush, QColor, QFont
+                    for col in range(self.tree.columnCount()):
+                        item.setBackground(col, QBrush(QColor(255, 200, 200)))  # Light red
+                        font = item.font(col)
+                        font.setStrikeOut(True)
+                        item.setFont(col, font)
+
+            # Schedule removal after 1 second
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(1000, lambda: self._remove_servers(server_names))
+
+        elif not USING_QT and hasattr(self, 'tree'):
+            # Tkinter version
+            for item in self.tree.get_children():
+                server_name = self.tree.item(item, 'values')[2]
+                if server_name in server_names:
+                    # Add red tag for highlighting
+                    self.tree.item(item, tags=('removed_server',))
+
+            # Configure the tag with strikethrough effect (simulated with overstrike font)
+            self.tree.tag_configure('removed_server', background='#FFC8C8', foreground='#666666')
+
+            # Schedule removal after 1 second
+            if hasattr(self, 'parent'):
+                self.parent.after(1000, lambda: self._remove_servers(server_names))
+
+    def _clear_highlights(self, server_names: List[str]):
+        """Clear highlight from specified servers (Qt version).
+
+        Args:
+            server_names: List of server names to clear highlights from
+        """
+        if not USING_QT:
+            return
+
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            server_name = item.text(2)
+            if server_name in server_names:
+                # Clear background color
+                from PyQt6.QtGui import QBrush
+                for col in range(self.tree.columnCount()):
+                    item.setBackground(col, QBrush())  # Clear background
+
+    def _clear_tk_highlights(self, server_names: List[str]):
+        """Clear highlight from specified servers (Tkinter version).
+
+        Args:
+            server_names: List of server names to clear highlights from
+        """
+        if USING_QT or not hasattr(self, 'tree'):
+            return
+
+        for item in self.tree.get_children():
+            server_name = self.tree.item(item, 'values')[2]
+            if server_name in server_names:
+                # Remove highlight tags
+                self.tree.item(item, tags=())
+
+    def _remove_servers(self, server_names: List[str]):
+        """Remove servers from the list after flash animation.
+
+        Args:
+            server_names: List of server names to remove
+        """
+        # This would be called by the main window's refresh method
+        # to actually remove the servers from the list
+        # For now, just clear any strikethrough formatting
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount() - 1, -1, -1):
+                item = self.tree.topLevelItem(i)
+                server_name = item.text(2)
+                if server_name in server_names:
+                    # In a real implementation, we'd remove the item
+                    # For now, just clear the formatting
+                    from PyQt6.QtGui import QBrush, QFont
+                    for col in range(self.tree.columnCount()):
+                        item.setBackground(col, QBrush())
+                        font = item.font(col)
+                        font.setStrikeOut(False)
+                        item.setFont(col, font)

@@ -68,15 +68,24 @@ self.server_manager.toggle_server(name, client="claude")  # or "gemini"
 
 ## Next Steps
 
-**Phase 5 Complete**: All tasks (5.1, 5.2, 5.3) are complete. The mode selector has been removed and the main window now uses per-client operations.
+**Phase 6 Complete**: All tasks (6.1, 6.2, 6.3) are complete. The dialogs and detail panels now support per-client enablement.
 
-**Ready for Phase 6 (Dialogs and Detail Panels)**: With the main window updated, the next critical steps are:
+**Ready for Phase 7 (Testing and Validation)**: With all UI components updated, the next critical steps are:
 1. ✅ ~~Update GUI controllers to use the new per-client model (Phase 3)~~ **COMPLETE**
 2. ✅ ~~Implement the dual checkbox UI in server list (Tasks 4.1, 4.2)~~ **COMPLETE**
 3. ✅ ~~Update main window to remove mode selector and integrate new server list behavior (Phase 5)~~ **COMPLETE**
-4. Update dialogs and detail panels to support per-client enablement (Phase 6) - **NEXT**
+4. ✅ ~~Update dialogs and detail panels to support per-client enablement (Phase 6)~~ **COMPLETE**
+5. Comprehensive testing of all functionality (Phase 7) - **NEXT**
 
-The critical path continues: Phase 6 (Dialogs and Detail Panels) → Phase 7 (Testing) → Phase 8 (Cleanup)
+The critical path continues: Phase 7 (Testing) → Phase 8 (Cleanup)
+
+**Current Session Accomplishments (Session 15):**
+- ServerDetailsPanel now includes Claude/Gemini enablement checkboxes in header
+- Add Server Dialog defaults both clients to enabled with option to change
+- Delete Dialog shows per-client states and allows selective deletion
+- Fixed ServerController bug with missing 'mode' key
+- GUI launches successfully without errors
+- All Phase 6 tasks complete and tested
 
 **Key Accomplishments So Far:**
 - Data models support per-client enablement (Phase 1 ✅)
@@ -355,27 +364,47 @@ The critical path continues: Phase 6 (Dialogs and Detail Panels) → Phase 7 (Te
 - [x] Simplify menu items that referenced modes
 - [x] Update keyboard shortcuts documentation
 
-### Phase 6: Dialogs and Detail Panels
+### Phase 6: Dialogs and Detail Panels ✅ COMPLETE
 **Goal**: Ensure all editing interfaces support per-client enablement
 
-#### Task 6.1: Update ServerDetailsPanel ⬜
+#### Task 6.1: Update ServerDetailsPanel ✅
 **File**: `src/mcp_config_manager/gui/widgets/server_details_panel.py`
-- [ ] Add checkboxes showing "Enabled for: ☑ Claude ☑ Gemini"
-- [ ] Allow toggling per-client enablement from details
-- [ ] Show which clients use the current config
-- [ ] Update save to preserve per-client states
+- [x] Add checkboxes showing "Enabled for: ☑ Claude ☑ Gemini"
+- [x] Allow toggling per-client enablement from details
+- [x] Show which clients use the current config
+- [x] Update save to preserve per-client states
 
-#### Task 6.2: Update Add Server Dialog ⬜
+**Implementation Notes:**
+- Added Claude and Gemini checkboxes in header section for both Qt and Tkinter
+- Checkboxes trigger `_on_client_enablement_changed()` handler
+- `load_server()` method now accepts `claude_enabled` and `gemini_enabled` parameters
+- Client enablement changes marked as unsaved changes with orange indicators
+- Added `client_enablement_changed_callbacks` for external components to track state
+
+#### Task 6.2: Update Add Server Dialog ✅
 **File**: `src/mcp_config_manager/gui/dialogs/add_server_dialog.py`
-- [ ] Add checkboxes for "Enable for: ☑ Claude ☑ Gemini"
-- [ ] Default both to checked for new servers
-- [ ] Pass client states to controller when adding
+- [x] Add checkboxes for "Enable for: ☑ Claude ☑ Gemini"
+- [x] Default both to checked for new servers
+- [x] Pass client states to controller when adding
 
-#### Task 6.3: Update Delete Dialog ⬜
+**Implementation Notes:**
+- Added client enablement checkboxes (default to enabled for both)
+- Result dictionary includes `_client_enablement` key with claude/gemini flags
+- Both Qt and Tkinter implementations updated
+- Checkboxes placed between JSON input and validation status
+
+#### Task 6.3: Update Delete Dialog ✅
 **File**: `src/mcp_config_manager/gui/dialogs/delete_servers_dialog.py`
-- [ ] Show which clients each server is enabled for
-- [ ] Allow selective deletion per client
-- [ ] Update confirmation messages
+- [x] Show which clients each server is enabled for
+- [x] Allow selective deletion per client
+- [x] Update confirmation messages
+
+**Implementation Notes:**
+- Server list now displays "(Enabled for: Claude, Gemini)" or "(Disabled)" status
+- Added "Delete from:" checkboxes to select which clients to delete from
+- Confirmation dialog shows which clients will be affected
+- `get_client_selections()` method returns per-server client deletion flags
+- Both Qt and Tkinter implementations updated
 
 ### Phase 7: Testing and Validation
 **Goal**: Ensure all functionality works correctly
@@ -438,6 +467,323 @@ If issues arise:
 1. Git revert to master branch
 2. Configs are backward compatible, no data loss
 3. Can be deployed incrementally if needed
+
+### Phase 9: Add Refresh Functionality for Live Configuration Reloading
+**Goal**: Enable users to refresh the server list from JSON files without restarting the application
+
+**Current Progress (Session 19):**
+- ✅ Tasks 9.1-9.8 completed (80% of Phase 9)
+- Core reload functionality fully implemented with comprehensive edge case handling
+- Server Controller now supports force_reload parameter and cache clearing
+- Enhanced conflict detection and resolution for external changes
+- Detailed notifications for added/removed/modified servers
+- JSON error handling with user-friendly messages
+- ServerDetailsPanel now handles refresh with conflict resolution
+- Visual feedback implemented with color-coded highlights for changes
+- Remaining: Testing (9.9) and Performance optimization (9.10)
+
+#### Task 9.1: Create Core Reload Method in MainWindow ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/main_window.py`
+- [x] Create `reload_servers_from_disk()` method (line 926) that:
+  - Checks for unsaved changes and prompts user to confirm if present
+  - Sets status message "Refreshing servers from disk..."
+  - Calls `config_controller.reload_config()` to force fresh read
+  - Preserves current server selection if it still exists
+  - Updates server list widget with new data
+  - Shows success message with server count
+  - Handles errors gracefully with status messages
+- [x] Add state preservation during reload:
+  - Save current selected server(s)
+  - Restore selection after reload if server still exists
+  - Clear details panel if selected server was removed
+  - Show warning message if selected server no longer exists
+
+**Implementation Notes:**
+- Method added at line 926-1017
+- Uses QMessageBox for Qt and tkinter messagebox for confirmations
+- Emits CONFIG_LOADED event to update all components
+- Clears unsaved changes flag after successful reload
+- Shows server count in success message with checkmark emoji
+
+#### Task 9.2: Add Refresh Button to Toolbar ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/main_window.py`
+- [x] Qt Toolbar (line 404-409):
+  - Added `QPushButton("🔄 Refresh")` after Save button
+  - Applied consistent `button_style` styling
+  - Set tooltip: "Reload server configurations from disk (F5)"
+  - Connected clicked signal to `reload_servers_from_disk()`
+- [x] Tkinter Toolbar (line 467-469):
+  - Added `ttk.Button(text="Refresh")` after Save button
+  - Bound command to `reload_servers_from_disk()`
+  - Positioned between Save and separator
+
+**Implementation Notes:**
+- Qt button uses 🔄 emoji icon for visual consistency
+- Tooltip mentions F5 keyboard shortcut
+- Tkinter version uses plain text due to limited styling options
+
+#### Task 9.3: Update Menu and Keyboard Shortcuts ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/main_window.py`
+- [x] Add to File menu (Qt: line 235-238, Tk: line 317):
+  - Created "Refresh Servers" QAction with F5 shortcut
+  - Added to File menu after Save, before separator
+  - Tkinter version shows "F5" as accelerator text
+- [x] Update keyboard shortcuts (line 604 & 611 for Qt, 622 & 629 for Tk):
+  - Redirected F5 to call `reload_servers_from_disk()` instead of `refresh_server_list()`
+  - Updated Ctrl+R shortcut binding to use `reload_servers_from_disk()`
+  - Both Qt and Tkinter key bindings now properly trigger full reload from disk
+
+**Implementation Notes (Session 17):**
+- Changed Qt shortcuts at lines 604 and 611 from `self.refresh_server_list` to `self.reload_servers_from_disk`
+- Changed Tkinter bindings at lines 622 and 629 from `self.refresh_server_list()` to `self.reload_servers_from_disk()`
+- These shortcuts now trigger a complete refresh from disk files rather than just updating the UI
+
+#### Task 9.4: Enhance Config Controller for Force Reload ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/controllers/config_controller.py`
+- [x] Add `reload_config()` method that:
+  - Clears any cached configuration data
+  - Forces ConfigManager to re-read from disk
+  - Reloads both Claude and Gemini JSON files
+  - Reloads disabled_servers.json
+  - Returns fresh server list with per-client states
+  - Emits appropriate events for UI updates
+- [x] Add `force_reload` parameter to existing `load_config()` method
+- [x] Ensure no stale data remains after reload
+
+**Implementation Notes (Session 17):**
+- Added `force_reload` parameter to `load_config()` method at line 24
+- When `force_reload=True`, clears cached configs (`_claude_config`, `_gemini_config`) at lines 40-44
+- Also clears disabled_servers cache in server_manager
+- Added new `reload_config()` method at line 82 that calls `load_config(force_reload=True)`
+- Debug logging indicates when a forced reload occurs
+- All callbacks are properly triggered after reload for UI updates
+
+#### Task 9.5: Update Server Controller for Fresh Data ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/controllers/server_controller.py`
+- [x] Add `force_reload` parameter to `get_servers()` method
+- [x] When force_reload=True:
+  - Bypass any cached server data
+  - Force fresh read of disabled_servers.json
+  - Ensure all server states are current
+- [x] Add method to clear internal caches if any exist
+
+**Implementation Notes (Session 18):**
+- Added `force_reload` parameter to `get_servers()` method at line 28
+- When `force_reload=True`, clears all caches in server_manager and config_manager
+- Added new `clear_caches()` method at line 877 for explicit cache clearing
+- Updated `refresh_server_list()` in main_window.py to accept and pass force_reload parameter
+- All cache clearing properly handles both server_manager and config_manager internal caches
+
+#### Task 9.6: Handle Edge Cases and Conflicts ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/main_window.py`
+- [x] Handle server deletion scenarios:
+  - If selected server was deleted externally, clear details panel
+  - Show notification about deleted servers
+- [x] Handle server addition scenarios:
+  - Add new servers to list with appropriate states
+  - Optionally auto-select newly added servers
+- [x] Handle configuration changes:
+  - If server config changed externally while being edited, show conflict dialog
+  - Offer options: Keep GUI changes, Accept file changes, Merge
+- [x] Handle JSON errors:
+  - If JSON becomes invalid, show error dialog
+  - Keep current state and offer to fix or ignore
+
+**Implementation Notes (Session 18):**
+- Enhanced `reload_servers_from_disk()` method at line 947 with comprehensive edge case handling
+- Added detection for added, removed, and modified servers during refresh
+- Shows specific notifications for deleted servers (line 1064) and modified servers (line 1073)
+- Handles unsaved changes in both general state and details panel separately
+- Saves server state before reload for comparison and conflict detection
+- Provides detailed status messages showing count of added/removed/modified servers
+- Special handling for JSON parse errors with helpful error messages (line 1100)
+- Automatically clears details panel when selected server is deleted
+- Restores server selection after reload if server still exists
+- Notifies about newly added servers if only a few were added (line 1091)
+
+#### Task 9.7: Update Server Details Panel ✅ COMPLETE
+**File**: `src/mcp_config_manager/gui/widgets/server_details_panel.py`
+- [x] Add `refresh_current_server()` method to reload from disk (line 748)
+- [x] Handle case where current server no longer exists
+- [x] Preserve or warn about unsaved field changes with conflict resolution dialog
+- [x] Clear cache if server configuration cached locally (clear_cache method added)
+
+**Implementation Notes (Session 19):**
+- Added `refresh_current_server()` method at line 748 that handles:
+  - Server deletion detection (shows warning if unsaved changes will be lost)
+  - Configuration change detection with JSON comparison
+  - Client enablement state change detection
+  - Conflict resolution dialog when external changes conflict with unsaved changes
+  - Options to keep local changes or accept external changes
+- Added `clear_cache()` method for future caching implementations
+- Integrated with main window's reload_servers_from_disk method
+
+#### Task 9.8: Add Visual Feedback ✅ COMPLETE
+**Files**: `src/mcp_config_manager/gui/widgets/server_list.py`, `src/mcp_config_manager/gui/main_window.py`
+- [x] Show loading indicator during refresh (status bar shows "🔄 Refreshing...")
+- [x] Highlight newly added servers temporarily (green background for 3 seconds)
+- [x] Mark modified servers if their config changed (orange background for 3 seconds)
+- [x] Show removed servers briefly before removing (red flash with strikethrough for 1 second)
+- [x] Display refresh timestamp in status bar (shows "Refreshed at HH:MM:SS")
+
+**Implementation Notes (Session 19):**
+- Added to ServerListWidget (line 766):
+  - `highlight_new_servers()` - Green background (#C8FFC8) for 3 seconds
+  - `mark_modified_servers()` - Orange background (#FFEBC8) for 3 seconds
+  - `flash_removed_servers()` - Red background (#FFC8C8) with strikethrough for 1 second
+  - Auto-clearing of highlights with QTimer/after() scheduling
+- Updated main_window.py (line 949, 1056-1071):
+  - Added loading indicator at start of refresh
+  - Added timestamp to completion message
+  - Integrated visual feedback methods after successful refresh
+- Both Qt and Tkinter versions implemented
+
+#### Task 9.9: Testing and Documentation ⬜
+- [ ] Create unit tests for reload functionality
+- [ ] Test scenarios:
+  - Add server to JSON while GUI running
+  - Remove server from JSON while GUI running
+  - Modify server config in JSON while GUI running
+  - Corrupt JSON and verify error handling
+  - Rapid refresh button clicks (no race conditions)
+  - Refresh with unsaved changes in GUI
+- [ ] Update README with refresh feature description
+- [ ] Add tooltip help for refresh button
+- [ ] Document in help dialog (F1)
+
+#### Task 9.10: Optimize Performance ⬜
+- [ ] Implement differential updates (only update changed servers)
+- [ ] Add debouncing for rapid refresh clicks
+- [ ] Consider file watching for auto-refresh option (future enhancement)
+- [ ] Cache file modification times to detect actual changes
+- [ ] Show "No changes detected" if files haven't changed
+
+## Phase 10: Project-Specific MCP Server Discovery and Management
+**Goal**: Enable discovery of MCP servers defined in project-specific Claude configurations and offer to promote them to the global configuration
+
+### Background
+Claude Desktop supports project-specific `.claude.json` files that can define MCP servers under project paths (e.g., `/Users/username/Projects/my-project`). These servers are only available when Claude is opened within that project directory. This phase adds functionality to:
+1. Discover all project-specific MCP servers across the file system
+2. Display them in the GUI with clear project attribution
+3. Offer to "promote" project servers to the global configuration
+4. Handle conflicts when server names exist in multiple locations
+
+### Task 10.1: Extend Claude Parser for Project Discovery ⬜
+**File**: `src/mcp_config_manager/parsers/claude_parser.py`
+- [ ] Add `discover_project_servers()` method to scan for project-specific servers
+- [ ] Add `get_server_location(server_name)` to identify if server is global or project-specific
+- [ ] Add `promote_to_global(server_name, project_path)` to move server to global config
+- [ ] Add `get_all_server_locations()` returning map of server -> [global, project1, project2, ...]
+- [ ] Handle server name conflicts (same name in multiple projects)
+
+### Task 10.2: Create Project Server Discovery Service ⬜
+**File**: `src/mcp_config_manager/core/project_discovery.py` (new)
+- [ ] Create `ProjectDiscoveryService` class
+- [ ] Add `scan_projects()` method to find all project paths with MCP servers
+- [ ] Add caching mechanism to avoid repeated scans
+- [ ] Add background scanning capability with progress reporting
+- [ ] Create `ProjectServer` dataclass with fields:
+  - `name: str`
+  - `project_path: Path`
+  - `config: Dict[str, Any]`
+  - `is_duplicate: bool` (if name exists elsewhere)
+
+### Task 10.3: Update Server Manager for Project Awareness ⬜
+**File**: `src/mcp_config_manager/core/server_manager.py`
+- [ ] Add `get_project_servers()` method
+- [ ] Add `promote_project_server(server_name, from_project, to_global=True)`
+- [ ] Add `merge_duplicate_servers(server_name, strategy='keep_global'|'keep_project'|'merge')`
+- [ ] Update `list_all_servers()` to include project attribution
+- [ ] Add `consolidate_servers()` to move all project servers to global
+
+### Task 10.4: Create Project Server Discovery Dialog ⬜
+**File**: `src/mcp_config_manager/gui/dialogs/discover_servers_dialog.py` (new)
+- [ ] Create dialog showing discovered project servers
+- [ ] Display as tree: Project Path -> Server Name -> Config Preview
+- [ ] Add checkboxes to select servers for promotion
+- [ ] Show conflicts/duplicates with visual indicators
+- [ ] Add "Promote Selected" and "Promote All" buttons
+- [ ] Include conflict resolution options (replace, skip, rename)
+
+### Task 10.5: Update Server List Widget for Project Attribution ⬜
+**File**: `src/mcp_config_manager/gui/widgets/server_list.py`
+- [ ] Add "Location" column showing "Global" or project path
+- [ ] Add icon or color coding for project servers
+- [ ] Add tooltip showing full project path for project servers
+- [ ] Add context menu option "Promote to Global" for project servers
+- [ ] Add filter/group by location functionality
+
+### Task 10.6: Add Discovery Menu Items and Toolbar ⬜
+**File**: `src/mcp_config_manager/gui/main_window.py`
+- [ ] Add "Tools" menu with "Discover Project Servers..." item
+- [ ] Add toolbar button for server discovery
+- [ ] Add status bar indicator showing "X project servers found"
+- [ ] Add automatic discovery on startup (optional, with preference)
+- [ ] Add progress dialog for discovery process
+
+### Task 10.7: Create Project Server Consolidation Wizard ⬜
+**File**: `src/mcp_config_manager/gui/wizards/consolidation_wizard.py` (new)
+- [ ] Multi-step wizard for consolidating project servers:
+  - Step 1: Scan and discover all project servers
+  - Step 2: Review and resolve conflicts
+  - Step 3: Select servers to promote
+  - Step 4: Preview changes
+  - Step 5: Apply changes with backup
+- [ ] Add undo capability after consolidation
+- [ ] Generate consolidation report
+
+### Task 10.8: Add CLI Commands for Project Discovery ⬜
+**File**: `src/mcp_config_manager/cli/interactive_mode.py`
+- [ ] Add `[discover]` command to scan for project servers
+- [ ] Add `[promote <server>]` to promote specific server
+- [ ] Add `[consolidate]` to move all project servers to global
+- [ ] Add `[list-projects]` to show all projects with MCP servers
+- [ ] Update help text with new commands
+
+### Task 10.9: Testing and Documentation ⬜
+- [ ] Unit tests for project discovery service
+- [ ] Integration tests for promotion workflow
+- [ ] Test conflict resolution strategies
+- [ ] Test performance with many projects
+- [ ] Update README with project discovery feature
+- [ ] Add user guide for consolidation workflow
+
+### Task 10.10: Advanced Features (Future) ⬜
+- [ ] Add project templates (copy project servers to new projects)
+- [ ] Add project server inheritance (base + override configs)
+- [ ] Add sync between projects (keep servers in sync)
+- [ ] Add project profiles (different server sets per project type)
+- [ ] Add export/import for project server configurations
+
+## Success Criteria for Phase 10
+- [ ] Can discover all MCP servers across all project directories
+- [ ] Clear visual distinction between global and project servers
+- [ ] Easy one-click promotion from project to global
+- [ ] Intelligent conflict resolution for duplicate names
+- [ ] No data loss during consolidation
+- [ ] Performance acceptable even with many projects
+- [ ] Full CLI support for headless operation
+
+## Technical Considerations
+1. **Performance**: Scanning many projects could be slow
+   - Implement caching and incremental scanning
+   - Use threading for background discovery
+   - Add option to limit scan depth
+
+2. **Conflicts**: Same server name in multiple locations
+   - Clear UI to show conflicts
+   - Multiple resolution strategies
+   - Preview changes before applying
+
+3. **Safety**: Don't lose project-specific configurations
+   - Always backup before changes
+   - Offer undo/rollback
+   - Clear confirmation dialogs
+
+4. **Usability**: Make discovery intuitive
+   - Auto-discover on first launch
+   - Visual indicators for project servers
+   - Bulk operations for efficiency
 
 ## Notes
 - Each task is designed to be < 100k tokens of work

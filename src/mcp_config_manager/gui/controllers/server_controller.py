@@ -25,11 +25,12 @@ class ServerController:
         self.on_server_removed_callbacks: List[Callable] = []
         self.on_servers_bulk_callbacks: List[Callable] = []
     
-    def get_servers(self, mode: Optional[str] = None) -> Dict[str, Any]:
+    def get_servers(self, mode: Optional[str] = None, force_reload: bool = False) -> Dict[str, Any]:
         """Get list of all servers with per-client enable flags.
 
         Args:
             mode: Configuration mode ('claude', 'gemini', 'both', or None for current)
+            force_reload: If True, force fresh read from disk bypassing caches
 
         Returns:
             Dictionary with:
@@ -42,7 +43,21 @@ class ServerController:
             if not mode:
                 mode = 'both'  # Default to both
 
-            # Load configs once
+            # Clear caches if force_reload is True
+            if force_reload:
+                # Clear any internal caches in server_manager
+                if hasattr(self.config_manager.server_manager, '_disabled_servers_cache'):
+                    self.config_manager.server_manager._disabled_servers_cache = None
+                if hasattr(self.config_manager.server_manager, '_disabled_servers_mtime'):
+                    self.config_manager.server_manager._disabled_servers_mtime = None
+
+                # Also ensure config manager reloads fresh data
+                if hasattr(self.config_manager, '_claude_config'):
+                    self.config_manager._claude_config = None
+                if hasattr(self.config_manager, '_gemini_config'):
+                    self.config_manager._gemini_config = None
+
+            # Load configs once (will force reload if caches were cleared)
             claude_data, gemini_data = self.config_manager.load_configs()
 
             # Build unified server list with per-client states
@@ -69,7 +84,7 @@ class ServerController:
                         name=name,
                         status=ServerStatus.ENABLED,
                         command=command_obj,
-                        source_mode=server_info['mode'],
+                        source_mode='both',  # No longer using mode, default to both
                         config=config
                     )
 
@@ -858,6 +873,29 @@ class ServerController:
             callback: Function to call when bulk operation is performed
         """
         self.on_servers_bulk_callbacks.append(callback)
+
+    def clear_caches(self):
+        """Clear any internal caches to force fresh data on next access.
+
+        This method ensures that the next call to get_servers() or similar methods
+        will read fresh data from disk rather than using cached values.
+        """
+        try:
+            # Clear server_manager caches
+            if hasattr(self.config_manager.server_manager, '_disabled_servers_cache'):
+                self.config_manager.server_manager._disabled_servers_cache = None
+            if hasattr(self.config_manager.server_manager, '_disabled_servers_mtime'):
+                self.config_manager.server_manager._disabled_servers_mtime = None
+
+            # Clear config_manager caches
+            if hasattr(self.config_manager, '_claude_config'):
+                self.config_manager._claude_config = None
+            if hasattr(self.config_manager, '_gemini_config'):
+                self.config_manager._gemini_config = None
+
+            logger.debug("Cleared all internal caches for fresh data reload")
+        except Exception as e:
+            logger.warning(f"Error clearing caches: {str(e)}")
     
     def delete_server(self, server_name: str, mode: Optional[str] = None, from_disabled: Optional[bool] = None) -> Dict[str, Any]:
         """Permanently delete a server from configurations.

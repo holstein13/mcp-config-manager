@@ -231,7 +231,12 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.save_action.setShortcut(QKeySequence.StandardKey.Save)
         self.save_action.triggered.connect(self.save_configuration)
         file_menu.addAction(self.save_action)
-        
+
+        self.refresh_action = QAction("&Refresh Servers", self)
+        self.refresh_action.setShortcut(QKeySequence("F5"))
+        self.refresh_action.triggered.connect(self.reload_servers_from_disk)
+        file_menu.addAction(self.refresh_action)
+
         file_menu.addSeparator()
         
         self.exit_action = QAction("E&xit", self)
@@ -309,6 +314,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Save Configuration", command=self.save_configuration)
+        file_menu.add_command(label="Refresh Servers", command=self.reload_servers_from_disk, accelerator="F5")
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         
@@ -400,7 +406,14 @@ class MainWindow(QMainWindow if USING_QT else object):
         save_btn.setStyleSheet(button_style)
         save_btn.setToolTip("Save current configuration")
         self.toolbar.addWidget(save_btn)
-        
+
+        # Refresh button - reload from disk
+        refresh_btn = QPushButton("🔄 Refresh")
+        refresh_btn.clicked.connect(self.reload_servers_from_disk)
+        refresh_btn.setStyleSheet(button_style)
+        refresh_btn.setToolTip("Reload server configurations from disk (F5)")
+        self.toolbar.addWidget(refresh_btn)
+
         self.toolbar.addSeparator()
         
         # Secondary action - Add Server
@@ -456,7 +469,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         save_btn = ttk.Button(toolbar, text="Save", command=self.save_configuration)
         save_btn.pack(side=tk.LEFT, padx=2)
         # Note: tkinter doesn't support button styling as richly as Qt
-        
+
+        # Refresh button
+        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.reload_servers_from_disk)
+        refresh_btn.pack(side=tk.LEFT, padx=2)
+
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
         
         # Secondary actions
@@ -584,14 +601,14 @@ class MainWindow(QMainWindow if USING_QT else object):
             from PyQt6.QtGui import QShortcut
             
             # Additional shortcuts not in menus
-            QShortcut(QKeySequence("Ctrl+R"), self, self.refresh_server_list)
+            QShortcut(QKeySequence("Ctrl+R"), self, self.reload_servers_from_disk)
             QShortcut(QKeySequence("Ctrl+F"), self, self._focus_search)
             QShortcut(QKeySequence("Ctrl+P"), self, self.manage_presets)
             QShortcut(QKeySequence("Ctrl+B"), self, self.backup_configuration)
             QShortcut(QKeySequence("Ctrl+Shift+R"), self, self.restore_configuration)
             QShortcut(QKeySequence("Ctrl+Shift+V"), self, self.validate_configuration)
             QShortcut(QKeySequence("F1"), self, self.show_help)
-            QShortcut(QKeySequence("F5"), self, self.refresh_server_list)
+            QShortcut(QKeySequence("F5"), self, self.reload_servers_from_disk)
             QShortcut(QKeySequence("Ctrl+Z"), self, self._undo_action)
             QShortcut(QKeySequence("Ctrl+Y"), self, self._redo_action)
             QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self._redo_action)
@@ -602,14 +619,14 @@ class MainWindow(QMainWindow if USING_QT else object):
             self.root.bind("<Control-n>", lambda e: self.add_server())
             self.root.bind("<Control-comma>", lambda e: self.show_settings())
             self.root.bind("<Control-q>", lambda e: self.quit_application())
-            self.root.bind("<Control-r>", lambda e: self.refresh_server_list())
+            self.root.bind("<Control-r>", lambda e: self.reload_servers_from_disk())
             self.root.bind("<Control-f>", lambda e: self._focus_search())
             self.root.bind("<Control-p>", lambda e: self.manage_presets())
             self.root.bind("<Control-b>", lambda e: self.backup_configuration())
             self.root.bind("<Control-Shift-R>", lambda e: self.restore_configuration())
             self.root.bind("<Control-Shift-V>", lambda e: self.validate_configuration())
             self.root.bind("<F1>", lambda e: self.show_help())
-            self.root.bind("<F5>", lambda e: self.refresh_server_list())
+            self.root.bind("<F5>", lambda e: self.reload_servers_from_disk())
             self.root.bind("<Control-z>", lambda e: self._undo_action())
             self.root.bind("<Control-y>", lambda e: self._redo_action())
             self.root.bind("<Control-Shift-Z>", lambda e: self._redo_action())
@@ -884,13 +901,17 @@ class MainWindow(QMainWindow if USING_QT else object):
         else:
             messagebox.showerror("Application Error", error_msg)
     
-    def refresh_server_list(self):
-        """Refresh the server list widget."""
+    def refresh_server_list(self, force_reload: bool = False):
+        """Refresh the server list widget.
+
+        Args:
+            force_reload: If True, force a fresh read from disk bypassing caches
+        """
         print("DEBUG: refresh_server_list called")
         if hasattr(self, 'server_list') and self.server_list:
             print("DEBUG: server_list exists, getting servers...")
             # Get current servers from controller - use 'both' to get all servers
-            result = self.server_controller.get_servers('both')
+            result = self.server_controller.get_servers('both', force_reload=force_reload)
             print(f"DEBUG: get_servers result: {result}")
             if result['success']:
                 servers = result['data']['servers']
@@ -908,7 +929,7 @@ class MainWindow(QMainWindow if USING_QT else object):
             self.set_status_message("Loading configuration...")
             # Always load both configs now
             result = self.config_controller.load_config()
-            
+
             if result['success']:
                 print("DEBUG: Configuration loaded successfully")
                 dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
@@ -922,6 +943,219 @@ class MainWindow(QMainWindow if USING_QT else object):
             import traceback
             traceback.print_exc()
             self.set_status_message(f"Error loading configuration: {str(e)}", timeout=0)
+
+    def reload_servers_from_disk(self):
+        """Reload server configurations from disk, with unsaved changes protection."""
+        # Show loading indicator in status bar
+        self.set_status_message("🔄 Refreshing servers from disk...", timeout=0)
+
+        # Check for unsaved changes in details panel
+        if hasattr(self, 'server_details_panel') and self.server_details_panel and self.server_details_panel.has_unsaved_changes:
+            if USING_QT:
+                from PyQt6.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self,
+                    "Unsaved Changes in Details Panel",
+                    "You have unsaved changes in the server details panel. Refreshing will discard them.\n\nDo you want to continue?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            else:
+                from tkinter import messagebox
+                if not messagebox.askyesno(
+                    "Unsaved Changes in Details Panel",
+                    "You have unsaved changes in the server details panel. Refreshing will discard them.\n\nDo you want to continue?"
+                ):
+                    return
+
+        # Check for general unsaved changes
+        if self._unsaved_changes:
+            if USING_QT:
+                from PyQt6.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self,
+                    "Unsaved Changes",
+                    "You have unsaved changes. Refreshing will discard them.\n\nDo you want to continue?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            else:
+                from tkinter import messagebox
+                if not messagebox.askyesno(
+                    "Unsaved Changes",
+                    "You have unsaved changes. Refreshing will discard them.\n\nDo you want to continue?"
+                ):
+                    return
+
+        # Save current state for comparison
+        old_servers = {}
+        selected_server = None
+        selected_server_config = None
+
+        if hasattr(self, 'server_list') and self.server_list:
+            selected_server = self.server_list.selected_server
+            # Get current server list for comparison
+            for server_name in self.server_list.servers:
+                old_servers[server_name] = self.server_list.servers.get(server_name)
+
+            # Save selected server's configuration if in details panel
+            if selected_server and hasattr(self, 'server_details_panel') and self.server_details_panel:
+                if self.server_details_panel.server_name == selected_server:
+                    selected_server_config = self.server_details_panel.config.copy() if hasattr(self.server_details_panel, 'config') else None
+
+        # Set loading message
+        self.set_status_message("Refreshing servers from disk...")
+
+        try:
+            # Clear caches first to ensure fresh read
+            if hasattr(self, 'server_controller'):
+                self.server_controller.clear_caches()
+
+            # Force reload from disk
+            result = self.config_controller.reload_config()
+
+            if result['success']:
+                # Emit config loaded event to update all components
+                dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
+
+                # Clear unsaved changes since we just reloaded
+                self.set_unsaved_changes(False)
+
+                # Get new server list for comparison
+                new_servers = {}
+                if hasattr(self, 'server_list') and self.server_list:
+                    for server_name in self.server_list.servers:
+                        new_servers[server_name] = self.server_list.servers.get(server_name)
+
+                # Detect changes
+                added_servers = set(new_servers.keys()) - set(old_servers.keys())
+                removed_servers = set(old_servers.keys()) - set(new_servers.keys())
+
+                # Check for configuration changes
+                modified_servers = []
+                for server_name in set(old_servers.keys()) & set(new_servers.keys()):
+                    old_config = old_servers[server_name]
+                    new_config = new_servers[server_name]
+                    if old_config != new_config:
+                        modified_servers.append(server_name)
+
+                # Build status message
+                status_parts = []
+                server_count = len(result['data'].get('servers', []))
+                status_parts.append(f"{server_count} servers loaded")
+
+                if added_servers:
+                    status_parts.append(f"{len(added_servers)} added")
+                if removed_servers:
+                    status_parts.append(f"{len(removed_servers)} removed")
+                if modified_servers:
+                    status_parts.append(f"{len(modified_servers)} modified")
+
+                # Add refresh timestamp
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.set_status_message(f"✅ Refreshed at {timestamp}: {', '.join(status_parts)}", timeout=10)
+
+                # Apply visual feedback for server changes
+                if hasattr(self, 'server_list') and self.server_list:
+                    # Highlight newly added servers in green
+                    if added_servers:
+                        self.server_list.highlight_new_servers(list(added_servers))
+
+                    # Mark modified servers in orange
+                    if modified_servers:
+                        self.server_list.mark_modified_servers(list(modified_servers))
+
+                    # Flash removed servers in red (if they're still in the list momentarily)
+                    # Note: Removed servers are already gone from the list at this point
+
+                # Handle selected server restoration or conflicts
+                if selected_server:
+                    if selected_server in removed_servers:
+                        # Server was deleted externally - refresh details panel will handle notification
+                        if hasattr(self, 'server_details_panel'):
+                            self.server_details_panel.refresh_current_server(None)  # Signal deletion
+
+                    elif selected_server in modified_servers or selected_server in new_servers:
+                        # Server was modified or still exists, refresh the details panel
+                        if hasattr(self, 'server_details_panel') and self.server_details_panel.current_server == selected_server:
+                            # Get the updated server data
+                            updated_server = None
+                            claude_enabled = True
+                            gemini_enabled = True
+
+                            for srv in servers:
+                                if srv['name'] == selected_server:
+                                    updated_server = srv.get('config', {})
+                                    claude_enabled = srv.get('claude_enabled', True)
+                                    gemini_enabled = srv.get('gemini_enabled', True)
+                                    break
+
+                            if updated_server:
+                                # Refresh the details panel with new data
+                                # The refresh method will handle conflict resolution if there are unsaved changes
+                                self.server_details_panel.refresh_current_server(
+                                    updated_server,
+                                    claude_enabled,
+                                    gemini_enabled
+                                )
+
+                        # Restore selection in the list
+                        if hasattr(self, 'server_list') and self.server_list:
+                            self.server_list.select_servers([selected_server])
+
+                # Notify about newly added servers
+                if added_servers and len(added_servers) <= 3:
+                    # Show individual names if only a few
+                    names = ', '.join(sorted(added_servers))
+                    self.set_status_message(f"ℹ️ New servers detected: {names}", timeout=7)
+
+            else:
+                # Handle JSON parse errors specifically
+                error_msg = result.get('error', 'Unknown error')
+
+                if 'JSON' in error_msg or 'parse' in error_msg.lower():
+                    # JSON parse error - offer to fix or ignore
+                    msg = f"Failed to parse configuration files:\n\n{error_msg}\n\nThe current configuration will be kept. Please fix the JSON files and try again."
+                    if USING_QT:
+                        QMessageBox.warning(self, "Invalid JSON", msg)
+                    else:
+                        messagebox.showwarning("Invalid JSON", msg)
+                    self.set_status_message("❌ Refresh failed: Invalid JSON", timeout=0)
+                else:
+                    # Other errors
+                    self.set_status_message(f"❌ Refresh failed: {error_msg}", timeout=0)
+                    if USING_QT:
+                        QMessageBox.critical(
+                            self,
+                            "Refresh Error",
+                            f"Failed to refresh configuration:\n{error_msg}"
+                        )
+                    else:
+                        messagebox.showerror(
+                            "Refresh Error",
+                            f"Failed to refresh configuration:\n{error_msg}"
+                        )
+
+        except Exception as e:
+            error_msg = str(e)
+            self.set_status_message(f"❌ Refresh error: {error_msg}", timeout=0)
+
+            if USING_QT:
+                QMessageBox.critical(
+                    self,
+                    "Refresh Error",
+                    f"An error occurred during refresh:\n{error_msg}"
+                )
+            else:
+                messagebox.showerror(
+                    "Refresh Error",
+                    f"An error occurred during refresh:\n{error_msg}"
+                )
     
     def save_configuration(self):
         """Save configuration to file."""
