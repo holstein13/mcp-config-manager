@@ -59,6 +59,7 @@ temp_configs/
 
 # User-specific configuration
 disabled_servers.json
+**/disabled_servers.json
 
 # Backup files
 claude-backup.json
