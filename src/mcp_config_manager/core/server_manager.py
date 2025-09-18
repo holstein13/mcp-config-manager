@@ -893,6 +893,79 @@ class ServerManager:
             use_cache=use_cache
         )
 
+    def fix_context7_config(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Fix Context7 MCP server configuration to use stdio instead of http.
+
+        This fixes a common issue where Context7 times out when configured as an HTTP server.
+        The correct configuration is to use stdio with npx command.
+
+        Returns:
+            True if configuration was fixed, False if already correct or not found
+        """
+        fixed = False
+        server_name = "context7"
+
+        # Correct configuration for Context7
+        correct_config = {
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", "@upstash/context7-mcp"],
+        }
+
+        # Check and fix in each client config
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+
+        for client, config in client_map.items():
+            table = self._get_server_table(config)
+            if server_name in table:
+                current_config = table[server_name]
+                # Check if configuration needs fixing
+                if current_config.get("type") == "http" or current_config.get("command") != "npx":
+                    # Preserve any API keys or headers if they exist
+                    if "headers" in current_config and "CONTEXT7_API_KEY" in current_config.get("headers", {}):
+                        # Convert headers to environment variable
+                        correct_config["env"] = {
+                            "CONTEXT7_API_KEY": current_config["headers"]["CONTEXT7_API_KEY"]
+                        }
+                    elif "env" in current_config and "CONTEXT7_API_KEY" in current_config.get("env", {}):
+                        # Preserve existing env var
+                        correct_config["env"] = {
+                            "CONTEXT7_API_KEY": current_config["env"]["CONTEXT7_API_KEY"]
+                        }
+
+                    # Update the configuration
+                    self._ensure_server_table(config)[server_name] = correct_config
+                    fixed = True
+
+        # Also check disabled servers
+        disabled = self.load_disabled_servers()
+        if server_name in disabled:
+            entry = disabled[server_name]
+            if isinstance(entry, dict) and 'config' in entry:
+                current_config = entry['config']
+                if current_config.get("type") == "http" or current_config.get("command") != "npx":
+                    # Preserve API keys
+                    if "headers" in current_config and "CONTEXT7_API_KEY" in current_config.get("headers", {}):
+                        correct_config["env"] = {
+                            "CONTEXT7_API_KEY": current_config["headers"]["CONTEXT7_API_KEY"]
+                        }
+                    elif "env" in current_config and "CONTEXT7_API_KEY" in current_config.get("env", {}):
+                        correct_config["env"] = {
+                            "CONTEXT7_API_KEY": current_config["env"]["CONTEXT7_API_KEY"]
+                        }
+
+                    entry['config'] = correct_config
+                    disabled[server_name] = entry
+                    self.save_disabled_servers(disabled)
+                    fixed = True
+
+        return fixed
+
     def promote_project_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
                                server_name: str, from_project: str,
                                to_global: bool = True) -> bool:
