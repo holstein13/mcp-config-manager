@@ -43,28 +43,53 @@ def create_app_bundle():
 # Get the directory of this script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Common locations for mcp-config-manager
-USER_BIN="$HOME/Library/Python/3.9/bin/mcp-config-manager"
-USER_BIN_310="$HOME/Library/Python/3.10/bin/mcp-config-manager"
-USER_BIN_311="$HOME/Library/Python/3.11/bin/mcp-config-manager"
-USER_BIN_312="$HOME/Library/Python/3.12/bin/mcp-config-manager"
-LOCAL_BIN="/usr/local/bin/mcp-config-manager"
+# Function to find mcp-config-manager
+find_mcp_command() {
+    # First check if it's in PATH
+    if command -v mcp-config-manager &> /dev/null; then
+        echo "mcp-config-manager"
+        return 0
+    fi
+
+    # Check system-wide locations
+    if [ -x "/usr/local/bin/mcp-config-manager" ]; then
+        echo "/usr/local/bin/mcp-config-manager"
+        return 0
+    fi
+
+    # Check user Python installations (macOS specific paths)
+    for version in 3.8 3.9 3.10 3.11 3.12 3.13; do
+        USER_BIN="$HOME/Library/Python/$version/bin/mcp-config-manager"
+        if [ -x "$USER_BIN" ]; then
+            echo "$USER_BIN"
+            return 0
+        fi
+    done
+
+    # Check Linux/Unix user paths
+    if [ -x "$HOME/.local/bin/mcp-config-manager" ]; then
+        echo "$HOME/.local/bin/mcp-config-manager"
+        return 0
+    fi
+
+    # Check if installed with pipx
+    if [ -x "$HOME/.local/pipx/venvs/mcp-config-manager/bin/mcp-config-manager" ]; then
+        echo "$HOME/.local/pipx/venvs/mcp-config-manager/bin/mcp-config-manager"
+        return 0
+    fi
+
+    # Check Homebrew Python paths
+    if [ -x "/opt/homebrew/bin/mcp-config-manager" ]; then
+        echo "/opt/homebrew/bin/mcp-config-manager"
+        return 0
+    fi
+
+    # Not found
+    return 1
+}
 
 # Find the mcp-config-manager command
-MCP_CMD=""
-if [ -x "$USER_BIN" ]; then
-    MCP_CMD="$USER_BIN"
-elif [ -x "$USER_BIN_310" ]; then
-    MCP_CMD="$USER_BIN_310"
-elif [ -x "$USER_BIN_311" ]; then
-    MCP_CMD="$USER_BIN_311"
-elif [ -x "$USER_BIN_312" ]; then
-    MCP_CMD="$USER_BIN_312"
-elif [ -x "$LOCAL_BIN" ]; then
-    MCP_CMD="$LOCAL_BIN"
-elif command -v mcp-config-manager &> /dev/null; then
-    MCP_CMD="mcp-config-manager"
-fi
+MCP_CMD=$(find_mcp_command)
 
 # Check if we found the command
 if [ -z "$MCP_CMD" ]; then
