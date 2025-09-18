@@ -1000,6 +1000,17 @@ class MainWindow(QMainWindow if USING_QT else object):
 
             if result['success']:
                 print("DEBUG: Configuration loaded successfully")
+
+                # Detect CLI availability on initial load
+                cli_availability = None
+                if hasattr(self.config_manager, 'cli_detector'):
+                    cli_availability = self.config_manager.get_cli_availability()
+
+                    # Update server list with CLI availability
+                    if hasattr(self, 'server_list') and self.server_list and cli_availability:
+                        self.server_list.set_cli_availability(cli_availability)
+                        print(f"DEBUG: CLI availability: {cli_availability}")
+
                 dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
                 # Don't set status here - let the event handler do it
             else:
@@ -1087,6 +1098,16 @@ class MainWindow(QMainWindow if USING_QT else object):
             result = self.config_controller.reload_config()
 
             if result['success']:
+                # Refresh CLI availability detection
+                cli_availability = None
+                if hasattr(self.config_manager, 'cli_detector'):
+                    self.config_manager.cli_detector.refresh_detection()
+                    cli_availability = self.config_manager.get_cli_availability()
+
+                    # Update server list with new CLI availability
+                    if hasattr(self, 'server_list') and self.server_list and cli_availability:
+                        self.server_list.set_cli_availability(cli_availability)
+
                 # Emit config loaded event to update all components
                 dispatcher.emit_now(EventType.CONFIG_LOADED, result['data'], source='MainWindow')
 
