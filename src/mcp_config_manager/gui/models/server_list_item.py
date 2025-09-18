@@ -74,6 +74,7 @@ class ServerListItem:
     # Per-LLM enablement state
     claude_enabled: bool = False
     gemini_enabled: bool = False
+    codex_enabled: bool = False
     
     # Validation state
     is_valid: bool = True
@@ -81,7 +82,7 @@ class ServerListItem:
     validation_warnings: List[str] = field(default_factory=list)
     
     # Metadata
-    source_mode: Optional[str] = None  # "claude", "gemini", "both"
+    source_mode: Optional[str] = None  # "claude", "gemini", "codex", "all", etc.
     last_modified: Optional[str] = None
     version: Optional[str] = None
     location: Optional[str] = None  # "global" or project path
@@ -114,35 +115,41 @@ class ServerListItem:
         return icon_map.get(self.server_type, "server")
     
     def enable(self, client: Optional[str] = None) -> None:
-        """Enable the server for a specific client or both."""
+        """Enable the server for a specific client or all."""
         if client == "claude":
             self.claude_enabled = True
         elif client == "gemini":
             self.gemini_enabled = True
+        elif client == "codex":
+            self.codex_enabled = True
         elif client is None:
-            # Enable for both if no client specified
+            # Enable for all if no client specified
             self.claude_enabled = True
             self.gemini_enabled = True
+            self.codex_enabled = True
 
         # Update overall status based on enablement
-        if self.claude_enabled or self.gemini_enabled:
+        if self.claude_enabled or self.gemini_enabled or self.codex_enabled:
             if self.status != ServerStatus.ERROR:
                 self.status = ServerStatus.ENABLED
         self.is_modified = True
 
     def disable(self, client: Optional[str] = None) -> None:
-        """Disable the server for a specific client or both."""
+        """Disable the server for a specific client or all."""
         if client == "claude":
             self.claude_enabled = False
         elif client == "gemini":
             self.gemini_enabled = False
+        elif client == "codex":
+            self.codex_enabled = False
         elif client is None:
-            # Disable for both if no client specified
+            # Disable for all if no client specified
             self.claude_enabled = False
             self.gemini_enabled = False
+            self.codex_enabled = False
 
         # Update overall status based on enablement
-        if not self.claude_enabled and not self.gemini_enabled:
+        if not self.claude_enabled and not self.gemini_enabled and not self.codex_enabled:
             self.status = ServerStatus.DISABLED
             self.is_running = False
             self.pid = None
@@ -161,9 +168,14 @@ class ServerListItem:
                 self.disable("gemini")
             else:
                 self.enable("gemini")
+        elif client == "codex":
+            if self.codex_enabled:
+                self.disable("codex")
+            else:
+                self.enable("codex")
         elif client is None:
-            # Toggle both when no client specified
-            if self.claude_enabled or self.gemini_enabled:
+            # Toggle all when no client specified
+            if self.claude_enabled or self.gemini_enabled or self.codex_enabled:
                 self.disable()
             else:
                 self.enable()
@@ -174,6 +186,8 @@ class ServerListItem:
             return self.claude_enabled
         elif client == "gemini":
             return self.gemini_enabled
+        elif client == "codex":
+            return self.codex_enabled
         else:
             return False
 
@@ -291,6 +305,7 @@ class ServerListItem:
             "tags": self.tags,
             "claude_enabled": self.claude_enabled,
             "gemini_enabled": self.gemini_enabled,
+            "codex_enabled": self.codex_enabled,
             "source_mode": self.source_mode,
             "version": self.version,
             "config": self.config,
@@ -309,6 +324,7 @@ class ServerListItem:
             tags=data.get("tags", []),
             claude_enabled=data.get("claude_enabled", False),
             gemini_enabled=data.get("gemini_enabled", False),
+            codex_enabled=data.get("codex_enabled", False),
             source_mode=data.get("source_mode"),
             version=data.get("version"),
             config=data.get("config", {}),
@@ -340,6 +356,7 @@ class ServerListItem:
             is_new=self.is_new,
             claude_enabled=self.claude_enabled,
             gemini_enabled=self.gemini_enabled,
+            codex_enabled=self.codex_enabled,
             is_valid=self.is_valid,
             validation_errors=self.validation_errors.copy(),
             validation_warnings=self.validation_warnings.copy(),

@@ -49,6 +49,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.multi_select_enabled = False
         self.claude_master_state = None  # Track Claude master checkbox state
         self.gemini_master_state = None  # Track Gemini master checkbox state
+        self.codex_master_state = None  # Track Codex master checkbox state
         self.filter_location = "All"  # Current location filter
         self.group_by_location = False  # Whether to group by location
         self.search_text = ""  # Search filter text
@@ -100,11 +101,13 @@ class ServerListWidget(QWidget if USING_QT else object):
         header.resizeSection(0, 70)  # Claude column
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(1, 70)  # Gemini column
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Server name
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        header.resizeSection(3, 100)  # Status column
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(2, 70)  # Codex column
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Server name
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        header.resizeSection(4, 120)  # Location column
+        header.resizeSection(4, 100)  # Status column
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(5, 120)  # Location column
         
         # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
         # may render as solid blue squares instead of proper checkboxes.
@@ -130,7 +133,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             return
 
         # Set header labels initially
-        self.tree.setHeaderLabels(["Claude", "Gemini", "Server", "Status", "Location"])
+        self.tree.setHeaderLabels(["Claude", "Gemini", "Codex", "Server", "Status", "Location"])
 
         # Store reference to header for updating checkbox display
         self.header = self.tree.header()
@@ -140,6 +143,10 @@ class ServerListWidget(QWidget if USING_QT else object):
         # Track master checkbox states
         self.claude_master_state = Qt.CheckState.Unchecked
         self.gemini_master_state = Qt.CheckState.Unchecked
+        self.codex_master_state = Qt.CheckState.Unchecked
+
+        # Track CLI availability
+        self.cli_availability = {'claude': True, 'gemini': True, 'codex': True}
 
     def _create_filter_toolbar(self):
         """Create the filter toolbar for Qt."""
@@ -196,7 +203,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         self._create_tk_filter_toolbar()
 
         # Tree view for server list
-        columns = ("claude", "gemini", "server", "status", "location")
+        columns = ("claude", "gemini", "codex", "server", "status", "location")
         self.tree = ttk.Treeview(self.frame, columns=columns, show="tree headings")
 
         # Configure columns
@@ -208,6 +215,9 @@ class ServerListWidget(QWidget if USING_QT else object):
 
         self.tree.heading("gemini", text="Gemini")
         self.tree.column("gemini", width=70)
+
+        self.tree.heading("codex", text="Codex")
+        self.tree.column("codex", width=70)
 
         self.tree.heading("server", text="Server")
         self.tree.column("server", width=250)
@@ -282,18 +292,33 @@ class ServerListWidget(QWidget if USING_QT else object):
 
             item = QTreeWidgetItem()
 
-            # Add checkboxes for both Claude and Gemini columns
+            # Add checkboxes for Claude, Gemini and Codex columns
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
 
             # Set checkbox states based on per-client enabled status
             claude_enabled = getattr(server, 'claude_enabled', server.status == ServerStatus.ENABLED)
             gemini_enabled = getattr(server, 'gemini_enabled', server.status == ServerStatus.ENABLED)
+            codex_enabled = getattr(server, 'codex_enabled', server.status == ServerStatus.ENABLED)
 
-            item.setCheckState(0, Qt.CheckState.Checked if claude_enabled else Qt.CheckState.Unchecked)
-            item.setCheckState(1, Qt.CheckState.Checked if gemini_enabled else Qt.CheckState.Unchecked)
+            # Set checkboxes, disabling if CLI not available
+            if self.cli_availability.get('claude', True):
+                item.setCheckState(0, Qt.CheckState.Checked if claude_enabled else Qt.CheckState.Unchecked)
+            else:
+                item.setCheckState(0, Qt.CheckState.Unchecked)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)  # Disable checkbox for column 0
 
-            item.setText(2, server.name)
-            item.setText(3, str(server.status.value) if hasattr(server.status, 'value') else str(server.status))
+            if self.cli_availability.get('gemini', True):
+                item.setCheckState(1, Qt.CheckState.Checked if gemini_enabled else Qt.CheckState.Unchecked)
+            else:
+                item.setCheckState(1, Qt.CheckState.Unchecked)
+
+            if self.cli_availability.get('codex', True):
+                item.setCheckState(2, Qt.CheckState.Checked if codex_enabled else Qt.CheckState.Unchecked)
+            else:
+                item.setCheckState(2, Qt.CheckState.Unchecked)
+
+            item.setText(3, server.name)
+            item.setText(4, str(server.status.value) if hasattr(server.status, 'value') else str(server.status))
 
             # Set location text and apply visual indicators for project servers
             location_text = getattr(server, 'location', 'global')
@@ -303,18 +328,18 @@ class ServerListWidget(QWidget if USING_QT else object):
                 # Show shortened project path for project servers
                 if '/' in location_text:
                     # Show just the project folder name
-                    item.setText(4, f"📁 {location_text.split('/')[-1]}")
+                    item.setText(5, f"📁 {location_text.split('/')[-1]}")
                 else:
-                    item.setText(4, f"📁 {location_text}")
+                    item.setText(5, f"📁 {location_text}")
                 # Set tooltip with full path
-                item.setToolTip(4, f"Project: {location_text}")
+                item.setToolTip(5, f"Project: {location_text}")
                 # Apply project server color (light blue background)
                 from PyQt6.QtGui import QColor
-                item.setBackground(2, QColor(230, 240, 255))  # Light blue for server name
-                item.setBackground(4, QColor(230, 240, 255))  # Light blue for location
+                item.setBackground(3, QColor(230, 240, 255))  # Light blue for server name
+                item.setBackground(5, QColor(230, 240, 255))  # Light blue for location
             else:
-                item.setText(4, "Global")
-                item.setToolTip(4, "Global Configuration")
+                item.setText(5, "Global")
+                item.setToolTip(5, "Global Configuration")
 
             # Store server name in item data
             item.setData(0, Qt.ItemDataRole.UserRole, server.name)
@@ -331,6 +356,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             # tkinter implementation
             claude_mark = "✓" if getattr(server, 'claude_enabled', server.status == ServerStatus.ENABLED) else ""
             gemini_mark = "✓" if getattr(server, 'gemini_enabled', server.status == ServerStatus.ENABLED) else ""
+            codex_mark = "✓" if getattr(server, 'codex_enabled', server.status == ServerStatus.ENABLED) else ""
 
             # Set location text for project servers
             location_text = getattr(server, 'location', 'global')
@@ -345,7 +371,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             else:
                 location_display = "Global"
 
-            values = (claude_mark, gemini_mark, server.name, server.status.value, location_display)
+            values = (claude_mark, gemini_mark, codex_mark, server.name, server.status.value, location_display)
             tags = (server.status.value.lower(),)
             if is_project:
                 tags = tags + ("project_server",)
@@ -393,18 +419,21 @@ class ServerListWidget(QWidget if USING_QT else object):
             server.claude_enabled = (status == ServerStatus.ENABLED)
         elif client == "gemini":
             server.gemini_enabled = (status == ServerStatus.ENABLED)
+        elif client == "codex":
+            server.codex_enabled = (status == ServerStatus.ENABLED)
         else:
-            # Update both if no specific client
+            # Update all if no specific client
             server.status = status
             server.claude_enabled = (status == ServerStatus.ENABLED)
             server.gemini_enabled = (status == ServerStatus.ENABLED)
+            server.codex_enabled = (status == ServerStatus.ENABLED)
 
         if USING_QT:
             # Find and update the item
             for i in range(self.tree.topLevelItemCount()):
                 item = self.tree.topLevelItem(i)
                 if item.data(0, Qt.ItemDataRole.UserRole) == server_name:
-                    item.setText(3, status.value if status else self._get_overall_status(server))
+                    item.setText(4, status.value if status else self._get_overall_status(server))
                     self._update_item_status(item, status if status else server.status)
 
                     # Block signals temporarily to avoid triggering unwanted events
@@ -412,6 +441,7 @@ class ServerListWidget(QWidget if USING_QT else object):
                     # Update checkbox states
                     item.setCheckState(0, Qt.CheckState.Checked if server.claude_enabled else Qt.CheckState.Unchecked)
                     item.setCheckState(1, Qt.CheckState.Checked if server.gemini_enabled else Qt.CheckState.Unchecked)
+                    item.setCheckState(2, Qt.CheckState.Checked if getattr(server, 'codex_enabled', False) else Qt.CheckState.Unchecked)
                     self.tree.blockSignals(False)
                     break
         else:
@@ -419,8 +449,9 @@ class ServerListWidget(QWidget if USING_QT else object):
             if hasattr(server, '_tree_item'):
                 claude_mark = "✓" if server.claude_enabled else ""
                 gemini_mark = "✓" if server.gemini_enabled else ""
+                codex_mark = "✓" if getattr(server, 'codex_enabled', False) else ""
                 overall_status = self._get_overall_status(server)
-                values = (claude_mark, gemini_mark, server.name, overall_status)
+                values = (claude_mark, gemini_mark, codex_mark, server.name, overall_status)
                 self.tree.item(server._tree_item, values=values, tags=(overall_status.lower(),))
     
     def _update_item_status(self, item: 'QTreeWidgetItem', status: ServerStatus):
@@ -439,7 +470,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         else:
             color = QColor(0, 128, 0)  # Green
         
-        item.setForeground(2, QBrush(color))
+        item.setForeground(3, QBrush(color))
     
     def _configure_tk_tags(self):
         """Configure tkinter tag colors."""
@@ -452,12 +483,17 @@ class ServerListWidget(QWidget if USING_QT else object):
     
     def _on_item_changed(self, item: 'QTreeWidgetItem', column: int):
         """Handle item changed event for checkbox state changes."""
-        if not USING_QT or column > 1:  # Only handle checkbox columns (0 and 1)
+        if not USING_QT or column > 2:  # Only handle checkbox columns (0, 1, and 2)
             return
 
         server_name = item.data(0, Qt.ItemDataRole.UserRole)
         if server_name:
-            client = "claude" if column == 0 else "gemini"
+            if column == 0:
+                client = "claude"
+            elif column == 1:
+                client = "gemini"
+            else:
+                client = "codex"
             enabled = item.checkState(column) == Qt.CheckState.Checked
             self._toggle_server(server_name, enabled, client)
             # Update master checkbox state when individual items change
@@ -504,8 +540,8 @@ class ServerListWidget(QWidget if USING_QT else object):
             return
 
         # Only emit server_selected for non-checkbox columns
-        # Columns 0 and 1 are checkbox columns, handled by itemChanged signal
-        if column > 1:
+        # Columns 0, 1, and 2 are checkbox columns, handled by itemChanged signal
+        if column > 2:
             server_name = item.data(0, Qt.ItemDataRole.UserRole)
             if server_name:
                 self.selected_server = server_name
@@ -537,12 +573,13 @@ class ServerListWidget(QWidget if USING_QT else object):
         selection = self.tree.selection()
         if selection:
             item = self.tree.item(selection[0])
-            server_name = item['values'][2]  # Server name is now in third column
-            # Toggle both for double-click
+            server_name = item['values'][3]  # Server name is now in fourth column
+            # Toggle all for double-click
             claude_enabled = item['values'][0] == "✓"
             gemini_enabled = item['values'][1] == "✓"
-            # If either is enabled, disable both; otherwise enable both
-            new_state = not (claude_enabled or gemini_enabled)
+            codex_enabled = item['values'][2] == "✓"
+            # If any is enabled, disable all; otherwise enable all
+            new_state = not (claude_enabled or gemini_enabled or codex_enabled)
             self._toggle_server(server_name, new_state, None)
     
     def _show_context_menu(self, position: QPoint):
@@ -581,16 +618,25 @@ class ServerListWidget(QWidget if USING_QT else object):
             enable_gemini.triggered.connect(lambda: self._toggle_server(server_name, True, "gemini"))
             menu.addAction(enable_gemini)
 
+        if getattr(server, 'codex_enabled', False):
+            disable_codex = QAction("Disable for Codex", self)
+            disable_codex.triggered.connect(lambda: self._toggle_server(server_name, False, "codex"))
+            menu.addAction(disable_codex)
+        else:
+            enable_codex = QAction("Enable for Codex", self)
+            enable_codex.triggered.connect(lambda: self._toggle_server(server_name, True, "codex"))
+            menu.addAction(enable_codex)
+
         menu.addSeparator()
 
-        # Add both enable/disable options
-        enable_both = QAction("Enable for Both", self)
-        enable_both.triggered.connect(lambda: self._toggle_server(server_name, True, None))
-        menu.addAction(enable_both)
+        # Add all enable/disable options
+        enable_all = QAction("Enable for All", self)
+        enable_all.triggered.connect(lambda: self._toggle_server(server_name, True, None))
+        menu.addAction(enable_all)
 
-        disable_both = QAction("Disable for Both", self)
-        disable_both.triggered.connect(lambda: self._toggle_server(server_name, False, None))
-        menu.addAction(disable_both)
+        disable_all = QAction("Disable for All", self)
+        disable_all.triggered.connect(lambda: self._toggle_server(server_name, False, None))
+        menu.addAction(disable_all)
 
         menu.addSeparator()
 
@@ -619,9 +665,10 @@ class ServerListWidget(QWidget if USING_QT else object):
 
         self.tree.selection_set(item)
         item_data = self.tree.item(item)
-        server_name = item_data['values'][2]  # Server name is now in third column
+        server_name = item_data['values'][3]  # Server name is now in fourth column
         claude_enabled = item_data['values'][0] == "✓"
         gemini_enabled = item_data['values'][1] == "✓"
+        codex_enabled = item_data['values'][2] == "✓"
         
         # Create context menu
         menu = tk.Menu(self.frame, tearoff=0)
@@ -637,9 +684,14 @@ class ServerListWidget(QWidget if USING_QT else object):
         else:
             menu.add_command(label="Enable for Gemini", command=lambda: self._toggle_server(server_name, True, "gemini"))
 
+        if codex_enabled:
+            menu.add_command(label="Disable for Codex", command=lambda: self._toggle_server(server_name, False, "codex"))
+        else:
+            menu.add_command(label="Enable for Codex", command=lambda: self._toggle_server(server_name, True, "codex"))
+
         menu.add_separator()
-        menu.add_command(label="Enable for Both", command=lambda: self._toggle_server(server_name, True, None))
-        menu.add_command(label="Disable for Both", command=lambda: self._toggle_server(server_name, False, None))
+        menu.add_command(label="Enable for All", command=lambda: self._toggle_server(server_name, True, None))
+        menu.add_command(label="Disable for All", command=lambda: self._toggle_server(server_name, False, None))
         
         menu.add_separator()
 
@@ -712,10 +764,11 @@ class ServerListWidget(QWidget if USING_QT else object):
         """Get overall status based on per-client enablement."""
         claude_enabled = getattr(server, 'claude_enabled', False)
         gemini_enabled = getattr(server, 'gemini_enabled', False)
+        codex_enabled = getattr(server, 'codex_enabled', False)
 
-        if claude_enabled and gemini_enabled:
+        if claude_enabled and gemini_enabled and codex_enabled:
             return ServerStatus.ENABLED.value
-        elif claude_enabled or gemini_enabled:
+        elif claude_enabled or gemini_enabled or codex_enabled:
             return "Partial"
         else:
             return ServerStatus.DISABLED.value
@@ -826,7 +879,7 @@ class ServerListWidget(QWidget if USING_QT else object):
     
     def _on_header_clicked(self, logical_index):
         """Handle header click to toggle master checkbox."""
-        if not USING_QT or logical_index > 1:  # Only handle checkbox columns
+        if not USING_QT or logical_index > 2:  # Only handle checkbox columns
             return
 
         if logical_index == 0:  # Claude column
@@ -857,6 +910,20 @@ class ServerListWidget(QWidget if USING_QT else object):
                 for i in range(self.tree.topLevelItemCount()):
                     item = self.tree.topLevelItem(i)
                     item.setCheckState(1, Qt.CheckState.Unchecked)
+        elif logical_index == 2:  # Codex column
+            # Cycle through states: Unchecked -> Checked -> Unchecked
+            if self.codex_master_state == Qt.CheckState.Unchecked:
+                self.codex_master_state = Qt.CheckState.Checked
+                # Check all Codex items
+                for i in range(self.tree.topLevelItemCount()):
+                    item = self.tree.topLevelItem(i)
+                    item.setCheckState(2, Qt.CheckState.Checked)
+            else:
+                self.codex_master_state = Qt.CheckState.Unchecked
+                # Uncheck all Codex items
+                for i in range(self.tree.topLevelItemCount()):
+                    item = self.tree.topLevelItem(i)
+                    item.setCheckState(2, Qt.CheckState.Unchecked)
 
         self._update_master_checkbox_display()
     
@@ -867,6 +934,7 @@ class ServerListWidget(QWidget if USING_QT else object):
 
         claude_checked = 0
         gemini_checked = 0
+        codex_checked = 0
         total_count = self.tree.topLevelItemCount()
 
         for i in range(total_count):
@@ -875,6 +943,8 @@ class ServerListWidget(QWidget if USING_QT else object):
                 claude_checked += 1
             if item.checkState(1) == Qt.CheckState.Checked:
                 gemini_checked += 1
+            if item.checkState(2) == Qt.CheckState.Checked:
+                codex_checked += 1
 
         # Update Claude master state
         if claude_checked == 0:
@@ -891,6 +961,14 @@ class ServerListWidget(QWidget if USING_QT else object):
             self.gemini_master_state = Qt.CheckState.Checked
         else:
             self.gemini_master_state = Qt.CheckState.PartiallyChecked
+
+        # Update Codex master state
+        if codex_checked == 0:
+            self.codex_master_state = Qt.CheckState.Unchecked
+        elif codex_checked == total_count:
+            self.codex_master_state = Qt.CheckState.Checked
+        else:
+            self.codex_master_state = Qt.CheckState.PartiallyChecked
 
         self._update_master_checkbox_display()
     
@@ -915,6 +993,14 @@ class ServerListWidget(QWidget if USING_QT else object):
         else:  # PartiallyChecked
             self.tree.headerItem().setText(1, "⊟ Gemini")
 
+        # Update Codex header
+        if self.codex_master_state == Qt.CheckState.Checked:
+            self.tree.headerItem().setText(2, "☑ Codex")
+        elif self.codex_master_state == Qt.CheckState.Unchecked:
+            self.tree.headerItem().setText(2, "☐ Codex")
+        else:  # PartiallyChecked
+            self.tree.headerItem().setText(2, "⊟ Codex")
+
     def highlight_new_servers(self, server_names: List[str]):
         """Temporarily highlight newly added servers with green background.
 
@@ -924,7 +1010,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         if USING_QT:
             for i in range(self.tree.topLevelItemCount()):
                 item = self.tree.topLevelItem(i)
-                server_name = item.text(2)
+                server_name = item.text(3)
                 if server_name in server_names:
                     # Set green background for new servers
                     from PyQt6.QtGui import QBrush, QColor
@@ -959,7 +1045,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         if USING_QT:
             for i in range(self.tree.topLevelItemCount()):
                 item = self.tree.topLevelItem(i)
-                server_name = item.text(2)
+                server_name = item.text(3)
                 if server_name in server_names:
                     # Set orange background for modified servers
                     from PyQt6.QtGui import QBrush, QColor
@@ -994,7 +1080,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         if USING_QT:
             for i in range(self.tree.topLevelItemCount() - 1, -1, -1):
                 item = self.tree.topLevelItem(i)
-                server_name = item.text(2)
+                server_name = item.text(3)
                 if server_name in server_names:
                     # Set red background and strikethrough
                     from PyQt6.QtGui import QBrush, QColor, QFont
@@ -1092,7 +1178,7 @@ class ServerListWidget(QWidget if USING_QT else object):
                 # Skip group headers when filtering
                 if item.childCount() > 0:
                     continue
-                server_name = item.text(2).lower()
+                server_name = item.text(3).lower()
                 location = item.text(4)
             else:
                 children = self.tree.get_children()
@@ -1328,7 +1414,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         if USING_QT:
             for i in range(self.tree.topLevelItemCount() - 1, -1, -1):
                 item = self.tree.topLevelItem(i)
-                server_name = item.text(2)
+                server_name = item.text(3)
                 if server_name in server_names:
                     # In a real implementation, we'd remove the item
                     # For now, just clear the formatting
@@ -1338,3 +1424,46 @@ class ServerListWidget(QWidget if USING_QT else object):
                         font = item.font(col)
                         font.setStrikeOut(False)
                         item.setFont(col, font)
+
+    def set_cli_availability(self, availability: Dict[str, bool]):
+        """Set CLI availability for all clients.
+
+        Args:
+            availability: Dict with keys 'claude', 'gemini', 'codex' and boolean values
+        """
+        self.cli_availability = availability
+
+        # Update header display to show availability
+        self._update_master_checkbox_display()
+
+        # Refresh all server items to update checkbox states
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                server_name = item.data(0, Qt.ItemDataRole.UserRole)
+                if server_name and server_name in self.servers:
+                    server = self.servers[server_name]
+
+                    # Update checkbox enabled states based on CLI availability
+                    if not availability.get('claude', True):
+                        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
+                        item.setCheckState(0, Qt.CheckState.Unchecked)
+                        item.setToolTip(0, "Claude not installed. Click Refresh to check again.")
+                    else:
+                        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                        item.setCheckState(0, Qt.CheckState.Checked if server.claude_enabled else Qt.CheckState.Unchecked)
+                        item.setToolTip(0, "Toggle Claude for this server")
+
+                    if not availability.get('gemini', True):
+                        item.setCheckState(1, Qt.CheckState.Unchecked)
+                        item.setToolTip(1, "Gemini not installed. Click Refresh to check again.")
+                    else:
+                        item.setCheckState(1, Qt.CheckState.Checked if server.gemini_enabled else Qt.CheckState.Unchecked)
+                        item.setToolTip(1, "Toggle Gemini for this server")
+
+                    if not availability.get('codex', True):
+                        item.setCheckState(2, Qt.CheckState.Unchecked)
+                        item.setToolTip(2, "Codex not installed. Click Refresh to check again.")
+                    else:
+                        item.setCheckState(2, Qt.CheckState.Checked if getattr(server, 'codex_enabled', False) else Qt.CheckState.Unchecked)
+                        item.setToolTip(2, "Toggle Codex for this server")

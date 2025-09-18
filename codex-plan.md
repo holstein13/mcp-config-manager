@@ -121,85 +121,109 @@ Add support for ChatGPT's Codex CLI as a third configuration target alongside Cl
 > - Tested backup/restore roundtrip successfully - all three config formats (Claude JSON, Gemini JSON, Codex TOML) backup and restore correctly.
 > - Ready to proceed to Phase 4 for GUI data layer updates.
 
+> **Phase 4 completion notes (2025-09-18)**
+> - Successfully updated `ServerListItem` model to include `codex_enabled` property alongside claude and gemini states.
+> - Extended all enable/disable/toggle methods in ServerListItem to handle the third Codex client option.
+> - Updated `ApplicationState` model with `codex_servers` dictionary and `config_path_codex` path tracking.
+> - Modified all state management methods (reset, get/set_server_enabled, toggle_server, etc.) to support three clients.
+> - Enhanced server state tracking methods to return Codex states in `get_all_server_states()` and `get_servers_for_client()`.
+> - ConfigController already had Codex support from earlier phases - validated load/save operations work with three configs.
+> - Updated ServerController's `get_servers()` method to properly set `codex_enabled` flags on ServerListItem objects.
+> - Modified bulk operations in ServerController to support 'codex' as a valid target client alongside 'claude' and 'gemini'.
+> - Enhanced PresetController to handle Codex servers in presets, including save/load of per-client states.
+> - Added ConfigMode.CODEX and ConfigMode.ALL to mode mappings in preset operations.
+> - All data layer components now fully support three-client architecture with Codex integration.
+> - Ready to proceed to Phase 5 for GUI presentation layer updates.
+
 ### Phase 4: GUI Updates - Data Layer (Est: 30,000 tokens)
 
 #### Task 4.1: Update Server Models
 **File**: `src/mcp_config_manager/gui/models/server_list_item.py`
-- [ ] Add `codex_enabled` property to ServerListItem
-- [ ] Update initialization to accept Codex state
-- [ ] Add Codex to toggle methods
-- [ ] Update state comparison methods
+- [x] Add `codex_enabled` property to ServerListItem
+- [x] Update initialization to accept Codex state
+- [x] Add Codex to toggle methods
+- [x] Update state comparison methods
 
 #### Task 4.2: Update Application State
 **File**: `src/mcp_config_manager/gui/models/app_state.py`
-- [ ] Add `codex_config` to ApplicationState
-- [ ] Update state management for three configs
-- [ ] Add Codex mode to current_mode tracking
-- [ ] Update state validation methods
+- [x] Add `codex_config` to ApplicationState
+- [x] Update state management for three configs
+- [x] Add Codex mode to current_mode tracking
+- [x] Update state validation methods
 
 #### Task 4.3: Update Controllers
 **Files to update**:
 - `src/mcp_config_manager/gui/controllers/config_controller.py`
-  - [ ] Add Codex support to load/save operations
-  - [ ] Update validation for TOML format
-  - [ ] Add Codex-specific error handling
+  - [x] Add Codex support to load/save operations
+  - [x] Update validation for TOML format
+  - [x] Add Codex-specific error handling
 
 - `src/mcp_config_manager/gui/controllers/server_controller.py`
-  - [ ] Add Codex column to server list data
-  - [ ] Update `toggle_server()` for Codex
-  - [ ] Add bulk toggle support for Codex
+  - [x] Add Codex column to server list data
+  - [x] Update `toggle_server()` for Codex
+  - [x] Add bulk toggle support for Codex
 
 - `src/mcp_config_manager/gui/controllers/preset_controller.py`
-  - [ ] Include Codex state in preset save/load
-  - [ ] Update preset validation for three clients
+  - [x] Include Codex state in preset save/load
+  - [x] Update preset validation for three clients
 
 ### Phase 5: GUI Updates - Presentation Layer (Est: 40,000 tokens)
 
 #### Task 5.1: Update Server List Widget
 **File**: `src/mcp_config_manager/gui/widgets/server_list.py`
-- [ ] Add "Codex" column (index 2) to tree widget
-- [ ] Update header to show 6 columns total
-- [ ] Add `codex_master_state` tracking
-- [ ] Implement Codex master checkbox logic
-- [ ] Update `_on_header_clicked()` for column 2
-- [ ] Adjust column widths:
+- [x] Add "Codex" column (index 2) to tree widget
+- [x] Update header to show 6 columns total
+- [x] Add `codex_master_state` tracking
+- [x] Implement Codex master checkbox logic
+- [x] Update `_on_header_clicked()` for column 2
+- [x] Adjust column widths:
   - Claude: 70px
   - Gemini: 70px
   - Codex: 70px
   - Server: Stretch
   - Status: 100px
   - Location: 120px
-- [ ] Update checkbox state management for three columns
-- [ ] Add Codex to bulk toggle methods
-- [ ] **Add CLI availability checking**:
-  - [ ] Store `cli_availability` dict from config manager
-  - [ ] Disable checkboxes for unavailable CLIs
-  - [ ] Show grayed-out appearance for disabled columns
-  - [ ] Update tooltips to indicate "Claude/Gemini/Codex not installed"
+- [x] Update checkbox state management for three columns
+- [x] Add Codex to bulk toggle methods
+- [x] **Add CLI availability checking**:
+  - [x] Store `cli_availability` dict from config manager
+  - [x] Disable checkboxes for unavailable CLIs
+  - [x] Show grayed-out appearance for disabled columns
+  - [x] Update tooltips to indicate "Claude/Gemini/Codex not installed"
 
 #### Task 5.2: Update Server Details Panel
 **File**: `src/mcp_config_manager/gui/widgets/server_details_panel.py`
-- [ ] Add Codex checkbox to details view
-- [ ] Update layout to accommodate third checkbox
-- [ ] Add Codex-specific tooltips mentioning TOML format
-- [ ] Update state synchronization logic
-- [ ] Add visual indicators for Codex state
-- [ ] **Disable checkbox if Codex not installed**
-- [ ] Show installation hint in tooltip when disabled
+- [x] Add Codex checkbox to details view
+- [x] Update layout to accommodate third checkbox
+- [x] Add Codex-specific tooltips mentioning TOML format
+- [x] Update state synchronization logic
+- [x] Add visual indicators for Codex state
+- [x] **Disable checkbox if Codex not installed**
+- [x] Show installation hint in tooltip when disabled
 
 #### Task 5.3: Update Main Window
 **File**: `src/mcp_config_manager/gui/main_window.py`
-- [ ] Add Codex to mode selection menu
-- [ ] Update status bar to show Codex server count
-- [ ] Add Codex file path to configuration display
-- [ ] Update window title for Codex mode
-- [ ] Add keyboard shortcuts for Codex operations
-- [ ] **Add refresh button for CLI detection**:
-  - [ ] Add "Refresh CLIs" button/menu item
-  - [ ] Connect to cli_detector.refresh_detection()
-  - [ ] Update UI state after refresh
-  - [ ] Show notification of detected changes
-  - [ ] Auto-detect on app startup
+- [x] Add Codex to mode selection menu (already supported via ConfigMode)
+- [x] Update status bar to show Codex server count
+- [x] Add Codex file path to configuration display
+- [x] Update window title for Codex mode
+- [x] Add keyboard shortcuts for Codex operations
+- [x] **Add refresh button for CLI detection**:
+  - [x] Add "Refresh CLIs" button/menu item (exists as Refresh button)
+  - [x] Connect to cli_detector.refresh_detection()
+  - [x] Update UI state after refresh
+  - [x] Show notification of detected changes
+  - [x] Auto-detect on app startup
+
+> **Phase 5 completion notes (2025-09-18)**
+> - Successfully added Codex column to server list widget with full checkbox support
+> - Implemented three-column master checkbox logic for Claude, Gemini, and Codex
+> - Added CLI availability checking with set_cli_availability() method
+> - Updated server details panel with Codex checkbox and enablement tracking
+> - Extended refresh functionality to update CLI availability detection
+> - CLI detection now happens on app startup and on refresh
+> - All GUI components now fully support three-client architecture
+> - Ready for Phase 6 (CLI Updates) - GUI presentation layer complete
 
 ### Phase 6: CLI Updates (Est: 15,000 tokens)
 

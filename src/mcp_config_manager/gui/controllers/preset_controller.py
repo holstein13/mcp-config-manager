@@ -47,7 +47,8 @@ class PresetController:
                 # Check for per-client enablement in preset
                 claude_servers = preset_data.get('claude_servers', {})
                 gemini_servers = preset_data.get('gemini_servers', {})
-                has_per_client = bool(claude_servers or gemini_servers)
+                codex_servers = preset_data.get('codex_servers', {})
+                has_per_client = bool(claude_servers or gemini_servers or codex_servers)
 
                 presets.append({
                     'name': preset_name,
@@ -59,7 +60,8 @@ class PresetController:
                     'is_favorite': preset_data.get('is_favorite', False),
                     'has_per_client': has_per_client,
                     'claude_servers': claude_servers,
-                    'gemini_servers': gemini_servers
+                    'gemini_servers': gemini_servers,
+                    'codex_servers': codex_servers
                 })
             
             return {
@@ -98,7 +100,9 @@ class PresetController:
                 mode_map = {
                     'claude': ConfigMode.CLAUDE,
                     'gemini': ConfigMode.GEMINI,
-                    'both': ConfigMode.BOTH
+                    'codex': ConfigMode.CODEX,
+                    'both': ConfigMode.BOTH,
+                    'all': ConfigMode.ALL
                 }
                 config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
             else:
@@ -114,12 +118,14 @@ class PresetController:
                 # Check if preset has per-client data
                 claude_servers = preset_data.get('claude_servers', {})
                 gemini_servers = preset_data.get('gemini_servers', {})
+                codex_servers = preset_data.get('codex_servers', {})
 
-                if claude_servers or gemini_servers:
+                if claude_servers or gemini_servers or codex_servers:
                     # Return per-client data
                     servers_enabled = {
                         'claude': list(claude_servers.keys()) if claude_servers else [],
-                        'gemini': list(gemini_servers.keys()) if gemini_servers else []
+                        'gemini': list(gemini_servers.keys()) if gemini_servers else [],
+                        'codex': list(codex_servers.keys()) if codex_servers else []
                     }
                     servers_disabled = preset_data.get('disabled_servers', {})
                 else:
@@ -178,7 +184,9 @@ class PresetController:
                 mode_map = {
                     'claude': ConfigMode.CLAUDE,
                     'gemini': ConfigMode.GEMINI,
-                    'both': ConfigMode.BOTH
+                    'codex': ConfigMode.CODEX,
+                    'both': ConfigMode.BOTH,
+                    'all': ConfigMode.ALL
                 }
                 config_mode = mode_map.get(mode.lower(), ConfigMode.BOTH)
             else:
@@ -197,6 +205,7 @@ class PresetController:
                 # Save per-client enablement states
                 claude_enabled = {}
                 gemini_enabled = {}
+                codex_enabled = {}
 
                 # Process enabled servers to extract per-client states
                 for server in enabled_servers_list:
@@ -206,9 +215,12 @@ class PresetController:
                             claude_enabled[name] = server.get('config', {})
                         if server.get('gemini_enabled', False):
                             gemini_enabled[name] = server.get('config', {})
+                        if server.get('codex_enabled', False):
+                            codex_enabled[name] = server.get('config', {})
 
                 preset_data['claude_servers'] = claude_enabled
                 preset_data['gemini_servers'] = gemini_enabled
+                preset_data['codex_servers'] = codex_enabled
                 preset_data['disabled_servers'] = disabled_servers
             else:
                 # Legacy format - single enabled/disabled lists
@@ -317,6 +329,7 @@ class PresetController:
                     'disabled_servers': preset_data.get('disabled_servers', {}),
                     'claude_servers': preset_data.get('claude_servers', {}),
                     'gemini_servers': preset_data.get('gemini_servers', {}),
+                    'codex_servers': preset_data.get('codex_servers', {}),
                     'is_builtin': preset_name in ['minimal', 'web_dev', 'data_science', 'full'],
                     'is_favorite': preset_data.get('is_favorite', False)
                 }

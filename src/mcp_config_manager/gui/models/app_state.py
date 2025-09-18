@@ -27,6 +27,7 @@ class ApplicationState:
     # Server state - now tracked per LLM
     claude_servers: Dict[str, bool] = field(default_factory=dict)  # server_name: enabled
     gemini_servers: Dict[str, bool] = field(default_factory=dict)  # server_name: enabled
+    codex_servers: Dict[str, bool] = field(default_factory=dict)  # server_name: enabled
     selected_servers: Set[str] = field(default_factory=set)
 
     # Legacy lists for backward compatibility during transition
@@ -43,6 +44,7 @@ class ApplicationState:
     has_unsaved_changes: bool = False
     config_path_claude: Optional[str] = None
     config_path_gemini: Optional[str] = None
+    config_path_codex: Optional[str] = None
     
     # Backup state
     available_backups: List[str] = field(default_factory=list)
@@ -68,6 +70,7 @@ class ApplicationState:
         self.current_view = ViewType.SERVER_LIST
         self.claude_servers.clear()
         self.gemini_servers.clear()
+        self.codex_servers.clear()
         self.active_servers.clear()
         self.disabled_servers.clear()
         self.selected_servers.clear()
@@ -78,6 +81,7 @@ class ApplicationState:
         self.has_unsaved_changes = False
         self.config_path_claude = None
         self.config_path_gemini = None
+        self.config_path_codex = None
         self.available_backups.clear()
         self.last_backup = None
         self.search_filter = ""
@@ -95,6 +99,8 @@ class ApplicationState:
             return self.claude_servers.get(server_name, False)
         elif client == "gemini":
             return self.gemini_servers.get(server_name, False)
+        elif client == "codex":
+            return self.codex_servers.get(server_name, False)
         return False
 
     def set_server_enabled(self, server_name: str, client: str, enabled: bool) -> None:
@@ -103,32 +109,40 @@ class ApplicationState:
             self.claude_servers[server_name] = enabled
         elif client == "gemini":
             self.gemini_servers[server_name] = enabled
+        elif client == "codex":
+            self.codex_servers[server_name] = enabled
         self.has_unsaved_changes = True
     
     def toggle_server(self, server_name: str, client: Optional[str] = None) -> None:
-        """Toggle server enabled state for a specific client or both."""
+        """Toggle server enabled state for a specific client or all."""
         if client == "claude":
             current = self.claude_servers.get(server_name, False)
             self.claude_servers[server_name] = not current
         elif client == "gemini":
             current = self.gemini_servers.get(server_name, False)
             self.gemini_servers[server_name] = not current
+        elif client == "codex":
+            current = self.codex_servers.get(server_name, False)
+            self.codex_servers[server_name] = not current
         elif client is None:
-            # Toggle both when no client specified
+            # Toggle all when no client specified
             claude_state = self.claude_servers.get(server_name, False)
             gemini_state = self.gemini_servers.get(server_name, False)
-            # If either is enabled, disable both; otherwise enable both
-            new_state = not (claude_state or gemini_state)
+            codex_state = self.codex_servers.get(server_name, False)
+            # If any is enabled, disable all; otherwise enable all
+            new_state = not (claude_state or gemini_state or codex_state)
             self.claude_servers[server_name] = new_state
             self.gemini_servers[server_name] = new_state
+            self.codex_servers[server_name] = new_state
         self.has_unsaved_changes = True
     
-    def add_server(self, server_name: str, enabled_claude: bool = True, enabled_gemini: bool = True) -> None:
+    def add_server(self, server_name: str, enabled_claude: bool = True, enabled_gemini: bool = True, enabled_codex: bool = True) -> None:
         """Add a new server with per-LLM enabled states."""
         self.claude_servers[server_name] = enabled_claude
         self.gemini_servers[server_name] = enabled_gemini
+        self.codex_servers[server_name] = enabled_codex
         # Update legacy lists for compatibility
-        if enabled_claude or enabled_gemini:
+        if enabled_claude or enabled_gemini or enabled_codex:
             if server_name not in self.active_servers:
                 self.active_servers.append(server_name)
             if server_name in self.disabled_servers:
@@ -145,6 +159,7 @@ class ApplicationState:
         # Remove from per-LLM tracking
         self.claude_servers.pop(server_name, None)
         self.gemini_servers.pop(server_name, None)
+        self.codex_servers.pop(server_name, None)
         # Remove from legacy lists
         if server_name in self.active_servers:
             self.active_servers.remove(server_name)
@@ -155,38 +170,46 @@ class ApplicationState:
         self.has_unsaved_changes = True
     
     def enable_all_servers(self, client: Optional[str] = None) -> None:
-        """Enable all servers for a specific client or both."""
-        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys())
+        """Enable all servers for a specific client or all."""
+        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys()) | set(self.codex_servers.keys())
         if client == "claude":
             for server in all_servers:
                 self.claude_servers[server] = True
         elif client == "gemini":
             for server in all_servers:
                 self.gemini_servers[server] = True
+        elif client == "codex":
+            for server in all_servers:
+                self.codex_servers[server] = True
         elif client is None:
-            # Enable for both
+            # Enable for all
             for server in all_servers:
                 self.claude_servers[server] = True
                 self.gemini_servers[server] = True
+                self.codex_servers[server] = True
         # Update legacy lists
         self.active_servers = list(all_servers)
         self.disabled_servers.clear()
         self.has_unsaved_changes = True
     
     def disable_all_servers(self, client: Optional[str] = None) -> None:
-        """Disable all servers for a specific client or both."""
-        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys())
+        """Disable all servers for a specific client or all."""
+        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys()) | set(self.codex_servers.keys())
         if client == "claude":
             for server in all_servers:
                 self.claude_servers[server] = False
         elif client == "gemini":
             for server in all_servers:
                 self.gemini_servers[server] = False
+        elif client == "codex":
+            for server in all_servers:
+                self.codex_servers[server] = False
         elif client is None:
-            # Disable for both
+            # Disable for all
             for server in all_servers:
                 self.claude_servers[server] = False
                 self.gemini_servers[server] = False
+                self.codex_servers[server] = False
         # Update legacy lists
         self.disabled_servers = list(all_servers)
         self.active_servers.clear()
@@ -255,10 +278,13 @@ class ApplicationState:
             return self.claude_servers.get(server_name, False)
         elif client == "gemini":
             return self.gemini_servers.get(server_name, False)
+        elif client == "codex":
+            return self.codex_servers.get(server_name, False)
         else:
-            # Check if active for either client
+            # Check if active for any client
             return (self.claude_servers.get(server_name, False) or
-                    self.gemini_servers.get(server_name, False))
+                    self.gemini_servers.get(server_name, False) or
+                    self.codex_servers.get(server_name, False))
     
     def is_server_selected(self, server_name: str) -> bool:
         """Check if a server is selected."""
@@ -281,13 +307,14 @@ class ApplicationState:
         self.selected_servers = set(filtered)
 
     def get_all_server_states(self) -> Dict[str, Dict[str, bool]]:
-        """Get all server states for both clients."""
-        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys())
+        """Get all server states for all clients."""
+        all_servers = set(self.claude_servers.keys()) | set(self.gemini_servers.keys()) | set(self.codex_servers.keys())
         states = {}
         for server in all_servers:
             states[server] = {
                 "claude": self.claude_servers.get(server, False),
-                "gemini": self.gemini_servers.get(server, False)
+                "gemini": self.gemini_servers.get(server, False),
+                "codex": self.codex_servers.get(server, False)
             }
         return states
 
@@ -297,6 +324,8 @@ class ApplicationState:
             servers = self.claude_servers
         elif client == "gemini":
             servers = self.gemini_servers
+        elif client == "codex":
+            servers = self.codex_servers
         else:
             return []
 
@@ -307,11 +336,13 @@ class ApplicationState:
 
     def sync_from_legacy_lists(self) -> None:
         """Sync per-LLM states from legacy active/disabled lists."""
-        # Enable servers in active list for both clients
+        # Enable servers in active list for all clients
         for server in self.active_servers:
             self.claude_servers[server] = True
             self.gemini_servers[server] = True
-        # Disable servers in disabled list for both clients
+            self.codex_servers[server] = True
+        # Disable servers in disabled list for all clients
         for server in self.disabled_servers:
             self.claude_servers[server] = False
             self.gemini_servers[server] = False
+            self.codex_servers[server] = False

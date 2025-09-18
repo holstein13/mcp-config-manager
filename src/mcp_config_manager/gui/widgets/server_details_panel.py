@@ -104,6 +104,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.validation_errors = {}
         self.claude_enabled = False  # Track per-client enablement
         self.gemini_enabled = False
+        self.codex_enabled = False
 
         # Callbacks for tkinter
         self.server_updated_callbacks = []
@@ -142,6 +143,11 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.gemini_checkbox.setEnabled(False)
         self.gemini_checkbox.stateChanged.connect(self._on_client_enablement_changed)
         header_layout.addWidget(self.gemini_checkbox)
+
+        self.codex_checkbox = QCheckBox("Codex")
+        self.codex_checkbox.setEnabled(False)
+        self.codex_checkbox.stateChanged.connect(self._on_client_enablement_changed)
+        header_layout.addWidget(self.codex_checkbox)
 
         # Add field button
         self.add_field_btn = QPushButton("+ Add Field")
@@ -317,6 +323,13 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                                                state='disabled')
         self.gemini_checkbox.pack(side=tk.LEFT, padx=(5, 0))
 
+        self.codex_var = tk.BooleanVar()
+        self.codex_checkbox = ttk.Checkbutton(enablement_frame, text="Codex",
+                                              variable=self.codex_var,
+                                              command=self._on_client_enablement_changed,
+                                              state='disabled')
+        self.codex_checkbox.pack(side=tk.LEFT, padx=(5, 0))
+
         self.add_field_btn = ttk.Button(header_frame, text="+ Add Field",
                                         command=self._on_add_field, state='disabled')
         self.add_field_btn.pack(side=tk.RIGHT, padx=(10, 0))
@@ -351,7 +364,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.cancel_btn.pack(side=tk.RIGHT)
     
     def load_server(self, server_name: str, server_config: Dict[str, Any], is_disabled: bool = False,
-                   claude_enabled: bool = True, gemini_enabled: bool = True):
+                   claude_enabled: bool = True, gemini_enabled: bool = True, codex_enabled: bool = True):
         """Load a server configuration into the form.
 
         Args:
@@ -360,12 +373,14 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             is_disabled: Whether the server is currently disabled
             claude_enabled: Whether the server is enabled for Claude
             gemini_enabled: Whether the server is enabled for Gemini
+            codex_enabled: Whether the server is enabled for Codex
         """
         self.current_server = server_name
         self.current_server_disabled = is_disabled  # Store disabled state
         self.original_data = json.loads(json.dumps(server_config))  # Deep copy
         self.claude_enabled = claude_enabled
         self.gemini_enabled = gemini_enabled
+        self.codex_enabled = codex_enabled
         self.has_changes = False
         self.validation_errors.clear()
 
@@ -381,8 +396,10 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             # Update client checkboxes
             self.claude_checkbox.setEnabled(True)
             self.gemini_checkbox.setEnabled(True)
+            self.codex_checkbox.setEnabled(True)
             self.claude_checkbox.setChecked(claude_enabled)
             self.gemini_checkbox.setChecked(gemini_enabled)
+            self.codex_checkbox.setChecked(codex_enabled)
 
             # Switch to form view
             self.stacked_widget.setCurrentIndex(1)  # Show the form
@@ -395,8 +412,10 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             # Update client checkboxes
             self.claude_checkbox.config(state='normal')
             self.gemini_checkbox.config(state='normal')
+            self.codex_checkbox.config(state='normal')
             self.claude_var.set(claude_enabled)
             self.gemini_var.set(gemini_enabled)
+            self.codex_var.set(codex_enabled)
 
         # Clear existing form
         self._clear_form()
@@ -504,14 +523,18 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         if USING_QT:
             claude_enabled = self.claude_checkbox.isChecked()
             gemini_enabled = self.gemini_checkbox.isChecked()
+            codex_enabled = self.codex_checkbox.isChecked()
         elif HAS_TKINTER:
             claude_enabled = self.claude_var.get()
             gemini_enabled = self.gemini_var.get()
+            codex_enabled = self.codex_var.get()
         else:
             return
 
         # Check if client states have changed
-        if claude_enabled != self.claude_enabled or gemini_enabled != self.gemini_enabled:
+        if (claude_enabled != self.claude_enabled or
+            gemini_enabled != self.gemini_enabled or
+            codex_enabled != self.codex_enabled):
             # Emit client enablement change
             if USING_QT:
                 # We'll emit a signal for client enablement changes
@@ -521,10 +544,12 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             for callback in self.client_enablement_changed_callbacks:
                 callback(self.current_server, "claude", claude_enabled)
                 callback(self.current_server, "gemini", gemini_enabled)
+                callback(self.current_server, "codex", codex_enabled)
 
             # Update stored states
             self.claude_enabled = claude_enabled
             self.gemini_enabled = gemini_enabled
+            self.codex_enabled = codex_enabled
 
             # Mark as having changes
             self.has_changes = True
@@ -747,13 +772,15 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
     
     def refresh_current_server(self, updated_config: Optional[Dict[str, Any]] = None,
                               claude_enabled: Optional[bool] = None,
-                              gemini_enabled: Optional[bool] = None) -> bool:
+                              gemini_enabled: Optional[bool] = None,
+                              codex_enabled: Optional[bool] = None) -> bool:
         """Refresh the current server configuration from disk or with provided data.
 
         Args:
             updated_config: New configuration data (if None, server was deleted)
             claude_enabled: New Claude enablement state
             gemini_enabled: New Gemini enablement state
+            codex_enabled: New Codex enablement state
 
         Returns:
             True if refresh successful, False if server was deleted or error
@@ -798,6 +825,8 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             client_states_changed = True
         if gemini_enabled is not None and gemini_enabled != self.gemini_enabled:
             client_states_changed = True
+        if codex_enabled is not None and codex_enabled != self.codex_enabled:
+            client_states_changed = True
 
         if config_changed or client_states_changed:
             # Handle unsaved changes
@@ -831,7 +860,8 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                             updated_config,
                             self.current_server_disabled,
                             claude_enabled or self.claude_enabled,
-                            gemini_enabled or self.gemini_enabled
+                            gemini_enabled or self.gemini_enabled,
+                            codex_enabled or self.codex_enabled
                         )
                         logger.debug(f"Accepted external changes for server '{self.current_server}'")
                     else:
@@ -855,7 +885,8 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                             updated_config,
                             self.current_server_disabled,
                             claude_enabled or self.claude_enabled,
-                            gemini_enabled or self.gemini_enabled
+                            gemini_enabled or self.gemini_enabled,
+                            codex_enabled or self.codex_enabled
                         )
                         logger.debug(f"Accepted external changes for server '{self.current_server}'")
                     else:
@@ -891,6 +922,7 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         self.validation_errors.clear()
         self.claude_enabled = False
         self.gemini_enabled = False
+        self.codex_enabled = False
 
         self._clear_form()
 
@@ -904,8 +936,10 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             # Disable client checkboxes
             self.claude_checkbox.setEnabled(False)
             self.gemini_checkbox.setEnabled(False)
+            self.codex_checkbox.setEnabled(False)
             self.claude_checkbox.setChecked(False)
             self.gemini_checkbox.setChecked(False)
+            self.codex_checkbox.setChecked(False)
             # Switch back to empty state
             self.stacked_widget.setCurrentWidget(self.empty_state_widget)
         elif HAS_TKINTER:
@@ -916,8 +950,10 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
             # Disable client checkboxes
             self.claude_checkbox.config(state='disabled')
             self.gemini_checkbox.config(state='disabled')
+            self.codex_checkbox.config(state='disabled')
             self.claude_var.set(False)
             self.gemini_var.set(False)
+            self.codex_var.set(False)
 
         self._emit_changes_pending(False)
 

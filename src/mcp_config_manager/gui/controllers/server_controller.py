@@ -94,6 +94,7 @@ class ServerController:
                     # Set per-client flags based on the returned data
                     server_item.claude_enabled = server_info.get('claude_enabled', False)
                     server_item.gemini_enabled = server_info.get('gemini_enabled', False)
+                    server_item.codex_enabled = server_info.get('codex_enabled', False)
 
                     server_dict[name] = server_item
 
@@ -128,6 +129,7 @@ class ServerController:
                             # Set per-client flags based on disabled_for
                             server_item.claude_enabled = 'claude' not in disabled_for
                             server_item.gemini_enabled = 'gemini' not in disabled_for
+                            server_item.codex_enabled = 'codex' not in disabled_for
 
                             server_dict[server_name] = server_item
                     else:
@@ -149,9 +151,10 @@ class ServerController:
                                 config=config
                             )
 
-                            # Old format means disabled for both
+                            # Old format means disabled for all
                             server_item.claude_enabled = False
                             server_item.gemini_enabled = False
+                            server_item.codex_enabled = False
 
                             server_dict[server_name] = server_item
             except:
@@ -576,7 +579,7 @@ class ServerController:
                 claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_enable_for_client
-                if target in ['claude', 'gemini']:
+                if target in ['claude', 'gemini', 'codex']:
                     # Get all disabled servers for this client
                     disabled_servers = self.config_manager.server_manager.load_disabled_servers()
                     servers_to_enable = []
@@ -625,7 +628,7 @@ class ServerController:
                 )
 
                 # If targeting specific client, use bulk_disable_for_client
-                if target in ['claude', 'gemini']:
+                if target in ['claude', 'gemini', 'codex']:
                     servers_to_disable = [server['name'] for server in enabled_servers]
 
                     # Use bulk disable method
@@ -666,7 +669,7 @@ class ServerController:
                 claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_enable_for_client
-                if target in ['claude', 'gemini']:
+                if target in ['claude', 'gemini', 'codex']:
                     result = self.config_manager.server_manager.bulk_enable_for_client(
                         claude_data,
                         gemini_data,
@@ -702,7 +705,7 @@ class ServerController:
                 claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_disable_for_client
-                if target in ['claude', 'gemini']:
+                if target in ['claude', 'gemini', 'codex']:
                     result = self.config_manager.server_manager.bulk_disable_for_client(
                         claude_data,
                         gemini_data,
@@ -933,7 +936,8 @@ class ServerController:
                 name = server_info['name']
                 server_states[name] = {
                     'claude_enabled': server_info.get('claude_enabled', False),
-                    'gemini_enabled': server_info.get('gemini_enabled', False)
+                    'gemini_enabled': server_info.get('gemini_enabled', False),
+                    'codex_enabled': server_info.get('codex_enabled', False)
                 }
 
             # Add disabled servers
@@ -943,16 +947,18 @@ class ServerController:
                 for server_name, server_info in disabled_data.items():
                     if server_name not in server_states:
                         if isinstance(server_info, dict) and 'disabled_for' in server_info:
-                            disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+                            disabled_for = server_info.get('disabled_for', ['claude', 'gemini', 'codex'])
                             server_states[server_name] = {
                                 'claude_enabled': 'claude' not in disabled_for,
-                                'gemini_enabled': 'gemini' not in disabled_for
+                                'gemini_enabled': 'gemini' not in disabled_for,
+                                'codex_enabled': 'codex' not in disabled_for
                             }
                         else:
-                            # Old format - treat as disabled for both
+                            # Old format - treat as disabled for all
                             server_states[server_name] = {
                                 'claude_enabled': False,
-                                'gemini_enabled': False
+                                'gemini_enabled': False,
+                                'codex_enabled': False
                             }
             except:
                 # No disabled servers file yet, that's OK
