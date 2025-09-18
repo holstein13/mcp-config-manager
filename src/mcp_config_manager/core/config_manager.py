@@ -130,12 +130,12 @@ class ConfigManager:
     
     def create_backups(self) -> List[Tuple[str, Path]]:
         """Create timestamped backups of all config files"""
-        return backup_all_configs(self.claude_path, self.gemini_path)
+        return backup_all_configs(self.claude_path, self.gemini_path, self.codex_path)
     
     def create_backup(self) -> Dict[str, Any]:
         """Create timestamped backups of all config files and return GUI-compatible result"""
         try:
-            backups = backup_all_configs(self.claude_path, self.gemini_path)
+            backups = backup_all_configs(self.claude_path, self.gemini_path, self.codex_path)
             if backups:
                 # Return the first backup file path for compatibility
                 return {

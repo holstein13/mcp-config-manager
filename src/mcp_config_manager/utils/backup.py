@@ -26,7 +26,7 @@ def create_backup(config_path: Path, backup_suffix: str = None, backup_dir: Path
     backup_dir.mkdir(parents=True, exist_ok=True)
     
     backup_path = backup_dir / f"{config_path.name}.{backup_suffix}"
-    shutil.copy2(config_path, backup_path)
+    shutil.copy(config_path, backup_path)  # Use copy instead of copy2 to get current timestamps
     return backup_path
 
 
@@ -44,26 +44,26 @@ def backup_all_configs(claude_path: Path, gemini_path: Path, codex_path: Path = 
     # Backup Claude config with simple naming
     if claude_path.exists():
         claude_backup = backups_dir / f"claude-backup-{timestamp}.json"
-        shutil.copy2(claude_path, claude_backup)
+        shutil.copy(claude_path, claude_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Claude', claude_backup))
-    
+
     # Backup Gemini config with simple naming
     if gemini_path.exists():
         gemini_backup = backups_dir / f"gemini-backup-{timestamp}.json"
-        shutil.copy2(gemini_path, gemini_backup)
+        shutil.copy(gemini_path, gemini_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Gemini', gemini_backup))
 
     # Backup Codex config with simple naming (TOML format)
     if codex_path and codex_path.exists():
         codex_backup = backups_dir / f"codex-backup-{timestamp}.toml"
-        shutil.copy2(codex_path, codex_backup)
+        shutil.copy(codex_path, codex_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Codex', codex_backup))
 
     # Backup disabled servers file with simple naming
     disabled_path = get_disabled_servers_path()
     if disabled_path.exists():
         disabled_backup = backups_dir / f"disabled-backup-{timestamp}.json"
-        shutil.copy2(disabled_path, disabled_backup)
+        shutil.copy(disabled_path, disabled_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Disabled Servers', disabled_backup))
     
     return backups
@@ -113,7 +113,7 @@ def restore_backup(backup_path: Path, target_path: Path) -> None:
         # Allow restoring TOML to TOML and JSON to JSON only
         raise ValueError(f"Cannot restore {backup_ext} backup to {target_ext} config")
 
-    shutil.copy2(backup_path, target_path)
+    shutil.copy(backup_path, target_path)  # Use copy instead of copy2 to get current timestamps
 
 
 def restore_from_backup(backup_path: Path, claude_path: Path = None,
