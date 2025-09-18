@@ -1,7 +1,7 @@
 cat > README.md << 'EOF'
 # MCP Config Manager
 
-A cross-platform utility for managing Model Context Protocol (MCP) server configurations across Claude, Gemini, and other AI systems.
+A cross-platform utility for managing Model Context Protocol (MCP) server configurations across Claude, Gemini, Codex, and other AI systems.
 
 **Based on the battle-tested `mcp_toggle.py` script with enhanced architecture and GUI interface.**
 
@@ -21,15 +21,16 @@ The graphical interface is complete and working with all major features operatio
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
+- **🔍 Project Discovery** - Automatically discover MCP servers from project .claude.json files
 - **🗑️ Bulk Server Deletion** - Delete multiple servers with confirmation dialog
 - **➕ Enhanced Server Addition** - Add servers with improved JSON validation and cleanup
 - **💾 Advanced Backup System** - Organized backups in dedicated directory with GUI integration
 - **🔄 Server Restore** - Restore servers from backup files including disabled servers
 - **Interactive CLI Management** - Full-featured interactive mode for server management
-- **Multi-Client Support** - Manages both `.claude.json` and `.gemini/settings.json` files
+- **Multi-Client Support** - Manages `.claude.json`, `.gemini/settings.json`, and Codex configuration files
 - **Server Enable/Disable** - Toggle servers on/off without losing configurations
 - **Master Checkbox** - Bulk select/deselect all servers at once
-- **Configuration Syncing** - Synchronize servers between Claude and Gemini
+- **Configuration Syncing** - Synchronize servers between Claude, Gemini, and Codex
 - **Automatic Backups** - Timestamped backups before any changes
 - **Preset Management** - Save and load project-specific configurations
 - **Quick Preset Modes** - Minimal, web dev, fullstack, and testing presets
@@ -45,13 +46,12 @@ The graphical interface is complete and working with all major features operatio
 - **Tkinter Support** - Alternative GUI backend for systems without Qt
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore entire configurations
-- **Auto-Discovery** - Automatically find and suggest MCP servers
 
 ## 📦 Installation
 
 ### Prerequisites
 - Python 3.8 or higher
-- Claude Code CLI and/or Gemini CLI installed
+- Claude Code CLI, Gemini CLI, and/or Codex installed
 - PyQt6 (optional, for better GUI experience): `pip install PyQt6`
 
 ### Quick Install
@@ -106,6 +106,11 @@ The GUI provides:
   - Boolean toggles for true/false values
   - Array editors for list management
   - Object editors for nested configurations
+- 🔍 **Project Discovery**:
+  - Discover button scans for project .claude.json files
+  - Automatically finds MCP servers in your projects
+  - Smart duplicate detection and consolidation
+  - Location-aware server management (Global vs Project)
 - ✅ **Real-time Validation** - Immediate feedback on configuration errors
 - 🎨 **Visual Feedback**:
   - Blue highlights for selected servers
@@ -116,7 +121,7 @@ The GUI provides:
   - Backup button creates timestamped backups
   - Restore button lists and restores previous backups
   - Automatic backups before any changes
-- 🔄 Mode switching between Claude/Gemini/Both
+- 🔄 Mode switching between Claude/Gemini/Codex/All
 - 💾 Save button with visual feedback
 - ➕ Add new servers via JSON with enhanced validation
 - 🗑️ Bulk delete servers with confirmation
@@ -133,7 +138,7 @@ mcp-config-manager interactive
 This gives you the complete interface from the original mcp_toggle.py script with:
 
 - ✅/❌ Visual server status
-- 🔄 Real-time mode switching (Claude/Gemini/Both)
+- 🔄 Real-time mode switching (Claude/Gemini/Codex/All)
 - 📁 Preset management
 - ➕ Add servers by pasting JSON
 - 🎯 Quick preset modes (minimal, web dev, etc.)
@@ -171,11 +176,12 @@ mcp-config-manager validate ~/.claude.json
 
 ### Working with Modes
 
-The tool supports three modes:
+The tool supports four modes:
 
 - **Claude only** (`--mode claude`) - Only manages `.claude.json`
 - **Gemini only** (`--mode gemini`) - Only manages `.gemini/settings.json`
-- **Both (synced)** (`--mode both`) - Keeps both configs synchronized
+- **Codex only** (`--mode codex`) - Only manages Codex configurations
+- **All (synced)** (`--mode all`) - Keeps all configs synchronized
 
 ## 🖼️ Screenshots
 
@@ -193,7 +199,7 @@ The tool supports three modes:
 
 📊 Current Status:
 ------------------------------
-Mode: 🔄 Both CLIs (synced)
+Mode: 🔄 All CLIs (synced)
 
 ✅ ACTIVE servers (will run):
   [1] context7
@@ -307,7 +313,7 @@ The following new functions have been added across recent commits:
 - **`add_server_with_name()`** - Add server with explicit name and configuration
 - **`delete_server()`** - Permanently delete servers from configurations and storage
 - **`update_server_config()`** - Update existing server configurations
-- **Enhanced mode support** - Better handling of 'claude', 'gemini', 'both' modes
+- **Enhanced mode support** - Better handling of 'claude', 'gemini', 'codex', 'all' modes
 
 #### Backup System (utils/backup.py)
 - **`backup_all_configs()`** - Create organized backups in dedicated directory
@@ -354,6 +360,7 @@ mcp-config-manager interactive
 
 - **Claude config:** `~/.claude.json`
 - **Gemini config:** `~/.gemini/settings.json`
+- **Codex config:** `~/.codex.json`
 - **Presets:** `~/.mcp_presets.json`
 - **Disabled servers:** `~/.mcp_disabled_servers.json` (in user's home directory)
 - **Organized backups:** `~/Documents/MCP Config Manager/backups/` with timestamped files:
@@ -405,7 +412,6 @@ Completed:
 Next features:
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore configurations
-- **Server Discovery** - Auto-detect available MCP servers
 
 ### 🚀 Phase 5: Distribution
 
