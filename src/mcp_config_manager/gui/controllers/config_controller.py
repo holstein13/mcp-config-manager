@@ -43,8 +43,14 @@ class ConfigController:
                 # Also reload disabled servers
                 self.config_manager.server_manager.disabled_servers = None
 
-            claude_data, gemini_data = self.config_manager.load_configs()
-            logger.debug(f"Configs loaded{' (forced reload)' if force_reload else ''}. Claude servers: {len(claude_data.get('mcpServers', {}))}, Gemini servers: {len(gemini_data.get('mcpServers', {}))}")
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
+            logger.debug(
+                "Configs loaded%s. Claude servers: %d, Gemini servers: %d, Codex servers: %d",
+                ' (forced reload)' if force_reload else '',
+                len(claude_data.get('mcpServers', {})),
+                len(gemini_data.get('mcpServers', {})),
+                len(codex_data.get('mcpServers', {})),
+            )
 
             # Get server list with per-client states
             server_list = self._get_server_list()
@@ -54,6 +60,7 @@ class ConfigController:
                 'servers': server_list,
                 'claude_path': str(self.config_manager.claude_path) if self.config_manager.claude_path else None,
                 'gemini_path': str(self.config_manager.gemini_path) if self.config_manager.gemini_path else None,
+                'codex_path': str(self.config_manager.codex_path) if self.config_manager.codex_path else None,
                 'has_unsaved_changes': False
             }
 
@@ -118,10 +125,10 @@ class ConfigController:
                     backup_file = str(backups[0][1]) if backups else None
 
             # Save configuration - always get current data first
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
             # Save for specific client or both
             target = client if client else 'both'
-            self.config_manager.save_configs(claude_data, gemini_data, target)
+            self.config_manager.save_configs(claude_data, gemini_data, codex_data, target)
 
             # Notify callbacks
             for callback in self.on_config_saved_callbacks:
@@ -163,7 +170,7 @@ class ConfigController:
             warnings = []
 
             # Always load and validate both configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
             # Validate Claude configuration
             if self.config_manager.claude_parser:
@@ -174,6 +181,10 @@ class ConfigController:
             if self.config_manager.gemini_parser:
                 if not self.config_manager.gemini_parser.validate(gemini_data):
                     errors.append("Gemini configuration is invalid.")
+
+            if self.config_manager.codex_parser:
+                if not self.config_manager.codex_parser.validate(codex_data):
+                    errors.append("Codex configuration is invalid.")
 
             return {
                 'success': True,
@@ -207,6 +218,7 @@ class ConfigController:
         return {
             'claude': str(self.config_manager.claude_parser.config_path) if self.config_manager.claude_parser else None,
             'gemini': str(self.config_manager.gemini_parser.config_path) if self.config_manager.gemini_parser else None,
+            'codex': str(self.config_manager.codex_path) if self.config_manager.codex_path else None,
             'presets': str(self.config_manager.preset_manager.presets_file) if self.config_manager.preset_manager else None
         }
     
@@ -222,11 +234,14 @@ class ConfigController:
         
         try:
             # Load current configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
             # Get all servers (enabled and disabled) with per-client states
             all_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, 'both'  # Always get all servers
+                claude_data,
+                gemini_data,
+                'all',
+                codex_data=codex_data,
             )
 
             # Build unified server list with per-client states
@@ -243,6 +258,7 @@ class ConfigController:
                         'env': server_info['config'].get('env', {}),
                         'claude_enabled': server_info.get('claude_enabled', False),
                         'gemini_enabled': server_info.get('gemini_enabled', False),
+                        'codex_enabled': server_info.get('codex_enabled', False),
                         'config': server_info['config']
                     }
 
@@ -253,7 +269,10 @@ class ConfigController:
                     # Handle new format with 'config' and 'disabled_for'
                     if isinstance(server_info, dict) and 'config' in server_info:
                         config = server_info['config']
-                        disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+                        disabled_for = server_info.get(
+                            'disabled_for',
+                            list(self.config_manager.server_manager.DEFAULT_DISABLED),
+                        )
                         server_dict[name] = {
                             'name': name,
                             'command': config.get('command', ''),
@@ -261,6 +280,7 @@ class ConfigController:
                             'env': config.get('env', {}),
                             'claude_enabled': 'claude' not in disabled_for,
                             'gemini_enabled': 'gemini' not in disabled_for,
+                            'codex_enabled': 'codex' not in disabled_for,
                             'config': config
                         }
                     else:
@@ -273,6 +293,7 @@ class ConfigController:
                             'env': config.get('env', {}),
                             'claude_enabled': False,
                             'gemini_enabled': False,
+                            'codex_enabled': False,
                             'config': config
                         }
 

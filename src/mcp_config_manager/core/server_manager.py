@@ -5,16 +5,83 @@ Extracted from mcp_toggle.py
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Set, Optional
+from typing import Dict, Any, List, Tuple, Set, Optional, Iterable, Mapping
 from ..utils.file_utils import get_disabled_servers_path
 from .project_discovery import ProjectDiscoveryService, ProjectServer
 
 
 class ServerManager:
     """Manages MCP server enabling/disabling and storage"""
-    
+    SUPPORTED_CLIENTS: Tuple[str, ...] = ("claude", "gemini", "codex")
+    DEFAULT_DISABLED: Tuple[str, ...] = SUPPORTED_CLIENTS
+
     def __init__(self, disabled_path: Path = None):
         self.disabled_path = disabled_path or get_disabled_servers_path()
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _build_client_map(
+        self,
+        claude_data: Optional[Dict[str, Any]] = None,
+        gemini_data: Optional[Dict[str, Any]] = None,
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Create a mapping of client identifier to config dict."""
+
+        client_map: Dict[str, Dict[str, Any]] = {}
+        if claude_data is not None:
+            client_map["claude"] = claude_data
+        if gemini_data is not None:
+            client_map["gemini"] = gemini_data
+        if codex_data is not None:
+            client_map["codex"] = codex_data
+        return client_map
+
+    def _resolve_clients(self, mode: Optional[str], available: Iterable[str]) -> List[str]:
+        """Resolve mode string into concrete client list."""
+
+        available_set = set(available)
+        if not available_set:
+            return []
+
+        if not mode or mode.lower() in {"all", "any"}:
+            return [c for c in self.SUPPORTED_CLIENTS if c in available_set]
+
+        mode_lower = mode.lower()
+        if mode_lower == "both":
+            base = ["claude", "gemini"]
+            return [c for c in base if c in available_set]
+
+        if mode_lower in available_set:
+            return [mode_lower]
+
+        # Fallback: return all available clients that we support
+        return [c for c in self.SUPPORTED_CLIENTS if c in available_set]
+
+    def _get_server_table(self, config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Return the mutable server table from a config dict."""
+
+        if not config:
+            return {}
+        if "mcpServers" in config and isinstance(config["mcpServers"], dict):
+            return config["mcpServers"]
+        if "mcp_servers" in config and isinstance(config["mcp_servers"], dict):
+            return config["mcp_servers"]
+        return {}
+
+    def _ensure_server_table(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure the config has a mutable mcpServers dict and return it."""
+
+        if "mcpServers" not in config or not isinstance(config.get("mcpServers"), dict):
+            config["mcpServers"] = {}
+        return config["mcpServers"]
+
+    def _set_server_table(self, config: Dict[str, Any], table: Dict[str, Any]) -> None:
+        """Persist table back onto config in internal format."""
+
+        config["mcpServers"] = table
     
     def load_disabled_servers(self) -> Dict[str, Any]:
         """Load disabled servers from storage file with migration support.
@@ -61,343 +128,343 @@ class ServerManager:
         with open(self.disabled_path, 'w') as f:
             json.dump(normalized, f, indent=2)
     
-    def disable_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                      server_name: str, mode: str = 'both') -> bool:
-        """Move a server from active to disabled storage with per-LLM tracking.
+    def disable_server(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Move a server from active configs into disabled storage."""
 
-        Args:
-            mode: 'claude', 'gemini', or 'both' - which LLM(s) to disable the server for
-        """
-        disabled = self.load_disabled_servers()
-        server_config = None
-        clients_to_disable = []
-
-        # Determine which clients to disable for
-        if mode in ['claude', 'both']:
-            clients_to_disable.append('claude')
-        if mode in ['gemini', 'both']:
-            clients_to_disable.append('gemini')
-
-        # Get server config from active configs
-        if 'mcpServers' in claude_data and server_name in claude_data['mcpServers']:
-            server_config = claude_data['mcpServers'][server_name]
-        elif 'mcpServers' in gemini_data and server_name in gemini_data['mcpServers']:
-            server_config = gemini_data['mcpServers'][server_name]
-
-        # Handle existing disabled entry or create new one
-        if server_name in disabled:
-            # Server already has a disabled entry - update it
-            entry = disabled[server_name]
-            if isinstance(entry, dict) and 'disabled_for' in entry:
-                # New format - update the disabled_for list
-                current_disabled = set(entry.get('disabled_for', []))
-                current_disabled.update(clients_to_disable)
-                entry['disabled_for'] = sorted(list(current_disabled))
-                # Update config if we have a newer one
-                if server_config:
-                    entry['config'] = server_config
-            else:
-                # Old format - shouldn't happen after migration, but handle it
-                disabled[server_name] = {
-                    "config": server_config or entry,
-                    "disabled_for": clients_to_disable
-                }
-        else:
-            # New disabled entry
-            if server_config:
-                disabled[server_name] = {
-                    "config": server_config,
-                    "disabled_for": clients_to_disable
-                }
-
-        # Remove from active configs as specified
-        if 'claude' in clients_to_disable and 'mcpServers' in claude_data:
-            if server_name in claude_data['mcpServers']:
-                del claude_data['mcpServers'][server_name]
-
-        if 'gemini' in clients_to_disable and 'mcpServers' in gemini_data:
-            if server_name in gemini_data['mcpServers']:
-                del gemini_data['mcpServers'][server_name]
-
-        # Save updated disabled servers
-        if server_name in disabled:
-            self.save_disabled_servers(disabled)
-            return True
-
-        return False
-    
-    def enable_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                     server_name: str, mode: str = 'both') -> bool:
-        """Move a server from disabled storage to active with per-LLM tracking.
-
-        Args:
-            mode: 'claude', 'gemini', or 'both' - which LLM(s) to enable the server for
-        """
-        disabled = self.load_disabled_servers()
-
-        if server_name not in disabled:
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        clients_to_disable = self._resolve_clients(mode, client_map.keys())
+        if not clients_to_disable:
             return False
 
-        entry = disabled[server_name]
+        disabled = self.load_disabled_servers()
+
+        # Find the latest server config from any active client
         server_config = None
-        clients_to_enable = []
+        for client in self.SUPPORTED_CLIENTS:
+            table = self._get_server_table(client_map.get(client))
+            if server_name in table:
+                server_config = table[server_name]
+                break
 
-        # Determine which clients to enable for
-        if mode in ['claude', 'both']:
-            clients_to_enable.append('claude')
-        if mode in ['gemini', 'both']:
-            clients_to_enable.append('gemini')
+        # Fall back to existing disabled entry config
+        if server_config is None and server_name in disabled:
+            entry = disabled.get(server_name)
+            if isinstance(entry, dict):
+                server_config = entry.get("config")
 
-        # Extract config from new or old format
-        if isinstance(entry, dict):
-            if 'config' in entry:
-                # New format
-                server_config = entry['config']
-                current_disabled = set(entry.get('disabled_for', []))
-            else:
-                # Old format (shouldn't happen after migration)
-                server_config = entry
-                current_disabled = {'claude', 'gemini'}
-        else:
+        if server_config is None:
+            # Without a config snapshot we cannot safely disable
             return False
 
-        # Add to appropriate active configs
-        if 'claude' in clients_to_enable:
-            if 'mcpServers' not in claude_data:
-                claude_data['mcpServers'] = {}
-            if server_name not in claude_data['mcpServers']:
-                claude_data['mcpServers'][server_name] = server_config.copy()
+        entry = disabled.get(server_name, {"config": server_config, "disabled_for": []})
+        if not isinstance(entry, dict):
+            entry = {"config": server_config, "disabled_for": list(self.DEFAULT_DISABLED)}
 
-        if 'gemini' in clients_to_enable:
-            if 'mcpServers' not in gemini_data:
-                gemini_data['mcpServers'] = {}
-            if server_name not in gemini_data['mcpServers']:
-                gemini_data['mcpServers'][server_name] = server_config.copy()
+        entry["config"] = server_config
+        disabled_for = set(entry.get("disabled_for", []))
+        disabled_for.update(clients_to_disable)
+        entry["disabled_for"] = sorted(disabled_for)
+        disabled[server_name] = entry
 
-        # Update or remove from disabled list
-        remaining_disabled = current_disabled - set(clients_to_enable)
-
-        if remaining_disabled:
-            # Still disabled for some clients - update the entry
-            entry['disabled_for'] = sorted(list(remaining_disabled))
-            disabled[server_name] = entry
-        else:
-            # No longer disabled for any client - remove entirely
-            del disabled[server_name]
+        # Remove from each active config as requested
+        for client in clients_to_disable:
+            table = self._get_server_table(client_map.get(client))
+            if server_name in table:
+                del table[server_name]
 
         self.save_disabled_servers(disabled)
         return True
     
-    def get_enabled_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                           mode: str = 'both') -> List[Dict[str, Any]]:
-        """Get list of enabled servers with their configurations and per-client states.
+    def enable_server(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Move a server from disabled storage back into active configs."""
 
-        Returns servers with 'claude_enabled' and 'gemini_enabled' flags.
-        """
-        # Build a unified view of all servers
-        server_states = {}
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        clients_to_enable = self._resolve_clients(mode, client_map.keys())
+        if not clients_to_enable:
+            return False
 
-        # Process Claude servers
-        for name, config in claude_data.get('mcpServers', {}).items():
-            if name not in server_states:
-                server_states[name] = {
-                    'name': name,
-                    'config': config,
-                    'enabled': True,  # Legacy field for backward compatibility
-                    'claude_enabled': True,
-                    'gemini_enabled': False
-                }
-            else:
-                server_states[name]['claude_enabled'] = True
+        disabled = self.load_disabled_servers()
+        if server_name not in disabled:
+            return False
 
-        # Process Gemini servers
-        for name, config in gemini_data.get('mcpServers', {}).items():
-            if name not in server_states:
-                server_states[name] = {
-                    'name': name,
-                    'config': config,
-                    'enabled': True,  # Legacy field for backward compatibility
-                    'claude_enabled': False,
-                    'gemini_enabled': True
-                }
-            else:
-                server_states[name]['gemini_enabled'] = True
-                # Update config if not already set (Gemini takes precedence if only in Gemini)
-                if 'config' not in server_states[name]:
-                    server_states[name]['config'] = config
+        entry = disabled[server_name]
+        if not isinstance(entry, dict):
+            return False
 
-        # Filter based on mode
-        servers = []
-        for server_data in server_states.values():
-            if mode == 'claude' and server_data['claude_enabled']:
-                servers.append(server_data)
-            elif mode == 'gemini' and server_data['gemini_enabled']:
-                servers.append(server_data)
-            elif mode == 'both':
-                servers.append(server_data)
+        server_config = entry.get("config")
+        if not isinstance(server_config, dict):
+            return False
 
-        return sorted(servers, key=lambda x: x['name'])
+        current_disabled = set(entry.get("disabled_for", []))
+
+        for client in clients_to_enable:
+            table = self._ensure_server_table(client_map[client])
+            table[server_name] = server_config.copy()
+
+        remaining_disabled = current_disabled - set(clients_to_enable)
+
+        if remaining_disabled:
+            entry["disabled_for"] = sorted(remaining_disabled)
+            disabled[server_name] = entry
+        else:
+            disabled.pop(server_name, None)
+
+        self.save_disabled_servers(disabled)
+        return True
     
-    def list_all_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                        mode: str = 'both', include_project_servers: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """List all servers (active and disabled) with per-client state information.
+    def get_enabled_servers(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return enabled server records with per-client flags."""
 
-        Args:
-            claude_data: Claude configuration dict
-            gemini_data: Gemini configuration dict
-            mode: 'claude', 'gemini', or 'both'
-            include_project_servers: Whether to include project-specific servers in the list
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        server_states: Dict[str, Dict[str, Any]] = {}
 
-        Returns:
-            Tuple of (active_servers, disabled_servers) where each is a list of dicts containing:
-            - name: server name
-            - claude_enabled: bool
-            - gemini_enabled: bool
-            - config: server configuration (if available)
-            - location: 'global' or project path if from a project
-        """
-        # Build complete server state map
-        all_servers = {}
+        for client, config in client_map.items():
+            table = self._get_server_table(config)
+            for name, server_config in table.items():
+                entry = server_states.setdefault(
+                    name,
+                    {
+                        'name': name,
+                        'config': server_config,
+                        'enabled': False,
+                        'per_client': {c: False for c in self.SUPPORTED_CLIENTS},
+                    },
+                )
+                entry['per_client'][client] = True
+                entry[f'{client}_enabled'] = True
+                entry['enabled'] = entry['enabled'] or True
+                # Prefer existing config unless missing
+                if 'config' not in entry or not entry['config']:
+                    entry['config'] = server_config
 
-        # Add active Claude servers (global)
-        for name, config in claude_data.get('mcpServers', {}).items():
-            if name not in all_servers:
-                all_servers[name] = {
+        # Ensure missing client flags default to False for backward compatibility
+        for entry in server_states.values():
+            for client in self.SUPPORTED_CLIENTS:
+                key = f'{client}_enabled'
+                if key not in entry:
+                    entry[key] = False
+                    entry['per_client'][client] = False
+
+        target_clients = set(self._resolve_clients(mode, client_map.keys())) or set(client_map.keys())
+
+        filtered = [
+            entry
+            for entry in server_states.values()
+            if any(entry.get(f'{client}_enabled', False) for client in target_clients)
+        ]
+
+        return sorted(filtered, key=lambda x: x['name'])
+    
+    def list_all_servers(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        mode: str = 'both',
+        include_project_servers: bool = False,
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """List active/disabled servers with per-client metadata."""
+
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        all_servers: Dict[str, Dict[str, Any]] = {}
+
+        def ensure_entry(name: str) -> Dict[str, Any]:
+            return all_servers.setdefault(
+                name,
+                {
                     'name': name,
-                    'config': config,
-                    'claude_enabled': True,
-                    'gemini_enabled': False,
-                    'is_active': True,
-                    'location': 'global'
-                }
+                    'config': {},
+                    'per_client': {c: False for c in self.SUPPORTED_CLIENTS},
+                    'location': 'global',
+                    'is_active': False,
+                },
+            )
+
+        # Populate active global servers
+        for client, config in client_map.items():
+            table = self._get_server_table(config)
+            for name, server_config in table.items():
+                entry = ensure_entry(name)
+                entry['config'] = entry['config'] or server_config
+                entry[f'{client}_enabled'] = True
+                entry['per_client'][client] = True
+                entry['is_active'] = True
+
+        # Merge disabled storage state
+        disabled_storage = self.load_disabled_servers()
+        for name, raw_entry in disabled_storage.items():
+            entry = ensure_entry(name)
+            if isinstance(raw_entry, dict):
+                config_snapshot = raw_entry.get('config', {})
+                disabled_for = set(raw_entry.get('disabled_for', []))
             else:
-                all_servers[name]['claude_enabled'] = True
-                all_servers[name]['is_active'] = True
+                config_snapshot = raw_entry
+                disabled_for = set(self.DEFAULT_DISABLED)
 
-        # Add active Gemini servers (global)
-        for name, config in gemini_data.get('mcpServers', {}).items():
-            if name not in all_servers:
-                all_servers[name] = {
-                    'name': name,
-                    'config': config,
-                    'claude_enabled': False,
-                    'gemini_enabled': True,
-                    'is_active': True,
-                    'location': 'global'
-                }
-            else:
-                all_servers[name]['gemini_enabled'] = True
-                all_servers[name]['is_active'] = True
-                if 'config' not in all_servers[name]:
-                    all_servers[name]['config'] = config
+            if config_snapshot and not entry['config']:
+                entry['config'] = config_snapshot
 
-        # Add disabled servers
-        disabled_servers = self.load_disabled_servers()
-        for server_name, entry in disabled_servers.items():
-            if isinstance(entry, dict) and 'disabled_for' in entry:
-                disabled_for = entry.get('disabled_for', [])
-                config = entry.get('config', {})
-
-                if server_name not in all_servers:
-                    all_servers[server_name] = {
-                        'name': server_name,
-                        'config': config,
-                        'claude_enabled': 'claude' not in disabled_for,
-                        'gemini_enabled': 'gemini' not in disabled_for,
-                        'is_active': False,
-                        'location': 'global'
-                    }
+            for client in self.SUPPORTED_CLIENTS:
+                enabled_key = f'{client}_enabled'
+                currently_enabled = entry.get(enabled_key, False)
+                if client in disabled_for:
+                    entry[enabled_key] = False
+                    entry['per_client'][client] = False
                 else:
-                    # Server exists in active - update disabled states
-                    if 'claude' in disabled_for:
-                        all_servers[server_name]['claude_enabled'] = False
-                    if 'gemini' in disabled_for:
-                        all_servers[server_name]['gemini_enabled'] = False
+                    entry[enabled_key] = currently_enabled or entry['per_client'][client]
+                    entry['per_client'][client] = entry[enabled_key]
 
-        # Add project-specific servers if requested
+            entry['is_active'] = any(
+                entry.get(f'{client}_enabled', False) for client in self.SUPPORTED_CLIENTS
+            )
+
+        # Ensure all expected flags exist
+        for entry in all_servers.values():
+            for client in self.SUPPORTED_CLIENTS:
+                key = f'{client}_enabled'
+                if key not in entry:
+                    entry[key] = False
+                    entry['per_client'][client] = False
+
+        # Add project-specific servers if requested (Codex not yet supported)
         if include_project_servers:
             try:
                 project_servers = self.get_project_servers(use_cache=True)
                 for project_path, servers in project_servers.items():
                     for server in servers:
-                        # Check if this is a duplicate (same name exists in global)
                         is_duplicate = server.name in all_servers
-
-                        # Create a unique key for project servers to avoid conflicts
-                        # If duplicate, use project-specific key; otherwise use server name
-                        server_key = f"{server.name}@{project_path}" if is_duplicate else server.name
-
-                        all_servers[server_key] = {
-                            'name': server.name,
-                            'config': server.config,
-                            'claude_enabled': True,  # Project servers are enabled by default
-                            'gemini_enabled': True,
-                            'is_active': True,
-                            'location': str(project_path),
-                            'is_project_server': True,
-                            'is_duplicate': is_duplicate
-                        }
-            except Exception as e:
-                # If project discovery fails, just continue without project servers
+                        key = f"{server.name}@{project_path}" if is_duplicate else server.name
+                        entry = ensure_entry(key)
+                        entry.update(
+                            {
+                                'name': server.name,
+                                'config': server.config,
+                                'location': str(project_path),
+                                'is_project_server': True,
+                                'is_duplicate': is_duplicate,
+                            }
+                        )
+                        for client in self.SUPPORTED_CLIENTS:
+                            enabled = client in {"claude", "gemini"}
+                            entry[f'{client}_enabled'] = enabled
+                            entry['per_client'][client] = enabled
+                        entry['is_active'] = True
+            except Exception as exc:
                 import logging
-                logging.getLogger(__name__).debug(f"Could not include project servers: {e}")
 
-        # Separate active and disabled based on mode
-        active = []
-        disabled = []
+                logging.getLogger(__name__).debug(
+                    "Could not include project servers: %s", exc
+                )
 
-        for server_data in all_servers.values():
-            # Determine if server is active or disabled for requested mode
-            is_active_for_mode = False
-            is_disabled_for_mode = False
+        target_clients = set(self._resolve_clients(mode, client_map.keys()))
+        if not target_clients:
+            target_clients = set(client_map.keys()) or set(self.SUPPORTED_CLIENTS)
 
-            if mode == 'claude':
-                is_active_for_mode = server_data['claude_enabled']
-                is_disabled_for_mode = not server_data['claude_enabled']
-            elif mode == 'gemini':
-                is_active_for_mode = server_data['gemini_enabled']
-                is_disabled_for_mode = not server_data['gemini_enabled']
-            elif mode == 'both':
-                is_active_for_mode = server_data['claude_enabled'] or server_data['gemini_enabled']
-                is_disabled_for_mode = not server_data['claude_enabled'] or not server_data['gemini_enabled']
+        active: List[Dict[str, Any]] = []
+        disabled: List[Dict[str, Any]] = []
+
+        for entry in all_servers.values():
+            is_active_for_mode = any(
+                entry.get(f'{client}_enabled', False) for client in target_clients
+            )
+            is_disabled_for_mode = any(
+                not entry.get(f'{client}_enabled', False) for client in target_clients
+            )
 
             if is_active_for_mode:
-                active.append(server_data)
+                active.append(entry)
             if is_disabled_for_mode:
-                disabled.append(server_data)
+                disabled.append(entry)
 
-        # Sort by name
         active.sort(key=lambda x: x['name'])
         disabled.sort(key=lambda x: x['name'])
 
         return active, disabled
     
-    def disable_all_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                           mode: str = 'both') -> int:
+    def disable_all_servers(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Disable all active servers"""
-        active, _ = self.list_all_servers(claude_data, gemini_data, mode)
+        active, _ = self.list_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
         count = 0
 
         for server in active:
-            if self.disable_server(claude_data, gemini_data, server['name'], mode):
+            if self.disable_server(
+                claude_data,
+                gemini_data,
+                server['name'],
+                mode,
+                codex_data=codex_data,
+            ):
                 count += 1
 
         return count
 
-    def enable_all_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                          mode: str = 'both') -> int:
+    def enable_all_servers(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Enable all disabled servers"""
-        _, disabled = self.list_all_servers(claude_data, gemini_data, mode)
+        _, disabled = self.list_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
         count = 0
 
         for server in disabled:
-            if self.enable_server(claude_data, gemini_data, server['name'], mode):
+            if self.enable_server(
+                claude_data,
+                gemini_data,
+                server['name'],
+                mode,
+                codex_data=codex_data,
+            ):
                 count += 1
 
         return count
     
-    def add_new_server_from_json(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
-                                json_text: str, mode: str = 'both') -> Tuple[bool, str]:
+    def add_new_server_from_json(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        json_text: str,
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, str]:
         """Add a new server from JSON configuration"""
         try:
             parsed = json.loads(json_text.strip())
@@ -410,56 +477,84 @@ class ServerManager:
                     # Multiple servers
                     for server_name, server_config in parsed.items():
                         if isinstance(server_config, dict):
-                            self._add_server_to_configs(claude_data, gemini_data, 
-                                                       server_name, server_config, mode)
+                            self._add_server_to_configs(
+                                claude_data,
+                                gemini_data,
+                                server_name,
+                                server_config,
+                                mode,
+                                codex_data=codex_data,
+                            )
                     return True, f"Added {len(parsed)} servers"
             else:
                 return False, "Invalid JSON structure"
                 
         except json.JSONDecodeError as e:
             return False, f"JSON parsing failed: {e}"
-    
-    def add_server_with_name(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
-                            server_name: str, server_config: Dict[str, Any], 
-                            mode: str = 'both') -> bool:
+
+    def add_server_with_name(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        server_config: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Add a server with a specific name"""
-        return self._add_server_to_configs(claude_data, gemini_data, server_name, server_config, mode)
-    
-    
-    def _add_server_to_configs(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
-                              server_name: str, server_config: Dict[str, Any], 
-                              mode: str = 'both') -> bool:
+        return self._add_server_to_configs(
+            claude_data,
+            gemini_data,
+            server_name,
+            server_config,
+            mode,
+            codex_data=codex_data,
+        )
+
+
+    def _add_server_to_configs(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        server_config: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Internal method to add server to appropriate configs"""
-        if mode in ['claude', 'both']:
-            if 'mcpServers' not in claude_data:
-                claude_data['mcpServers'] = {}
-            claude_data['mcpServers'][server_name] = server_config
-        
-        if mode in ['gemini', 'both']:
-            if 'mcpServers' not in gemini_data:
-                gemini_data['mcpServers'] = {}
-            gemini_data['mcpServers'][server_name] = server_config
-        
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        targets = self._resolve_clients(mode, client_map.keys())
+        if not targets:
+            return False
+
+        for client in targets:
+            table = self._ensure_server_table(client_map[client])
+            table[server_name] = server_config.copy()
+
         return True
     
-    def update_server_config(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                            server_name: str, new_config: Dict[str, Any],
-                            mode: str = 'both') -> bool:
+    def update_server_config(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        new_config: Dict[str, Any],
+        mode: str = 'both',
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Update an existing server's configuration.
 
         Updates the config in active configs and/or disabled storage as appropriate.
         """
         updated = False
 
-        # Check if server exists in enabled servers
-        if mode in ['claude', 'both'] and 'mcpServers' in claude_data:
-            if server_name in claude_data['mcpServers']:
-                claude_data['mcpServers'][server_name] = new_config
-                updated = True
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        targets = self._resolve_clients(mode, client_map.keys())
 
-        if mode in ['gemini', 'both'] and 'mcpServers' in gemini_data:
-            if server_name in gemini_data['mcpServers']:
-                gemini_data['mcpServers'][server_name] = new_config
+        for client in targets:
+            table = self._get_server_table(client_map.get(client))
+            if server_name in table:
+                self._ensure_server_table(client_map[client])[server_name] = new_config.copy()
                 updated = True
 
         # Also check disabled servers
@@ -473,15 +568,22 @@ class ServerManager:
                 # Old format - convert to new format
                 disabled[server_name] = {
                     "config": new_config,
-                    "disabled_for": ["claude", "gemini"]
+                    "disabled_for": list(self.DEFAULT_DISABLED)
                 }
             self.save_disabled_servers(disabled)
             updated = True
 
         return updated
     
-    def delete_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                     server_name: str, mode: str = 'both', from_disabled: bool = False) -> bool:
+    def delete_server(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        server_name: str,
+        mode: str = 'both',
+        from_disabled: bool = False,
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Permanently delete a server from configurations and/or storage.
 
         Args:
@@ -496,13 +598,8 @@ class ServerManager:
             True if server was found and deleted, False otherwise
         """
         deleted = False
-        clients_to_delete = []
-
-        # Determine which clients to delete for
-        if mode in ['claude', 'both']:
-            clients_to_delete.append('claude')
-        if mode in ['gemini', 'both']:
-            clients_to_delete.append('gemini')
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        clients_to_delete = self._resolve_clients(mode, client_map.keys())
 
         if from_disabled:
             # Handle disabled storage with per-client awareness
@@ -527,14 +624,10 @@ class ServerManager:
                 deleted = True
         else:
             # Remove from active configs
-            if 'claude' in clients_to_delete and 'mcpServers' in claude_data:
-                if server_name in claude_data['mcpServers']:
-                    del claude_data['mcpServers'][server_name]
-                    deleted = True
-
-            if 'gemini' in clients_to_delete and 'mcpServers' in gemini_data:
-                if server_name in gemini_data['mcpServers']:
-                    del gemini_data['mcpServers'][server_name]
+            for client in clients_to_delete:
+                table = self._get_server_table(client_map.get(client))
+                if server_name in table:
+                    del table[server_name]
                     deleted = True
 
             # Also update disabled storage
@@ -558,8 +651,14 @@ class ServerManager:
 
         return deleted
 
-    def bulk_enable_for_client(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                               client: str, server_names: List[str]) -> int:
+    def bulk_enable_for_client(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        client: str,
+        server_names: List[str],
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Enable multiple servers for a specific client.
 
         Args:
@@ -571,12 +670,24 @@ class ServerManager:
         """
         count = 0
         for server_name in server_names:
-            if self.enable_server(claude_data, gemini_data, server_name, mode=client):
+            if self.enable_server(
+                claude_data,
+                gemini_data,
+                server_name,
+                mode=client,
+                codex_data=codex_data,
+            ):
                 count += 1
         return count
 
-    def bulk_disable_for_client(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                                client: str, server_names: List[str]) -> int:
+    def bulk_disable_for_client(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        client: str,
+        server_names: List[str],
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Disable multiple servers for a specific client.
 
         Args:
@@ -588,13 +699,25 @@ class ServerManager:
         """
         count = 0
         for server_name in server_names:
-            if self.disable_server(claude_data, gemini_data, server_name, mode=client):
+            if self.disable_server(
+                claude_data,
+                gemini_data,
+                server_name,
+                mode=client,
+                codex_data=codex_data,
+            ):
                 count += 1
         return count
 
-    def sync_server_states(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                          source_client: str, target_client: str,
-                          server_names: List[str] = None) -> int:
+    def sync_server_states(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        source_client: str,
+        target_client: str,
+        server_names: List[str] = None,
+        codex_data: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Synchronize server states from one client to another.
 
         Args:
@@ -608,45 +731,39 @@ class ServerManager:
         if source_client == target_client:
             return 0
 
+        client_map = self._build_client_map(claude_data, gemini_data, codex_data)
+        if source_client not in client_map or target_client not in client_map:
+            return 0
+
         # Get all servers if none specified
         if server_names is None:
-            active, disabled = self.list_all_servers(claude_data, gemini_data, mode='both')
+            active, disabled = self.list_all_servers(
+                claude_data,
+                gemini_data,
+                mode='all',
+                codex_data=codex_data,
+            )
             all_servers = active + disabled
             server_names = [s['name'] for s in all_servers]
 
         count = 0
+        disabled_store = self.load_disabled_servers()
+        disabled_modified = False
+
         for server_name in server_names:
             # Determine source state and config
-            source_enabled = False
-            server_config = None
+            source_table = self._get_server_table(client_map.get(source_client))
+            target_table = self._get_server_table(client_map.get(target_client))
 
-            if source_client == 'claude':
-                source_enabled = server_name in claude_data.get('mcpServers', {})
-                if source_enabled:
-                    server_config = claude_data['mcpServers'][server_name]
-            elif source_client == 'gemini':
-                source_enabled = server_name in gemini_data.get('mcpServers', {})
-                if source_enabled:
-                    server_config = gemini_data['mcpServers'][server_name]
+            source_enabled = server_name in source_table
+            target_enabled = server_name in target_table
 
-            # If not in source active, check disabled storage
-            if not source_enabled:
-                disabled_servers = self.load_disabled_servers()
-                if server_name in disabled_servers:
-                    entry = disabled_servers[server_name]
-                    if isinstance(entry, dict) and 'config' in entry:
-                        server_config = entry['config']
+            server_config = source_table.get(server_name)
 
-            # Determine target state
-            target_enabled = False
-            if target_client == 'claude':
-                target_enabled = server_name in claude_data.get('mcpServers', {})
-                if not server_config and target_enabled:
-                    server_config = claude_data['mcpServers'][server_name]
-            elif target_client == 'gemini':
-                target_enabled = server_name in gemini_data.get('mcpServers', {})
-                if not server_config and target_enabled:
-                    server_config = gemini_data['mcpServers'][server_name]
+            if not server_config:
+                entry = disabled_store.get(server_name)
+                if isinstance(entry, dict):
+                    server_config = entry.get('config')
 
             # Skip if we don't have a config for this server
             if not server_config:
@@ -655,22 +772,35 @@ class ServerManager:
             # Sync if different
             if source_enabled != target_enabled:
                 if source_enabled:
-                    # Enable for target - first ensure it's in disabled storage if not already
-                    if not target_enabled:
-                        # Add to appropriate config
-                        if target_client == 'claude':
-                            if 'mcpServers' not in claude_data:
-                                claude_data['mcpServers'] = {}
-                            claude_data['mcpServers'][server_name] = server_config.copy()
-                        elif target_client == 'gemini':
-                            if 'mcpServers' not in gemini_data:
-                                gemini_data['mcpServers'] = {}
-                            gemini_data['mcpServers'][server_name] = server_config.copy()
-                        count += 1
+                    target_table = self._ensure_server_table(client_map[target_client])
+                    target_table[server_name] = server_config.copy()
+
+                    entry = disabled_store.get(server_name)
+                    if isinstance(entry, dict):
+                        disabled_for = set(entry.get('disabled_for', []))
+                        if target_client in disabled_for:
+                            disabled_for.remove(target_client)
+                            if disabled_for:
+                                entry['disabled_for'] = sorted(disabled_for)
+                                disabled_store[server_name] = entry
+                            else:
+                                disabled_store.pop(server_name, None)
+                            disabled_modified = True
+                    count += 1
                 else:
                     # Disable for target
-                    if self.disable_server(claude_data, gemini_data, server_name, mode=target_client):
+                    if self.disable_server(
+                        claude_data,
+                        gemini_data,
+                        server_name,
+                        mode=target_client,
+                        codex_data=codex_data,
+                    ):
+                        disabled_store = self.load_disabled_servers()
                         count += 1
+
+        if disabled_modified:
+            self.save_disabled_servers(disabled_store)
 
         return count
 
@@ -692,7 +822,7 @@ class ServerManager:
                     # Assume disabled for both by default (preserves existing behavior)
                     migrated[server_name] = {
                         "config": value,
-                        "disabled_for": ["claude", "gemini"]
+                        "disabled_for": list(self.DEFAULT_DISABLED),
                     }
             else:
                 # Shouldn't happen, but handle gracefully
@@ -713,7 +843,7 @@ class ServerManager:
                     # Old format or bare config - normalize it
                     normalized[server_name] = {
                         "config": value,
-                        "disabled_for": ["claude", "gemini"]
+                        "disabled_for": list(self.DEFAULT_DISABLED),
                     }
             else:
                 # Shouldn't happen, but preserve it
