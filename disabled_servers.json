@@ -76,13 +76,14 @@
       "gemini"
     ]
   },
-  "memory": {
+  "browsermcp": {
     "config": {
+      "type": "stdio",
       "command": "npx",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
+        "@browsermcp/mcp@latest"
       ],
+      "env": {},
       "enabled": true
     },
     "disabled_for": [
@@ -98,21 +99,6 @@
         "@clerk/agent-toolkit",
         "-p=local-mcp"
       ],
-      "enabled": true
-    },
-    "disabled_for": [
-      "claude",
-      "gemini"
-    ]
-  },
-  "browsermcp": {
-    "config": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "@browsermcp/mcp@latest"
-      ],
-      "env": {},
       "enabled": true
     },
     "disabled_for": [

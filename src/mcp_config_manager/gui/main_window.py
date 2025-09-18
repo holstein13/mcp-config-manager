@@ -950,7 +950,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.set_status_message("🔄 Refreshing servers from disk...", timeout=0)
 
         # Check for unsaved changes in details panel
-        if hasattr(self, 'server_details_panel') and self.server_details_panel and self.server_details_panel.has_unsaved_changes:
+        if hasattr(self, 'server_details_panel') and self.server_details_panel and self.server_details_panel.has_changes:
             if USING_QT:
                 from PyQt6.QtWidgets import QMessageBox
                 reply = QMessageBox.question(
@@ -1004,8 +1004,8 @@ class MainWindow(QMainWindow if USING_QT else object):
 
             # Save selected server's configuration if in details panel
             if selected_server and hasattr(self, 'server_details_panel') and self.server_details_panel:
-                if self.server_details_panel.server_name == selected_server:
-                    selected_server_config = self.server_details_panel.config.copy() if hasattr(self.server_details_panel, 'config') else None
+                if self.server_details_panel.current_server == selected_server:
+                    selected_server_config = self.server_details_panel.original_data.copy() if hasattr(self.server_details_panel, 'original_data') and self.server_details_panel.original_data else None
 
         # Set loading message
         self.set_status_message("Refreshing servers from disk...")
@@ -1088,7 +1088,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                             claude_enabled = True
                             gemini_enabled = True
 
-                            for srv in servers:
+                            for srv in result['data'].get('servers', []):
                                 if srv['name'] == selected_server:
                                     updated_server = srv.get('config', {})
                                     claude_enabled = srv.get('claude_enabled', True)
@@ -1146,6 +1146,7 @@ class MainWindow(QMainWindow if USING_QT else object):
             self.set_status_message(f"❌ Refresh error: {error_msg}", timeout=0)
 
             if USING_QT:
+                from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.critical(
                     self,
                     "Refresh Error",
