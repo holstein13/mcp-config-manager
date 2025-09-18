@@ -43,14 +43,37 @@ def create_app_bundle():
 # Get the directory of this script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Check if mcp-config-manager is installed
-if ! command -v mcp-config-manager &> /dev/null; then
+# Common locations for mcp-config-manager
+USER_BIN="$HOME/Library/Python/3.9/bin/mcp-config-manager"
+USER_BIN_310="$HOME/Library/Python/3.10/bin/mcp-config-manager"
+USER_BIN_311="$HOME/Library/Python/3.11/bin/mcp-config-manager"
+USER_BIN_312="$HOME/Library/Python/3.12/bin/mcp-config-manager"
+LOCAL_BIN="/usr/local/bin/mcp-config-manager"
+
+# Find the mcp-config-manager command
+MCP_CMD=""
+if [ -x "$USER_BIN" ]; then
+    MCP_CMD="$USER_BIN"
+elif [ -x "$USER_BIN_310" ]; then
+    MCP_CMD="$USER_BIN_310"
+elif [ -x "$USER_BIN_311" ]; then
+    MCP_CMD="$USER_BIN_311"
+elif [ -x "$USER_BIN_312" ]; then
+    MCP_CMD="$USER_BIN_312"
+elif [ -x "$LOCAL_BIN" ]; then
+    MCP_CMD="$LOCAL_BIN"
+elif command -v mcp-config-manager &> /dev/null; then
+    MCP_CMD="mcp-config-manager"
+fi
+
+# Check if we found the command
+if [ -z "$MCP_CMD" ]; then
     osascript -e 'display alert "MCP Config Manager Not Found" message "Please install MCP Config Manager using pip install -e . from the project directory." as critical'
     exit 1
 fi
 
 # Launch the GUI
-exec mcp-config-manager gui
+exec "$MCP_CMD" gui
 """
 
     launcher_path.write_text(launcher_content)
