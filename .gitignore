@@ -72,3 +72,14 @@ gemini-backup.json
 *.deb
 *.app
 backups/
+
+# Build artifacts
+artifacts/build/
+artifacts/dist/
+py2app_dist/
+
+# macOS generated
+*.icns
+
+# Archives
+archive/
