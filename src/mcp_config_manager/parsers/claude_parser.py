@@ -3,10 +3,13 @@ Parser for Claude configuration files (.claude.json)
 Enhanced with functionality from mcp_toggle.py
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 import json
+import logging
 from .base_parser import BaseConfigParser
+
+logger = logging.getLogger(__name__)
 
 
 class ClaudeConfigParser(BaseConfigParser):
@@ -152,3 +155,199 @@ class ClaudeConfigParser(BaseConfigParser):
                     return config
 
         return config
+
+    def discover_project_servers(self, config_path: Path) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Discover all project-specific MCP servers in the Claude configuration.
+
+        Returns:
+            Dict mapping project paths to list of server configurations.
+            Each server config includes 'name' and 'config' keys.
+        """
+        project_servers = {}
+
+        try:
+            config = self.parse(config_path)
+
+            # Iterate through all top-level keys looking for project paths
+            for key, value in config.items():
+                # Skip the global mcpServers key
+                if key == 'mcpServers':
+                    continue
+
+                # Check if this looks like a project path (starts with /)
+                if isinstance(key, str) and key.startswith('/'):
+                    if isinstance(value, dict) and 'mcpServers' in value:
+                        servers = []
+                        for server_name, server_config in value['mcpServers'].items():
+                            servers.append({
+                                'name': server_name,
+                                'config': server_config
+                            })
+                        if servers:
+                            project_servers[key] = servers
+                            logger.debug(f"Found {len(servers)} servers in project: {key}")
+
+        except Exception as e:
+            logger.error(f"Error discovering project servers: {e}")
+
+        return project_servers
+
+    def get_server_location(self, config_path: Path, server_name: str) -> Optional[str]:
+        """
+        Identify if a server is global or project-specific.
+
+        Returns:
+            None for global servers, project path string for project-specific servers,
+            or None if server not found.
+        """
+        try:
+            config = self.parse(config_path)
+
+            # Check global servers first
+            if 'mcpServers' in config and server_name in config['mcpServers']:
+                return None  # Global server
+
+            # Check project-specific servers
+            for key, value in config.items():
+                if key != 'mcpServers' and isinstance(value, dict):
+                    if 'mcpServers' in value and server_name in value['mcpServers']:
+                        return key  # Return the project path
+
+        except Exception as e:
+            logger.error(f"Error getting server location: {e}")
+
+        return None  # Server not found
+
+    def promote_to_global(self, config_path: Path, server_name: str, project_path: str) -> bool:
+        """
+        Move a project-specific server to the global configuration.
+
+        Args:
+            config_path: Path to the Claude configuration file
+            server_name: Name of the server to promote
+            project_path: Project path where the server is currently located
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            config = self.parse(config_path)
+
+            # Find the server in the project configuration
+            if project_path not in config:
+                logger.warning(f"Project path {project_path} not found in config")
+                return False
+
+            project_config = config[project_path]
+            if not isinstance(project_config, dict) or 'mcpServers' not in project_config:
+                logger.warning(f"No mcpServers found in project {project_path}")
+                return False
+
+            if server_name not in project_config['mcpServers']:
+                logger.warning(f"Server {server_name} not found in project {project_path}")
+                return False
+
+            # Get the server configuration
+            server_config = project_config['mcpServers'][server_name]
+
+            # Check if server already exists in global
+            if 'mcpServers' not in config:
+                config['mcpServers'] = {}
+
+            if server_name in config['mcpServers']:
+                logger.warning(f"Server {server_name} already exists in global config")
+                return False
+
+            # Move server to global
+            config['mcpServers'][server_name] = server_config
+            del project_config['mcpServers'][server_name]
+
+            # Clean up empty project config if needed
+            if not project_config['mcpServers']:
+                del project_config['mcpServers']
+            if not project_config:
+                del config[project_path]
+
+            # Write updated config
+            self.write(config, config_path)
+            logger.info(f"Promoted server {server_name} from {project_path} to global")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error promoting server to global: {e}")
+            return False
+
+    def get_all_server_locations(self, config_path: Path) -> Dict[str, List[str]]:
+        """
+        Get a mapping of server names to their locations (global and/or project paths).
+
+        Returns:
+            Dict mapping server name to list of locations.
+            'global' represents global configuration, otherwise project paths.
+        """
+        server_locations = {}
+
+        try:
+            config = self.parse(config_path)
+
+            # Check global servers
+            if 'mcpServers' in config:
+                for server_name in config['mcpServers']:
+                    if server_name not in server_locations:
+                        server_locations[server_name] = []
+                    server_locations[server_name].append('global')
+
+            # Check project-specific servers
+            for key, value in config.items():
+                if key != 'mcpServers' and isinstance(value, dict):
+                    if 'mcpServers' in value:
+                        for server_name in value['mcpServers']:
+                            if server_name not in server_locations:
+                                server_locations[server_name] = []
+                            server_locations[server_name].append(key)
+
+        except Exception as e:
+            logger.error(f"Error getting all server locations: {e}")
+
+        return server_locations
+
+    def scan_for_project_configs(self, base_path: Path, max_depth: int = 3) -> List[Path]:
+        """
+        Scan filesystem for .claude.json files that might contain project configs.
+
+        Args:
+            base_path: Starting path for the scan
+            max_depth: Maximum directory depth to scan
+
+        Returns:
+            List of paths to .claude.json files found
+        """
+        project_configs = []
+
+        try:
+            # Use rglob with max depth control
+            pattern = '.claude.json'
+
+            def scan_dir(path: Path, current_depth: int = 0):
+                if current_depth > max_depth:
+                    return
+
+                try:
+                    for item in path.iterdir():
+                        if item.is_file() and item.name == pattern:
+                            project_configs.append(item)
+                        elif item.is_dir() and not item.name.startswith('.'):
+                            # Skip hidden directories
+                            scan_dir(item, current_depth + 1)
+                except PermissionError:
+                    # Skip directories we can't access
+                    pass
+
+            scan_dir(base_path)
+            logger.info(f"Found {len(project_configs)} .claude.json files in {base_path}")
+
+        except Exception as e:
+            logger.error(f"Error scanning for project configs: {e}")
+
+        return project_configs

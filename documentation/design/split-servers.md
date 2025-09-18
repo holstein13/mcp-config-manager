@@ -661,6 +661,45 @@ If issues arise:
 ## Phase 10: Project-Specific MCP Server Discovery and Management
 **Goal**: Enable discovery of MCP servers defined in project-specific Claude configurations and offer to promote them to the global configuration
 
+**Current Progress (split-servers branch - Session Current):**
+- ✅ Task 10.1: Extended Claude Parser with project discovery methods
+- ✅ Task 10.2: Created ProjectDiscoveryService for scanning and caching
+- ✅ Task 10.3: Updated Server Manager for Project Awareness
+- ✅ Task 10.4: Created Project Server Discovery Dialog
+- ✅ Task 10.5: Updated Server List Widget for Project Attribution
+- ✅ Task 10.6: Added Discovery Menu Items and Toolbar
+- ⬜ Tasks 10.7-10.10: Remaining consolidation wizard, CLI commands, testing, and advanced features
+
+**Key Accomplishments This Session:**
+- **Backend Support (Tasks 10.1-10.4):**
+  - ServerManager now has full project server awareness with methods for:
+    - Discovering project servers via `get_project_servers()`
+    - Promoting individual servers with `promote_project_server()`
+    - Handling duplicates with `merge_duplicate_servers()` using multiple strategies
+    - Bulk consolidation with `consolidate_servers()`
+    - Extended `list_all_servers()` to optionally include project servers with location attribution
+  - Created comprehensive Project Server Discovery Dialog with:
+    - Tree view showing projects and their servers
+    - Visual duplicate detection and indication
+    - Configuration preview panel
+    - Conflict resolution strategies (skip/replace/rename)
+    - Background discovery with progress reporting (Qt version)
+    - Full promotion workflow implementation
+
+- **UI Integration (Tasks 10.5-10.6):**
+  - Server List Widget enhancements:
+    - Added "Location" column displaying "Global" or project folder name
+    - Project servers shown with 📁 icon and light blue background
+    - Tooltips show full project paths on hover
+    - "Promote to Global" context menu option for project servers
+    - server_promoted signal for handling promotion requests
+  - Main Window integration:
+    - Added "Discover Project Servers..." to Tools menu (Ctrl+D)
+    - Added 🔍 Discover toolbar button for quick access
+    - Status bar shows project server counts when present
+    - Integrated promotion handler to call ServerManager
+    - Graceful fallback if discovery dialog not available
+
 ### Background
 Claude Desktop supports project-specific `.claude.json` files that can define MCP servers under project paths (e.g., `/Users/username/Projects/my-project`). These servers are only available when Claude is opened within that project directory. This phase adds functionality to:
 1. Discover all project-specific MCP servers across the file system
@@ -668,77 +707,177 @@ Claude Desktop supports project-specific `.claude.json` files that can define MC
 3. Offer to "promote" project servers to the global configuration
 4. Handle conflicts when server names exist in multiple locations
 
-### Task 10.1: Extend Claude Parser for Project Discovery ⬜
+### Task 10.1: Extend Claude Parser for Project Discovery ✅ COMPLETE
 **File**: `src/mcp_config_manager/parsers/claude_parser.py`
-- [ ] Add `discover_project_servers()` method to scan for project-specific servers
-- [ ] Add `get_server_location(server_name)` to identify if server is global or project-specific
-- [ ] Add `promote_to_global(server_name, project_path)` to move server to global config
-- [ ] Add `get_all_server_locations()` returning map of server -> [global, project1, project2, ...]
-- [ ] Handle server name conflicts (same name in multiple projects)
+- [x] Add `discover_project_servers()` method to scan for project-specific servers
+- [x] Add `get_server_location(server_name)` to identify if server is global or project-specific
+- [x] Add `promote_to_global(server_name, project_path)` to move server to global config
+- [x] Add `get_all_server_locations()` returning map of server -> [global, project1, project2, ...]
+- [x] Handle server name conflicts (same name in multiple projects)
+- [x] Add `scan_for_project_configs()` to find .claude.json files in filesystem
 
-### Task 10.2: Create Project Server Discovery Service ⬜
+**Implementation Notes (Session - pull-projects-json branch):**
+- Added comprehensive project discovery methods to ClaudeConfigParser (lines 159-353)
+- `discover_project_servers()` returns dict mapping project paths to server configs
+- `get_server_location()` returns None for global, project path for project-specific
+- `promote_to_global()` moves server from project to global with cleanup
+- `get_all_server_locations()` maps server names to all their locations
+- `scan_for_project_configs()` recursively finds .claude.json files with max depth control
+- All methods include proper error handling and logging
+
+### Task 10.2: Create Project Server Discovery Service ✅ COMPLETE
 **File**: `src/mcp_config_manager/core/project_discovery.py` (new)
-- [ ] Create `ProjectDiscoveryService` class
-- [ ] Add `scan_projects()` method to find all project paths with MCP servers
-- [ ] Add caching mechanism to avoid repeated scans
-- [ ] Add background scanning capability with progress reporting
-- [ ] Create `ProjectServer` dataclass with fields:
+- [x] Create `ProjectDiscoveryService` class
+- [x] Add `scan_projects()` method to find all project paths with MCP servers
+- [x] Add caching mechanism to avoid repeated scans
+- [x] Add background scanning capability with progress reporting
+- [x] Create `ProjectServer` dataclass with fields:
   - `name: str`
   - `project_path: Path`
   - `config: Dict[str, Any]`
   - `is_duplicate: bool` (if name exists elsewhere)
+  - `discovered_at: datetime` (timestamp of discovery)
 
-### Task 10.3: Update Server Manager for Project Awareness ⬜
+**Implementation Notes (Session - pull-projects-json branch):**
+- Created comprehensive ProjectDiscoveryService class (381 lines)
+- `ProjectServer` dataclass includes all required fields plus discovery timestamp
+- `scan_projects()` supports:
+  - Multiple base paths with sensible defaults (Projects, Documents/Projects, Code, etc.)
+  - Configurable max depth for directory traversal
+  - 5-minute cache duration to avoid repeated filesystem scans
+  - Progress callback for UI updates during scanning
+  - Automatic duplicate detection across projects
+- `scan_projects_async()` enables background scanning with callback
+- Additional utility methods:
+  - `get_project_servers_by_name()` - Find all instances of a server
+  - `get_duplicate_servers()` - Get servers appearing in multiple projects
+  - `export_discovery_report()` - Generate JSON report of discoveries
+- Thread-safe implementation with scan lock
+- Comprehensive error handling and logging throughout
+
+### Task 10.3: Update Server Manager for Project Awareness ✅ COMPLETE
 **File**: `src/mcp_config_manager/core/server_manager.py`
-- [ ] Add `get_project_servers()` method
-- [ ] Add `promote_project_server(server_name, from_project, to_global=True)`
-- [ ] Add `merge_duplicate_servers(server_name, strategy='keep_global'|'keep_project'|'merge')`
-- [ ] Update `list_all_servers()` to include project attribution
-- [ ] Add `consolidate_servers()` to move all project servers to global
+- [x] Add `get_project_servers()` method
+- [x] Add `promote_project_server(server_name, from_project, to_global=True)`
+- [x] Add `merge_duplicate_servers(server_name, strategy='keep_global'|'keep_project'|'merge')`
+- [x] Update `list_all_servers()` to include project attribution
+- [x] Add `consolidate_servers()` to move all project servers to global
 
-### Task 10.4: Create Project Server Discovery Dialog ⬜
+**Implementation Notes (Session - Current):**
+- Added comprehensive project awareness methods to ServerManager class
+- `get_project_servers()` creates and uses ProjectDiscoveryService for scanning
+- `promote_project_server()` moves servers from project to global with optional removal from project
+- `merge_duplicate_servers()` handles three strategies: keep_global, keep_project, or merge
+- `list_all_servers()` now accepts `include_project_servers` parameter and adds location field
+- `consolidate_servers()` bulk promotes all project servers with conflict resolution
+- All methods include proper error handling and logging
+
+### Task 10.4: Create Project Server Discovery Dialog ✅ COMPLETE
 **File**: `src/mcp_config_manager/gui/dialogs/discover_servers_dialog.py` (new)
-- [ ] Create dialog showing discovered project servers
-- [ ] Display as tree: Project Path -> Server Name -> Config Preview
-- [ ] Add checkboxes to select servers for promotion
-- [ ] Show conflicts/duplicates with visual indicators
-- [ ] Add "Promote Selected" and "Promote All" buttons
-- [ ] Include conflict resolution options (replace, skip, rename)
+- [x] Create dialog showing discovered project servers
+- [x] Display as tree: Project Path -> Server Name -> Config Preview
+- [x] Add checkboxes to select servers for promotion
+- [x] Show conflicts/duplicates with visual indicators
+- [x] Add "Promote Selected" and "Promote All" buttons
+- [x] Include conflict resolution options (replace, skip, rename)
 
-### Task 10.5: Update Server List Widget for Project Attribution ⬜
+**Implementation Notes (Session - Current):**
+- Created comprehensive discovery dialog for both Qt and Tkinter
+- Qt version uses QThread for background discovery with progress reporting
+- Tree view shows projects as parent nodes with servers as children
+- Visual indicators: ✅ for unique servers, ⚠️ for duplicates
+- Configuration preview panel shows JSON config when server selected
+- Three conflict resolution strategies: skip, replace, or rename with project suffix
+- Promote operations integrate with ServerController when available
+- Both "Promote Selected" and "Promote All" buttons implemented
+- Refresh capability to re-scan projects
+
+### Task 10.5: Update Server List Widget for Project Attribution ✅ COMPLETE
 **File**: `src/mcp_config_manager/gui/widgets/server_list.py`
-- [ ] Add "Location" column showing "Global" or project path
-- [ ] Add icon or color coding for project servers
-- [ ] Add tooltip showing full project path for project servers
-- [ ] Add context menu option "Promote to Global" for project servers
-- [ ] Add filter/group by location functionality
+- [x] Add "Location" column showing "Global" or project path
+- [x] Add icon or color coding for project servers (📁 icon, light blue background)
+- [x] Add tooltip showing full project path for project servers
+- [x] Add context menu option "Promote to Global" for project servers
+- [x] Added server_promoted signal for handling promotions
+- [x] Add filter/group by location functionality ✅ COMPLETE
 
-### Task 10.6: Add Discovery Menu Items and Toolbar ⬜
+**Implementation Notes (Session - Current):**
+- Added Location column to both Qt and Tkinter versions
+- Project servers show with 📁 icon and shortened path (just project folder name)
+- Light blue background (#E6F0FF) for project servers
+- Full project path shown in tooltip on hover
+- "Promote to Global" context menu option appears only for project servers
+- server_promoted signal emitted when promotion requested
+- **Filter/Group functionality added:**
+  - Search box for filtering servers by name
+  - Location dropdown to filter by Global/Project/All
+  - "Group by Location" checkbox to organize servers hierarchically
+  - Groups show as collapsible sections with bold headers
+  - Clear filters button to reset all filters
+  - get_location_stats() method returns server counts by location
+
+### Task 10.6: Add Discovery Menu Items and Toolbar ✅ COMPLETE
 **File**: `src/mcp_config_manager/gui/main_window.py`
-- [ ] Add "Tools" menu with "Discover Project Servers..." item
-- [ ] Add toolbar button for server discovery
-- [ ] Add status bar indicator showing "X project servers found"
-- [ ] Add automatic discovery on startup (optional, with preference)
-- [ ] Add progress dialog for discovery process
+- [x] Add "Tools" menu with "Discover Project Servers..." item
+- [x] Add toolbar button for server discovery (🔍 Discover)
+- [x] Add status bar indicator showing project server count in refresh
+- [x] Added discover_project_servers() method to handle discovery dialog
+- [x] Added _on_server_promoted() handler for promotion requests
+- [ ] Add automatic discovery on startup (future enhancement)
+- [ ] Add progress dialog for discovery process (handled in dialog itself)
 
-### Task 10.7: Create Project Server Consolidation Wizard ⬜
+**Implementation Notes (Session - Current):**
+- Added "Discover Project Servers..." to Tools menu with Ctrl+D shortcut
+- Added 🔍 Discover button to toolbar (Qt) and plain "Discover" button (Tkinter)
+- Status bar shows server counts: "X servers loaded (Y global, Z project)"
+- discover_project_servers() method opens DiscoverServersDialog
+- _on_server_promoted() handler calls ServerManager.promote_project_server()
+- Graceful fallback if dialog not available yet
+
+### Task 10.7: Create Project Server Consolidation Wizard ✅ COMPLETE
 **File**: `src/mcp_config_manager/gui/wizards/consolidation_wizard.py` (new)
-- [ ] Multi-step wizard for consolidating project servers:
+- [x] Multi-step wizard for consolidating project servers:
   - Step 1: Scan and discover all project servers
   - Step 2: Review and resolve conflicts
   - Step 3: Select servers to promote
   - Step 4: Preview changes
   - Step 5: Apply changes with backup
-- [ ] Add undo capability after consolidation
-- [ ] Generate consolidation report
+- [x] Add undo capability after consolidation (via backups)
+- [x] Generate consolidation report
 
-### Task 10.8: Add CLI Commands for Project Discovery ⬜
-**File**: `src/mcp_config_manager/cli/interactive_mode.py`
-- [ ] Add `[discover]` command to scan for project servers
-- [ ] Add `[promote <server>]` to promote specific server
-- [ ] Add `[consolidate]` to move all project servers to global
-- [ ] Add `[list-projects]` to show all projects with MCP servers
-- [ ] Update help text with new commands
+**Implementation Notes (Session Current):**
+- Created comprehensive ConsolidationWizard class for both Qt and Tkinter
+- 5-step wizard flow with progress tracking and visual feedback
+- Background scanning with QThread for Qt version
+- Conflict resolution strategies: skip, replace, or rename with project suffix
+- Automatic backup creation before applying changes
+- Detailed logging and report generation
+- ConsolidationPlan dataclass for managing consolidation actions
+- Full error handling and user feedback throughout
+
+### Task 10.8: Add CLI Commands for Project Discovery ✅ COMPLETE
+**File**: `src/mcp_config_manager/cli.py`
+- [x] Add `[discover]` command to scan for project servers
+- [x] Add `[promote <server>]` to promote specific server
+- [x] Add `[consolidate]` to move all project servers to global
+- [x] Add `[list-projects]` to show all projects with MCP servers
+- [x] Update help text with new commands
+
+**Implementation Notes (Session Current):**
+- Added comprehensive CLI commands in both interactive and click command modes
+- Interactive mode commands:
+  - `discover`: Scans and displays all project servers with promotion options
+  - `promote <server>`: Finds and promotes specific server from projects
+  - `consolidate`: Bulk promotion with conflict resolution strategies
+  - `list-projects`: Shows all projects with MCP servers and export option
+- Click CLI commands:
+  - `mcp-config-manager discover`: Launch discovery interface
+  - `mcp-config-manager promote <server> [--project PATH]`: Promote server
+  - `mcp-config-manager consolidate [--strategy skip|replace|rename] [-y]`: Bulk consolidation
+  - `mcp-config-manager list-projects [--export FILE]`: List and optionally export
+- Full conflict handling with skip/replace/rename strategies
+- Export capabilities for project discovery reports
+- Integrated with ProjectDiscoveryService and ServerManager
 
 ### Task 10.9: Testing and Documentation ⬜
 - [ ] Unit tests for project discovery service

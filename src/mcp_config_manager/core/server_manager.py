@@ -5,8 +5,9 @@ Extracted from mcp_toggle.py
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Set
+from typing import Dict, Any, List, Tuple, Set, Optional
 from ..utils.file_utils import get_disabled_servers_path
+from .project_discovery import ProjectDiscoveryService, ProjectServer
 
 
 class ServerManager:
@@ -238,8 +239,14 @@ class ServerManager:
         return sorted(servers, key=lambda x: x['name'])
     
     def list_all_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
-                        mode: str = 'both') -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+                        mode: str = 'both', include_project_servers: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """List all servers (active and disabled) with per-client state information.
+
+        Args:
+            claude_data: Claude configuration dict
+            gemini_data: Gemini configuration dict
+            mode: 'claude', 'gemini', or 'both'
+            include_project_servers: Whether to include project-specific servers in the list
 
         Returns:
             Tuple of (active_servers, disabled_servers) where each is a list of dicts containing:
@@ -247,11 +254,12 @@ class ServerManager:
             - claude_enabled: bool
             - gemini_enabled: bool
             - config: server configuration (if available)
+            - location: 'global' or project path if from a project
         """
         # Build complete server state map
         all_servers = {}
 
-        # Add active Claude servers
+        # Add active Claude servers (global)
         for name, config in claude_data.get('mcpServers', {}).items():
             if name not in all_servers:
                 all_servers[name] = {
@@ -259,13 +267,14 @@ class ServerManager:
                     'config': config,
                     'claude_enabled': True,
                     'gemini_enabled': False,
-                    'is_active': True
+                    'is_active': True,
+                    'location': 'global'
                 }
             else:
                 all_servers[name]['claude_enabled'] = True
                 all_servers[name]['is_active'] = True
 
-        # Add active Gemini servers
+        # Add active Gemini servers (global)
         for name, config in gemini_data.get('mcpServers', {}).items():
             if name not in all_servers:
                 all_servers[name] = {
@@ -273,7 +282,8 @@ class ServerManager:
                     'config': config,
                     'claude_enabled': False,
                     'gemini_enabled': True,
-                    'is_active': True
+                    'is_active': True,
+                    'location': 'global'
                 }
             else:
                 all_servers[name]['gemini_enabled'] = True
@@ -294,7 +304,8 @@ class ServerManager:
                         'config': config,
                         'claude_enabled': 'claude' not in disabled_for,
                         'gemini_enabled': 'gemini' not in disabled_for,
-                        'is_active': False
+                        'is_active': False,
+                        'location': 'global'
                     }
                 else:
                     # Server exists in active - update disabled states
@@ -302,6 +313,34 @@ class ServerManager:
                         all_servers[server_name]['claude_enabled'] = False
                     if 'gemini' in disabled_for:
                         all_servers[server_name]['gemini_enabled'] = False
+
+        # Add project-specific servers if requested
+        if include_project_servers:
+            try:
+                project_servers = self.get_project_servers(use_cache=True)
+                for project_path, servers in project_servers.items():
+                    for server in servers:
+                        # Check if this is a duplicate (same name exists in global)
+                        is_duplicate = server.name in all_servers
+
+                        # Create a unique key for project servers to avoid conflicts
+                        # If duplicate, use project-specific key; otherwise use server name
+                        server_key = f"{server.name}@{project_path}" if is_duplicate else server.name
+
+                        all_servers[server_key] = {
+                            'name': server.name,
+                            'config': server.config,
+                            'claude_enabled': True,  # Project servers are enabled by default
+                            'gemini_enabled': True,
+                            'is_active': True,
+                            'location': str(project_path),
+                            'is_project_server': True,
+                            'is_duplicate': is_duplicate
+                        }
+            except Exception as e:
+                # If project discovery fails, just continue without project servers
+                import logging
+                logging.getLogger(__name__).debug(f"Could not include project servers: {e}")
 
         # Separate active and disabled based on mode
         active = []
@@ -697,4 +736,243 @@ class ServerManager:
             if isinstance(entry, dict) and 'disabled_for' in entry:
                 if client in entry.get('disabled_for', []):
                     result[server_name] = entry.get('config', {})
+        return result
+
+    def get_project_servers(self, base_paths: List[Path] = None, max_depth: int = 3,
+                           use_cache: bool = True) -> Dict[str, List[ProjectServer]]:
+        """
+        Get all project-specific MCP servers.
+
+        Args:
+            base_paths: List of paths to scan for project configs
+            max_depth: Maximum directory depth to scan
+            use_cache: Whether to use cached results if available
+
+        Returns:
+            Dict mapping project path to list of ProjectServer objects
+        """
+        # Create discovery service if needed
+        if not hasattr(self, '_discovery_service'):
+            from ..parsers.claude_parser import ClaudeConfigParser
+            parser = ClaudeConfigParser()
+            self._discovery_service = ProjectDiscoveryService(claude_parser=parser)
+
+        return self._discovery_service.scan_projects(
+            base_paths=base_paths,
+            max_depth=max_depth,
+            use_cache=use_cache
+        )
+
+    def promote_project_server(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
+                               server_name: str, from_project: str,
+                               to_global: bool = True) -> bool:
+        """
+        Promote a project server to global configuration.
+
+        Args:
+            claude_data: Claude configuration dict
+            gemini_data: Gemini configuration dict
+            server_name: Name of the server to promote
+            from_project: Project path where server is currently defined
+            to_global: Whether to promote to global (True) or just copy (False)
+
+        Returns:
+            True if promotion successful, False otherwise
+        """
+        # Get project servers
+        project_servers = self.get_project_servers()
+
+        # Find the specific server
+        if from_project not in project_servers:
+            return False
+
+        server_to_promote = None
+        for server in project_servers[from_project]:
+            if server.name == server_name:
+                server_to_promote = server
+                break
+
+        if not server_to_promote:
+            return False
+
+        # Add to both Claude and Gemini configs by default
+        if 'mcpServers' not in claude_data:
+            claude_data['mcpServers'] = {}
+        if 'mcpServers' not in gemini_data:
+            gemini_data['mcpServers'] = {}
+
+        claude_data['mcpServers'][server_name] = server_to_promote.config.copy()
+        gemini_data['mcpServers'][server_name] = server_to_promote.config.copy()
+
+        # If to_global is True, also remove from project (requires claude_parser)
+        if to_global and hasattr(self, '_discovery_service') and self._discovery_service.claude_parser:
+            try:
+                self._discovery_service.claude_parser.promote_to_global(
+                    server_name, from_project
+                )
+            except Exception as e:
+                # Log but don't fail - server is already added to global
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Could not remove server from project after promotion: {e}"
+                )
+
+        return True
+
+    def merge_duplicate_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
+                               server_name: str, strategy: str = 'keep_global') -> Dict[str, Any]:
+        """
+        Merge duplicate servers found in multiple locations.
+
+        Args:
+            claude_data: Claude configuration dict
+            gemini_data: Gemini configuration dict
+            server_name: Name of the server to merge
+            strategy: Merge strategy - 'keep_global', 'keep_project', or 'merge'
+
+        Returns:
+            Dict with merge results including affected locations and final config
+        """
+        result = {
+            'merged': False,
+            'affected_projects': [],
+            'final_config': None,
+            'strategy_used': strategy
+        }
+
+        # Check if server exists in global configs
+        global_config = None
+        if 'mcpServers' in claude_data and server_name in claude_data['mcpServers']:
+            global_config = claude_data['mcpServers'][server_name]
+        elif 'mcpServers' in gemini_data and server_name in gemini_data['mcpServers']:
+            global_config = gemini_data['mcpServers'][server_name]
+
+        # Get project servers with this name
+        project_servers = self.get_project_servers()
+        project_configs = []
+
+        for project_path, servers in project_servers.items():
+            for server in servers:
+                if server.name == server_name:
+                    project_configs.append({
+                        'project': project_path,
+                        'config': server.config
+                    })
+                    result['affected_projects'].append(project_path)
+
+        # Apply merge strategy
+        if strategy == 'keep_global':
+            if global_config:
+                result['final_config'] = global_config
+                result['merged'] = len(project_configs) > 0
+        elif strategy == 'keep_project':
+            if project_configs:
+                # Use the first project config found
+                result['final_config'] = project_configs[0]['config']
+                # Update global configs
+                if 'mcpServers' not in claude_data:
+                    claude_data['mcpServers'] = {}
+                if 'mcpServers' not in gemini_data:
+                    gemini_data['mcpServers'] = {}
+                claude_data['mcpServers'][server_name] = result['final_config'].copy()
+                gemini_data['mcpServers'][server_name] = result['final_config'].copy()
+                result['merged'] = True
+        elif strategy == 'merge':
+            # Merge configs - start with global if it exists
+            merged_config = global_config.copy() if global_config else {}
+
+            # Merge each project config
+            for proj_cfg in project_configs:
+                config = proj_cfg['config']
+                # Deep merge - for simplicity, just update top-level keys
+                # In a real implementation, you might want a more sophisticated merge
+                for key, value in config.items():
+                    if key not in merged_config:
+                        merged_config[key] = value
+                    elif isinstance(value, dict) and isinstance(merged_config[key], dict):
+                        merged_config[key].update(value)
+                    elif isinstance(value, list) and isinstance(merged_config[key], list):
+                        # Combine lists, removing duplicates
+                        merged_config[key] = list(set(merged_config[key] + value))
+
+            result['final_config'] = merged_config
+            if merged_config:
+                # Update global configs
+                if 'mcpServers' not in claude_data:
+                    claude_data['mcpServers'] = {}
+                if 'mcpServers' not in gemini_data:
+                    gemini_data['mcpServers'] = {}
+                claude_data['mcpServers'][server_name] = merged_config
+                gemini_data['mcpServers'][server_name] = merged_config
+                result['merged'] = True
+
+        return result
+
+    def consolidate_servers(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any],
+                           strategy: str = 'keep_global') -> Dict[str, Any]:
+        """
+        Consolidate all project servers to global configuration.
+
+        Args:
+            claude_data: Claude configuration dict
+            gemini_data: Gemini configuration dict
+            strategy: Strategy for handling duplicates - 'keep_global', 'keep_project', or 'merge'
+
+        Returns:
+            Dict with consolidation results including count and conflicts
+        """
+        result = {
+            'total_promoted': 0,
+            'conflicts_resolved': 0,
+            'errors': [],
+            'promoted_servers': []
+        }
+
+        # Get all project servers
+        project_servers = self.get_project_servers()
+
+        # Track all unique server names across projects
+        all_server_names = set()
+        for servers in project_servers.values():
+            for server in servers:
+                all_server_names.add(server.name)
+
+        # Process each unique server
+        for server_name in all_server_names:
+            # Check if it already exists in global
+            exists_in_global = (
+                ('mcpServers' in claude_data and server_name in claude_data['mcpServers']) or
+                ('mcpServers' in gemini_data and server_name in gemini_data['mcpServers'])
+            )
+
+            if exists_in_global:
+                # Handle conflict using merge strategy
+                merge_result = self.merge_duplicate_servers(
+                    claude_data, gemini_data, server_name, strategy
+                )
+                if merge_result['merged']:
+                    result['conflicts_resolved'] += 1
+            else:
+                # Find first occurrence and promote it
+                for project_path, servers in project_servers.items():
+                    for server in servers:
+                        if server.name == server_name:
+                            if self.promote_project_server(
+                                claude_data, gemini_data,
+                                server_name, project_path, to_global=True
+                            ):
+                                result['total_promoted'] += 1
+                                result['promoted_servers'].append({
+                                    'name': server_name,
+                                    'from_project': project_path
+                                })
+                            else:
+                                result['errors'].append(
+                                    f"Failed to promote {server_name} from {project_path}"
+                                )
+                            break
+                    else:
+                        continue
+                    break
+
         return result

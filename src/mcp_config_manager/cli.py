@@ -6,10 +6,14 @@ Enhanced with interactive functionality from mcp_toggle.py
 import click
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import os
 
 from . import __version__
 from .core.config_manager import ConfigManager
+from .core.server_manager import ServerManager
+from .core.project_discovery import ProjectDiscoveryService, ProjectServer
 
 
 def print_status(config_manager: ConfigManager, mode: str):
@@ -489,6 +493,127 @@ def set_google_project(project_id):
         click.echo(f"   source ~/.bashrc")
     else:
         click.echo(f"❌ {result['error']}")
+
+
+@cli.command()
+def discover():
+    """Discover project-specific MCP servers"""
+    config_manager = ConfigManager()
+    discover_project_servers_interactive(config_manager, 'both')
+
+
+@cli.command()
+@click.argument('server_name')
+@click.option('--project', help='Project path to promote from')
+def promote(server_name, project):
+    """Promote a project server to global configuration"""
+    config_manager = ConfigManager()
+
+    if project:
+        # Direct promotion with specified project
+        server_manager = ServerManager(config_manager.claude_parser, config_manager.gemini_parser)
+        success = server_manager.promote_project_server(server_name, project)
+        if success:
+            click.echo(f"✅ Promoted '{server_name}' from {project} to global configuration")
+        else:
+            click.echo(f"❌ Failed to promote '{server_name}'")
+    else:
+        # Interactive mode to find and select project
+        promote_project_server_interactive(config_manager, server_name, 'both')
+
+
+@cli.command()
+@click.option('--strategy', type=click.Choice(['skip', 'replace', 'rename']), default='skip',
+              help='Conflict resolution strategy for duplicate servers')
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompt')
+def consolidate(strategy, yes):
+    """Consolidate all project servers to global configuration"""
+    config_manager = ConfigManager()
+
+    # Map strategy names
+    strategy_map = {
+        'skip': 'keep_global',
+        'replace': 'keep_project',
+        'rename': 'rename'
+    }
+
+    if not yes:
+        # Show summary and confirm
+        discovery_service = ProjectDiscoveryService()
+        discovered = discovery_service.scan_projects()
+
+        if not discovered:
+            click.echo("❌ No project servers found")
+            return
+
+        total_servers = sum(len(servers) for servers in discovered.values())
+        project_count = len(discovered)
+
+        click.echo(f"\n🏗️ Found {total_servers} servers across {project_count} projects")
+        click.echo(f"Strategy: {strategy}")
+
+        if not click.confirm("Continue with consolidation?"):
+            click.echo("❌ Cancelled")
+            return
+
+    # Perform consolidation
+    server_manager = ServerManager(config_manager.claude_parser, config_manager.gemini_parser)
+    result = server_manager.consolidate_servers(conflict_strategy=strategy_map[strategy])
+
+    if result['success']:
+        click.echo(f"✅ Consolidation complete!")
+        click.echo(f"  Promoted: {result['promoted_count']} servers")
+        if result.get('conflicts'):
+            click.echo(f"  Conflicts resolved: {len(result['conflicts'])}")
+    else:
+        click.echo(f"❌ Consolidation failed: {result.get('error', 'Unknown error')}")
+
+
+@cli.command('list-projects')
+@click.option('--export', type=click.Path(), help='Export project list to JSON file')
+def list_projects(export):
+    """List all projects with MCP servers"""
+    discovery_service = ProjectDiscoveryService()
+    discovered = discovery_service.scan_projects()
+
+    if not discovered:
+        click.echo("❌ No projects with MCP servers found")
+        return
+
+    click.echo(f"\n📂 Found {len(discovered)} projects with MCP servers:")
+    click.echo("-" * 50)
+
+    # Sort by project name
+    sorted_projects = sorted(discovered.items(), key=lambda x: Path(x[0]).name.lower())
+
+    for i, (project_path, servers) in enumerate(sorted_projects, 1):
+        project_name = Path(project_path).name
+        server_count = len(servers)
+
+        click.echo(f"\n[{i}] 📁 {project_name}")
+        click.echo(f"    Path: {project_path}")
+        click.echo(f"    Servers: {server_count}")
+
+        # Show first 3 servers
+        server_list = list(servers.keys())
+        for server_name in server_list[:3]:
+            click.echo(f"      • {server_name}")
+
+        if len(server_list) > 3:
+            click.echo(f"      ... and {len(server_list) - 3} more")
+
+    # Summary
+    total_servers = sum(len(servers) for servers in discovered.values())
+    click.echo("\n" + "-" * 50)
+    click.echo(f"📊 Total: {len(discovered)} projects, {total_servers} servers")
+
+    # Export if requested
+    if export:
+        report = discovery_service.export_discovery_report(export)
+        if report:
+            click.echo(f"\n✅ Report exported to: {export}")
+        else:
+            click.echo("❌ Failed to export report")
 
 
 @cli.command()

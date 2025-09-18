@@ -81,10 +81,13 @@ For easier launching on macOS, you can create a native .app bundle that can be d
 # Install py2app (one-time setup)
 pip install py2app
 
-# Build the .app bundle
-python setup_app.py py2app --dist-dir py2app_dist
+# Build the .app bundle (from project root)
+./build_app.sh
 
-# The app will be created in the py2app_dist/ folder
+# Or manually:
+python3 scripts/build/setup_app.py py2app --dist-dir artifacts/dist
+
+# The app will be created in artifacts/dist/
 # You can then:
 # 1. Double-click "MCP Config Manager.app" to launch
 # 2. Drag it to /Applications for system-wide access
