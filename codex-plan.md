@@ -95,19 +95,31 @@ Add support for ChatGPT's Codex CLI as a third configuration target alongside Cl
 
 #### Task 3.1: Three-Way Sync Logic
 **File**: `src/mcp_config_manager/utils/sync.py`
-- [ ] Update `sync_server_configs()` to accept three configs
-- [ ] Add `sync_three_way()` helper function
-- [ ] Implement conflict resolution for three-way sync
-- [ ] Handle TOML-specific fields during sync
-- [ ] Add validation for synced configurations
+- [x] Update `sync_server_configs()` to accept three configs
+- [x] Add `sync_three_way()` helper function
+- [x] Implement conflict resolution for three-way sync
+- [x] Handle TOML-specific fields during sync
+- [x] Add validation for synced configurations
 
 #### Task 3.2: Backup System Updates
 **File**: `src/mcp_config_manager/utils/backup.py`
-- [ ] Update `backup_all_configs()` to include Codex
-- [ ] Add Codex backup file naming convention
-- [ ] Update `restore_from_backup()` to handle TOML files
-- [ ] Add backup validation for TOML format
-- [ ] Test backup/restore roundtrip for all three formats
+- [x] Update `backup_all_configs()` to include Codex
+- [x] Add Codex backup file naming convention
+- [x] Update `restore_from_backup()` to handle TOML files
+- [x] Add backup validation for TOML format
+- [x] Test backup/restore roundtrip for all three formats
+
+> **Phase 3 completion notes (2025-09-18)**
+> - Extended `sync_server_configs()` with backward-compatible three-way sync support, maintaining the original two-way sync when codex_data is None.
+> - Implemented comprehensive `sync_three_way()` function that merges servers across all three configurations while preserving client-specific settings.
+> - Added conversion helpers (`_convert_for_claude`, `_convert_for_gemini`, `_convert_for_codex`) to handle format differences between clients, particularly for TOML-specific fields like headers.
+> - Implemented `resolve_sync_conflicts()` with multiple strategies (merge, claude, gemini, codex) for handling synchronization conflicts.
+> - Added `validate_synced_configs()` to verify all three configs have matching server sets and required fields.
+> - Enhanced backup system to handle TOML files for Codex, with proper file naming conventions (codex-backup-*.toml).
+> - Implemented `restore_from_backup()` with automatic backup type detection and format validation.
+> - Added `validate_backup()` function that checks both file naming conventions and content validity (including TOML parsing for Codex backups).
+> - Tested backup/restore roundtrip successfully - all three config formats (Claude JSON, Gemini JSON, Codex TOML) backup and restore correctly.
+> - Ready to proceed to Phase 4 for GUI data layer updates.
 
 ### Phase 4: GUI Updates - Data Layer (Est: 30,000 tokens)
 
