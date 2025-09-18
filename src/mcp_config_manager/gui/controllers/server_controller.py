@@ -58,14 +58,17 @@ class ServerController:
                     self.config_manager._gemini_config = None
 
             # Load configs once (will force reload if caches were cleared)
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
             # Build unified server list with per-client states
             server_dict = {}  # name -> ServerListItem
 
             # Get enabled servers - now includes per-client state info
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, mode
+                claude_data,
+                gemini_data,
+                mode,
+                codex_data=codex_data,
             )
 
             # Process enabled servers
@@ -102,7 +105,10 @@ class ServerController:
                     # New format has 'config' and 'disabled_for'
                     if isinstance(server_info, dict) and 'config' in server_info:
                         config = server_info['config']
-                        disabled_for = server_info.get('disabled_for', ['claude', 'gemini'])
+                        disabled_for = server_info.get(
+                            'disabled_for',
+                            list(self.config_manager.server_manager.DEFAULT_DISABLED),
+                        )
 
                         if server_name not in server_dict:
                             command_obj = ServerCommand(
@@ -199,11 +205,14 @@ class ServerController:
             servers = []
             
             # Load current configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
             
             # Get enabled servers using the new method
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, mode.lower() if mode else 'both'
+                claude_data,
+                gemini_data,
+                mode.lower() if mode else 'both',
+                codex_data=codex_data,
             )
             
             for server_info in enabled_servers:
@@ -263,22 +272,35 @@ class ServerController:
         """
         try:
             # Load current configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
             if enabled:
                 # Enable the server for the specific client
                 success = self.config_manager.server_manager.enable_server(
-                    claude_data, gemini_data, server_name, client
+                    claude_data,
+                    gemini_data,
+                    server_name,
+                    client,
+                    codex_data=codex_data,
                 )
             else:
                 # Disable the server for the specific client
                 success = self.config_manager.server_manager.disable_server(
-                    claude_data, gemini_data, server_name, client
+                    claude_data,
+                    gemini_data,
+                    server_name,
+                    client,
+                    codex_data=codex_data,
                 )
 
             if success:
                 # Save the configs
-                self.config_manager.save_configs(claude_data, gemini_data, client)
+                self.config_manager.save_configs(
+                    claude_data,
+                    gemini_data,
+                    codex_data,
+                    client,
+                )
 
                 # Notify callbacks
                 for callback in self.on_server_toggled_callbacks:
@@ -333,28 +355,44 @@ class ServerController:
                 config_mode = ConfigMode.BOTH
             
             # Check current state
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, mode.lower() if mode else 'both'
+                claude_data,
+                gemini_data,
+                mode.lower() if mode else 'both',
+                codex_data=codex_data,
             )
             is_currently_enabled = any(s['name'] == server_name for s in enabled_servers)
             
             if is_currently_enabled:
                 # Disable the server
                 success = self.config_manager.server_manager.disable_server(
-                    claude_data, gemini_data, server_name, mode.lower() if mode else 'both'
+                    claude_data,
+                    gemini_data,
+                    server_name,
+                    mode.lower() if mode else 'both',
+                    codex_data=codex_data,
                 )
                 new_state = False
             else:
                 # Enable the server
                 success = self.config_manager.server_manager.enable_server(
-                    claude_data, gemini_data, server_name, mode.lower() if mode else 'both'
+                    claude_data,
+                    gemini_data,
+                    server_name,
+                    mode.lower() if mode else 'both',
+                    codex_data=codex_data,
                 )
                 new_state = True
             
             if success:
                 # Save the configs
-                self.config_manager.save_configs(claude_data, gemini_data, mode.lower() if mode else 'both')
+                self.config_manager.save_configs(
+                    claude_data,
+                    gemini_data,
+                    codex_data,
+                    mode.lower() if mode else 'both',
+                )
                 
                 # Notify callbacks
                 for callback in self.on_server_toggled_callbacks:
@@ -535,7 +573,7 @@ class ServerController:
             if operation == 'enable_all':
                 # Enable all disabled servers
                 # Load current configs
-                claude_data, gemini_data = self.config_manager.load_configs()
+                claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_enable_for_client
                 if target in ['claude', 'gemini']:
@@ -568,14 +606,22 @@ class ServerController:
 
                 # Save the updated configs
                 if affected_servers:
-                    self.config_manager.save_configs(claude_data, gemini_data, target)
+                    self.config_manager.save_configs(
+                        claude_data,
+                        gemini_data,
+                        codex_data,
+                        target,
+                    )
             
             elif operation == 'disable_all':
                 # Disable all enabled servers
                 # Load current configs
-                claude_data, gemini_data = self.config_manager.load_configs()
+                claude_data, gemini_data, codex_data = self.config_manager.load_configs()
                 enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                    claude_data, gemini_data, target
+                    claude_data,
+                    gemini_data,
+                    target,
+                    codex_data=codex_data,
                 )
 
                 # If targeting specific client, use bulk_disable_for_client
@@ -584,7 +630,11 @@ class ServerController:
 
                     # Use bulk disable method
                     result = self.config_manager.server_manager.bulk_disable_for_client(
-                        claude_data, gemini_data, target, servers_to_disable
+                        claude_data,
+                        gemini_data,
+                        target,
+                        servers_to_disable,
+                        codex_data=codex_data,
                     )
                     affected_servers = servers_to_disable if result else []
                 else:
@@ -592,60 +642,95 @@ class ServerController:
                     for server in enabled_servers:
                         server_name = server['name']
                         success = self.config_manager.server_manager.disable_server(
-                            claude_data, gemini_data, server_name, 'both'
+                            claude_data,
+                            gemini_data,
+                            server_name,
+                            'both',
+                            codex_data=codex_data,
                         )
                         if success:
                             affected_servers.append(server_name)
 
                 # Save the updated configs
                 if affected_servers:
-                    self.config_manager.save_configs(claude_data, gemini_data, target)
+                    self.config_manager.save_configs(
+                        claude_data,
+                        gemini_data,
+                        codex_data,
+                        target,
+                    )
             
             elif operation == 'enable' and server_names:
                 # Enable specific servers
                 # Load current configs
-                claude_data, gemini_data = self.config_manager.load_configs()
+                claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_enable_for_client
                 if target in ['claude', 'gemini']:
                     result = self.config_manager.server_manager.bulk_enable_for_client(
-                        claude_data, gemini_data, target, server_names
+                        claude_data,
+                        gemini_data,
+                        target,
+                        server_names,
+                        codex_data=codex_data,
                     )
                     affected_servers = server_names if result else []
                 else:
                     # Enable for both clients
                     for server_name in server_names:
                         success = self.config_manager.server_manager.enable_server(
-                            claude_data, gemini_data, server_name, 'both'
+                            claude_data,
+                            gemini_data,
+                            server_name,
+                            'both',
+                            codex_data=codex_data,
                         )
                         if success:
                             affected_servers.append(server_name)
 
                 # Save the updated configs
-                self.config_manager.save_configs(claude_data, gemini_data, target)
+                self.config_manager.save_configs(
+                    claude_data,
+                    gemini_data,
+                    codex_data,
+                    target,
+                )
             
             elif operation == 'disable' and server_names:
                 # Disable specific servers
                 # Load current configs
-                claude_data, gemini_data = self.config_manager.load_configs()
+                claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
                 # If targeting specific client, use bulk_disable_for_client
                 if target in ['claude', 'gemini']:
                     result = self.config_manager.server_manager.bulk_disable_for_client(
-                        claude_data, gemini_data, target, server_names
+                        claude_data,
+                        gemini_data,
+                        target,
+                        server_names,
+                        codex_data=codex_data,
                     )
                     affected_servers = server_names if result else []
                 else:
                     # Disable for both clients
                     for server_name in server_names:
                         success = self.config_manager.server_manager.disable_server(
-                            claude_data, gemini_data, server_name, 'both'
+                            claude_data,
+                            gemini_data,
+                            server_name,
+                            'both',
+                            codex_data=codex_data,
                         )
                         if success:
                             affected_servers.append(server_name)
 
                 # Save the updated configs
-                self.config_manager.save_configs(claude_data, gemini_data, target)
+                self.config_manager.save_configs(
+                    claude_data,
+                    gemini_data,
+                    codex_data,
+                    target,
+                )
             
             else:
                 return {
@@ -782,7 +867,7 @@ class ServerController:
         """
         try:
             # Load current configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
             
             # Determine mode
             if not mode:
@@ -790,12 +875,22 @@ class ServerController:
             
             # Update the server configuration
             success = self.config_manager.server_manager.update_server_config(
-                claude_data, gemini_data, server_name, config, mode
+                claude_data,
+                gemini_data,
+                server_name,
+                config,
+                mode,
+                codex_data=codex_data,
             )
             
             if success:
                 # Save the updated configs
-                self.config_manager.save_configs(claude_data, gemini_data, mode)
+                self.config_manager.save_configs(
+                    claude_data,
+                    gemini_data,
+                    codex_data,
+                    mode,
+                )
                 
                 return {'success': True}
             else:
@@ -821,13 +916,16 @@ class ServerController:
         """
         try:
             # Load configs once
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
 
             server_states = {}
 
             # Get enabled servers - includes per-client state info
             enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                claude_data, gemini_data, 'both'
+                claude_data,
+                gemini_data,
+                'all',
+                codex_data=codex_data,
             )
 
             # Process enabled servers
@@ -913,7 +1011,7 @@ class ServerController:
         """
         try:
             # Load current configs
-            claude_data, gemini_data = self.config_manager.load_configs()
+            claude_data, gemini_data, codex_data = self.config_manager.load_configs()
             
             # Determine mode
             if not mode:
@@ -924,7 +1022,10 @@ class ServerController:
                 # Check if server is currently disabled
                 from_disabled = False
                 enabled_servers = self.config_manager.server_manager.get_enabled_servers(
-                    claude_data, gemini_data, mode
+                    claude_data,
+                    gemini_data,
+                    mode,
+                    codex_data=codex_data,
                 )
                 is_enabled = any(s['name'] == server_name for s in enabled_servers)
                 
@@ -936,13 +1037,23 @@ class ServerController:
             
             # Delete the server with appropriate flag
             success = self.config_manager.server_manager.delete_server(
-                claude_data, gemini_data, server_name, mode, from_disabled
+                claude_data,
+                gemini_data,
+                server_name,
+                mode,
+                from_disabled,
+                codex_data=codex_data,
             )
             
             if success:
                 # Only save configs if we deleted from active configs
                 if not from_disabled:
-                    self.config_manager.save_configs(claude_data, gemini_data, mode)
+                    self.config_manager.save_configs(
+                        claude_data,
+                        gemini_data,
+                        codex_data,
+                        mode,
+                    )
                 
                 # Notify callbacks
                 for callback in self.on_server_removed_callbacks:

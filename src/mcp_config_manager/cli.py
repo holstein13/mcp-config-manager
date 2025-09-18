@@ -77,9 +77,9 @@ def interactive_mode():
     
     # Sync if in both mode
     if mode == 'both':
-        claude_data, gemini_data = config_manager.load_configs()
+        claude_data, gemini_data, codex_data = config_manager.load_configs()
         claude_data, gemini_data = config_manager.sync_configurations(claude_data, gemini_data)
-        config_manager.save_configs(claude_data, gemini_data, mode)
+        config_manager.save_configs(claude_data, gemini_data, codex_data, mode)
     
     while True:
         print_status(config_manager, mode)
@@ -123,9 +123,9 @@ def interactive_mode():
                 print("💎 Switched to Gemini only")
             else:
                 mode = 'both'
-                claude_data, gemini_data = config_manager.load_configs()
+                claude_data, gemini_data, codex_data = config_manager.load_configs()
                 claude_data, gemini_data = config_manager.sync_configurations(claude_data, gemini_data)
-                config_manager.save_configs(claude_data, gemini_data, mode)
+                config_manager.save_configs(claude_data, gemini_data, codex_data, mode)
                 print("🔄 Switched to both (synced)")
             
         elif choice == 'a':

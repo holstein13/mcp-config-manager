@@ -11,7 +11,7 @@ from enum import Enum
 from ..parsers.claude_parser import ClaudeConfigParser
 from ..parsers.gemini_parser import GeminiConfigParser
 from ..utils.file_utils import (
-    get_claude_config_path, get_gemini_config_path,
+    get_claude_config_path, get_gemini_config_path, get_codex_config_path,
     ensure_config_directories
 )
 from ..utils.backup import backup_all_configs
@@ -19,13 +19,18 @@ from ..utils.sync import sync_server_configs
 from .server_manager import ServerManager
 from .presets import PresetManager
 from ..auth.google_auth import GoogleAuthManager
+from ..parsers.codex_parser import CodexConfigParser
+from .cli_detector import CLIDetector
 
 
 class ConfigMode(Enum):
     """Configuration mode for the application."""
+
     CLAUDE = "claude"
     GEMINI = "gemini"
-    BOTH = "both"
+    CODEX = "codex"
+    BOTH = "both"  # legacy alias for Claude + Gemini
+    ALL = "all"
 
 
 class ConfigManager:
@@ -34,14 +39,25 @@ class ConfigManager:
     Enhanced with functionality from original mcp_toggle.py
     """
     
-    def __init__(self, claude_path: Optional[Path] = None, gemini_path: Optional[Path] = None):
+    SUPPORTED_CLIENTS = ("claude", "gemini", "codex")
+
+    def __init__(
+        self,
+        claude_path: Optional[Path] = None,
+        gemini_path: Optional[Path] = None,
+        codex_path: Optional[Path] = None,
+    ):
         self.claude_path = claude_path or get_claude_config_path()
         self.gemini_path = gemini_path or get_gemini_config_path()
+        self.codex_path = codex_path or get_codex_config_path()
 
         self.claude_parser = ClaudeConfigParser()
         self.gemini_parser = GeminiConfigParser()
+        self.codex_parser = CodexConfigParser()
+
         self.server_manager = ServerManager()
         self.preset_manager = PresetManager()
+        self.cli_detector = CLIDetector()
 
         # Initialize Google auth (project_id can be set later)
         self.google_auth = GoogleAuthManager()
@@ -49,20 +65,68 @@ class ConfigManager:
         # Ensure all directories exist
         ensure_config_directories()
     
-    def load_configs(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """Load both Claude and Gemini configurations"""
+    def load_configs(self) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        """Load Claude, Gemini, and Codex configurations."""
+
         claude_data = self.claude_parser.parse(self.claude_path)
         gemini_data = self.gemini_parser.parse(self.gemini_path)
-        return claude_data, gemini_data
+        codex_data = self.codex_parser.parse(self.codex_path)
+        return claude_data, gemini_data, codex_data
+
+    def _build_config_map(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        codex_data: Dict[str, Any],
+    ) -> Dict[str, Dict[str, Any]]:
+        """Bundle individual config dicts into a client-keyed map."""
+
+        return {
+            "claude": claude_data,
+            "gemini": gemini_data,
+            "codex": codex_data,
+        }
+
+    def _resolve_mode_clients(self, mode: Optional[str]) -> List[str]:
+        """Translate configuration mode string into client list."""
+
+        if not mode or mode.lower() in {ConfigMode.ALL.value, "all"}:
+            return list(self.SUPPORTED_CLIENTS)
+
+        mode = mode.lower()
+        if mode == ConfigMode.BOTH.value:
+            return [ConfigMode.CLAUDE.value, ConfigMode.GEMINI.value]
+
+        if mode in self.SUPPORTED_CLIENTS:
+            return [mode]
+
+        # Fallback for unknown modes: treat as all
+        return list(self.SUPPORTED_CLIENTS)
+
+    def get_cli_availability(self, force_refresh: bool = False) -> Dict[str, bool]:
+        """Expose cached CLI availability information to callers."""
+
+        return self.cli_detector.detect_all(force_refresh=force_refresh)
     
-    def save_configs(self, claude_data: Dict[str, Any], gemini_data: Dict[str, Any], 
-                    mode: str = 'both') -> None:
-        """Save configurations based on mode"""
-        if mode in ['claude', 'both']:
+    def save_configs(
+        self,
+        claude_data: Dict[str, Any],
+        gemini_data: Dict[str, Any],
+        codex_data: Dict[str, Any],
+        mode: str = "all",
+    ) -> None:
+        """Persist configuration changes for selected clients."""
+
+        clients = set(self._resolve_mode_clients(mode))
+
+        if "claude" in clients:
             self.claude_parser.write(claude_data, self.claude_path)
-        
-        if mode in ['gemini', 'both']:
+
+        if "gemini" in clients:
             self.gemini_parser.write(gemini_data, self.gemini_path)
+
+        if "codex" in clients:
+            self.codex_parser.write(codex_data, self.codex_path)
     
     def create_backups(self) -> List[Tuple[str, Path]]:
         """Create timestamped backups of all config files"""
@@ -96,75 +160,127 @@ class ConfigManager:
     
     def list_servers(self, mode: str = 'both') -> Tuple[List[str], List[str]]:
         """List all servers (active and disabled)"""
-        claude_data, gemini_data = self.load_configs()
-        return self.server_manager.list_all_servers(claude_data, gemini_data, mode)
-    
+        claude_data, gemini_data, codex_data = self.load_configs()
+        return self.server_manager.list_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
+
     def disable_server(self, server_name: str, mode: str = 'both') -> bool:
         """Disable a server (move to storage)"""
-        claude_data, gemini_data = self.load_configs()
-        success = self.server_manager.disable_server(claude_data, gemini_data, server_name, mode)
+        claude_data, gemini_data, codex_data = self.load_configs()
+        success = self.server_manager.disable_server(
+            claude_data,
+            gemini_data,
+            server_name,
+            mode,
+            codex_data=codex_data,
+        )
         if success:
-            self.save_configs(claude_data, gemini_data, mode)
+            self.save_configs(claude_data, gemini_data, codex_data, mode)
         return success
-    
+
     def enable_server(self, server_name: str, mode: str = 'both') -> bool:
         """Enable a server (move from storage)"""
-        claude_data, gemini_data = self.load_configs()
-        success = self.server_manager.enable_server(claude_data, gemini_data, server_name, mode)
+        claude_data, gemini_data, codex_data = self.load_configs()
+        success = self.server_manager.enable_server(
+            claude_data,
+            gemini_data,
+            server_name,
+            mode,
+            codex_data=codex_data,
+        )
         if success:
-            self.save_configs(claude_data, gemini_data, mode)
+            self.save_configs(claude_data, gemini_data, codex_data, mode)
         return success
-    
+
     def disable_all_servers(self, mode: str = 'both') -> int:
         """Disable all active servers"""
-        claude_data, gemini_data = self.load_configs()
-        count = self.server_manager.disable_all_servers(claude_data, gemini_data, mode)
-        self.save_configs(claude_data, gemini_data, mode)
+        claude_data, gemini_data, codex_data = self.load_configs()
+        count = self.server_manager.disable_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
+        self.save_configs(claude_data, gemini_data, codex_data, mode)
         return count
-    
+
     def enable_all_servers(self, mode: str = 'both') -> int:
         """Enable all disabled servers"""
-        claude_data, gemini_data = self.load_configs()
-        count = self.server_manager.enable_all_servers(claude_data, gemini_data, mode)
-        self.save_configs(claude_data, gemini_data, mode)
+        claude_data, gemini_data, codex_data = self.load_configs()
+        count = self.server_manager.enable_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
+        self.save_configs(claude_data, gemini_data, codex_data, mode)
         return count
-    
+
     def apply_preset_mode(self, preset_mode: str, mode: str = 'both') -> List[str]:
         """Apply a preset mode (minimal, webdev, etc.)"""
-        claude_data, gemini_data = self.load_configs()
+        claude_data, gemini_data, codex_data = self.load_configs()
         
         # Get servers to keep active for this preset
         keep_active = self.preset_manager.get_default_servers(preset_mode)
         
         # Get current server lists
-        active, disabled = self.server_manager.list_all_servers(claude_data, gemini_data, mode)
+        active, disabled = self.server_manager.list_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
         
         # Disable servers not in the preset
         for server in active:
-            if server not in keep_active:
-                self.server_manager.disable_server(claude_data, gemini_data, server, mode)
+            name = server['name'] if isinstance(server, dict) else server
+            if name not in keep_active:
+                self.server_manager.disable_server(
+                    claude_data,
+                    gemini_data,
+                    name,
+                    mode,
+                    codex_data=codex_data,
+                )
         
         # Enable servers that should be active
         for server in keep_active:
-            if server in disabled:
-                self.server_manager.enable_server(claude_data, gemini_data, server, mode)
+            disabled_names = {s['name'] if isinstance(s, dict) else s for s in disabled}
+            if server in disabled_names:
+                self.server_manager.enable_server(
+                    claude_data,
+                    gemini_data,
+                    server,
+                    mode,
+                    codex_data=codex_data,
+                )
         
-        self.save_configs(claude_data, gemini_data, mode)
+        self.save_configs(claude_data, gemini_data, codex_data, mode)
         return keep_active
     
     def add_server_from_json(self, json_text: str, server_name: str = None, 
                            mode: str = 'both') -> Tuple[bool, str]:
         """Add a new server from JSON configuration"""
-        claude_data, gemini_data = self.load_configs()
+        claude_data, gemini_data, codex_data = self.load_configs()
         
         if server_name:
             # Single server with provided name
             try:
                 server_config = json.loads(json_text.strip())
                 success = self.server_manager.add_server_with_name(
-                    claude_data, gemini_data, server_name, server_config, mode)
+                    claude_data,
+                    gemini_data,
+                    server_name,
+                    server_config,
+                    mode,
+                    codex_data=codex_data,
+                )
                 if success:
-                    self.save_configs(claude_data, gemini_data, mode)
+                    self.save_configs(claude_data, gemini_data, codex_data, mode)
                     return True, f"Added server: {server_name}"
                 else:
                     return False, "Failed to add server"
@@ -173,17 +289,23 @@ class ConfigManager:
         else:
             # Multiple servers or single server needing name
             success, message = self.server_manager.add_new_server_from_json(
-                claude_data, gemini_data, json_text, mode)
+                claude_data,
+                gemini_data,
+                json_text,
+                mode,
+                codex_data=codex_data,
+            )
             if success:
-                self.save_configs(claude_data, gemini_data, mode)
+                self.save_configs(claude_data, gemini_data, codex_data, mode)
             return success, message
-    
-    def validate_configs(self) -> Tuple[bool, bool]:
+
+    def validate_configs(self) -> Tuple[bool, bool, bool]:
         """Validate both configuration files"""
-        claude_data, gemini_data = self.load_configs()
+        claude_data, gemini_data, codex_data = self.load_configs()
         claude_valid = self.claude_parser.validate(claude_data)
         gemini_valid = self.gemini_parser.validate(gemini_data)
-        return claude_valid, gemini_valid
+        codex_valid = self.codex_parser.validate(codex_data)
+        return claude_valid, gemini_valid, codex_valid
     
     # Preset management methods
     def list_presets(self) -> List[str]:
@@ -196,38 +318,53 @@ class ConfigManager:
         if not preset:
             return False
         
-        claude_data, gemini_data = self.load_configs()
+        claude_data, gemini_data, codex_data = self.load_configs()
         
         # First disable all servers
-        self.server_manager.disable_all_servers(claude_data, gemini_data, mode)
+        self.server_manager.disable_all_servers(
+            claude_data,
+            gemini_data,
+            mode,
+            codex_data=codex_data,
+        )
         
         # Then add servers from preset
         preset_servers = preset.get('servers', {})
         for server_name, server_config in preset_servers.items():
             self.server_manager.add_server_with_name(
-                claude_data, gemini_data, server_name, server_config, mode)
+                claude_data,
+                gemini_data,
+                server_name,
+                server_config,
+                mode,
+                codex_data=codex_data,
+            )
         
-        self.save_configs(claude_data, gemini_data, mode)
+        self.save_configs(claude_data, gemini_data, codex_data, mode)
         return True
     
     def save_current_as_preset(self, preset_name: str, description: str, 
                               mode: str = 'both') -> None:
         """Save current active configuration as a preset"""
-        claude_data, gemini_data = self.load_configs()
+        claude_data, gemini_data, codex_data = self.load_configs()
         
         # Get currently active servers
         if mode == 'claude':
             servers = claude_data.get('mcpServers', {})
         elif mode == 'gemini':
             servers = gemini_data.get('mcpServers', {})
+        elif mode == 'codex':
+            servers = codex_data.get('mcpServers', {})
         else:  # both
             # Merge servers from both configs
             servers = {}
             servers.update(claude_data.get('mcpServers', {}))
             servers.update(gemini_data.get('mcpServers', {}))
+            if mode in {'all', 'codex'}:
+                servers.update(codex_data.get('mcpServers', {}))
         
         self.preset_manager.save_preset(preset_name, description, servers)
-    
+
     def add_server(self, server_name: str, server_config: Dict[str, Any], 
                    mode: str = 'both') -> Dict[str, Any]:
         """Add a server - interface expected by ServerController
@@ -241,12 +378,18 @@ class ConfigManager:
             Dictionary with 'success' and 'error' keys
         """
         try:
-            claude_data, gemini_data = self.load_configs()
+            claude_data, gemini_data, codex_data = self.load_configs()
             success = self.server_manager.add_server_with_name(
-                claude_data, gemini_data, server_name, server_config, mode)
+                claude_data,
+                gemini_data,
+                server_name,
+                server_config,
+                mode,
+                codex_data=codex_data,
+            )
             
             if success:
-                self.save_configs(claude_data, gemini_data, mode)
+                self.save_configs(claude_data, gemini_data, codex_data, mode)
                 return {
                     'success': True,
                     'server_name': server_name,

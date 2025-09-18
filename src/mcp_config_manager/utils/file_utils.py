@@ -16,6 +16,11 @@ def get_gemini_config_path() -> Path:
     return Path.home() / '.gemini' / 'settings.json'
 
 
+def get_codex_config_path() -> Path:
+    """Get the Codex configuration file path."""
+    return Path.home() / '.codex' / 'config.toml'
+
+
 def get_presets_path() -> Path:
     """Get the MCP presets file path."""
     return Path.home() / '.mcp_presets.json'
@@ -43,11 +48,11 @@ def ensure_gemini_config_exists() -> None:
     """Ensure Gemini config directory and file exist."""
     gemini_path = get_gemini_config_path()
     gemini_dir = gemini_path.parent
-    
+
     if not gemini_dir.exists():
         gemini_dir.mkdir(parents=True, exist_ok=True)
         print(f"📁 Created Gemini config directory: {gemini_dir}")
-    
+
     if not gemini_path.exists():
         default_config = {"mcpServers": {}}
         with open(gemini_path, 'w') as f:
@@ -56,18 +61,45 @@ def ensure_gemini_config_exists() -> None:
         print(f"📝 Created Gemini config file: {gemini_path}")
 
 
+def ensure_codex_config_exists() -> None:
+    """Ensure Codex config directory and file exist."""
+    codex_path = get_codex_config_path()
+    codex_dir = codex_path.parent
+
+    if not codex_dir.exists():
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        print(f"📁 Created Codex config directory: {codex_dir}")
+
+    if not codex_path.exists():
+        # Create default TOML config with mcp_servers table
+        default_config = {"mcp_servers": {}}
+        with open(codex_path, 'w') as f:
+            import toml
+            toml.dump(default_config, f)
+        print(f"📝 Created Codex config file: {codex_path}")
+
+
+def validate_codex_config_path(path: Path) -> bool:
+    """Return True if the supplied path looks like a Codex config.toml."""
+    try:
+        return path is not None and path.name == 'config.toml' and path.suffix == '.toml'
+    except Exception:
+        return False
+
+
 def ensure_config_directories() -> None:
     """Ensure all required configuration directories exist."""
     ensure_gemini_config_exists()
-    
+    ensure_codex_config_exists()
+
     # Ensure presets file parent directory exists
     presets_path = get_presets_path()
     presets_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Ensure disabled servers directory exists
     disabled_path = get_disabled_servers_path()
     disabled_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Ensure backups directory exists
     backups_dir = get_project_backups_dir()
     backups_dir.mkdir(parents=True, exist_ok=True)
