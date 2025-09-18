@@ -1666,7 +1666,7 @@ def run_gui_in_main_thread():
         # Ensure window gets focus after showing
         window.raise_()
         window.activateWindow()
-        sys.exit(app.exec())
+        app.exec()
     else:
         config_manager = ConfigManager()
         window = MainWindow(config_manager)

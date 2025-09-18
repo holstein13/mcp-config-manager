@@ -78,17 +78,20 @@ mcp-config-manager gui
 For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight:
 
 ```bash
-# Create the .app bundle (one-time setup)
-python build_app.py
+# Install py2app (one-time setup)
+pip install py2app
 
-# The app will be created in the dist/ folder
+# Build the .app bundle
+python setup_app.py py2app --dist-dir py2app_dist
+
+# The app will be created in the py2app_dist/ folder
 # You can then:
 # 1. Double-click "MCP Config Manager.app" to launch
 # 2. Drag it to /Applications for system-wide access
 # 3. Add it to your Dock for quick access
 ```
 
-**Note:** The .app bundle always launches the currently installed version of `mcp-config-manager`, so you don't need to rebuild it after code updates. Just run `pip install -e .` as usual to update the code.
+**Note:** The .app bundle is completely self-contained with Python and all dependencies bundled. After code changes, rebuild the app with the same command above.
 
 The GUI provides:
 - 🖥️ Visual server list with checkboxes

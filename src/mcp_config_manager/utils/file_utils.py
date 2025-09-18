@@ -23,9 +23,9 @@ def get_presets_path() -> Path:
 
 def get_disabled_servers_path() -> Path:
     """Get the disabled servers storage path."""
-    # Use the same directory as the script for disabled servers
-    script_dir = Path(__file__).parent.parent.parent.parent
-    return script_dir / 'disabled_servers.json'
+    # Store disabled servers in the user's home directory for consistency
+    # This ensures it works both in development and when bundled as an app
+    return Path.home() / '.mcp_disabled_servers.json'
 
 
 def get_project_backups_dir() -> Path:
