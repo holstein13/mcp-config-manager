@@ -44,18 +44,27 @@ def backup_all_configs(claude_path: Path, gemini_path: Path, codex_path: Path = 
     # Backup Claude config with simple naming
     if claude_path.exists():
         claude_backup = backups_dir / f"claude-backup-{timestamp}.json"
+        # Remove existing file if it exists to ensure fresh copy with current timestamp
+        if claude_backup.exists():
+            claude_backup.unlink()
         shutil.copy(claude_path, claude_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Claude', claude_backup))
 
     # Backup Gemini config with simple naming
     if gemini_path.exists():
         gemini_backup = backups_dir / f"gemini-backup-{timestamp}.json"
+        # Remove existing file if it exists to ensure fresh copy with current timestamp
+        if gemini_backup.exists():
+            gemini_backup.unlink()
         shutil.copy(gemini_path, gemini_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Gemini', gemini_backup))
 
     # Backup Codex config with simple naming (TOML format)
     if codex_path and codex_path.exists():
         codex_backup = backups_dir / f"codex-backup-{timestamp}.toml"
+        # Remove existing file if it exists to ensure fresh copy with current timestamp
+        if codex_backup.exists():
+            codex_backup.unlink()
         shutil.copy(codex_path, codex_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Codex', codex_backup))
 
@@ -63,6 +72,9 @@ def backup_all_configs(claude_path: Path, gemini_path: Path, codex_path: Path = 
     disabled_path = get_disabled_servers_path()
     if disabled_path.exists():
         disabled_backup = backups_dir / f"disabled-backup-{timestamp}.json"
+        # Remove existing file if it exists to ensure fresh copy with current timestamp
+        if disabled_backup.exists():
+            disabled_backup.unlink()
         shutil.copy(disabled_path, disabled_backup)  # Use copy instead of copy2 to get current timestamps
         backups.append(('Disabled Servers', disabled_backup))
     
