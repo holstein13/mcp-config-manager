@@ -406,6 +406,117 @@ def preset(preset_mode, mode):
     click.echo(f"✅ Applied {preset_mode} preset: {', '.join(active_servers)}")
 
 
+@cli.command()
+@click.option('--project-id', help='Google Cloud Project ID (default: from env or config)')
+def google_auth(project_id):
+    """Authenticate with Google for Gemini Code Assist"""
+    import os
+
+    config_manager = ConfigManager()
+
+    # Set project ID if provided
+    if project_id:
+        result = config_manager.set_google_cloud_project(project_id)
+        if result['success']:
+            click.echo(f"✅ {result['message']}")
+        else:
+            click.echo(f"❌ {result['error']}")
+            return
+
+    # Get project ID (from arg, config, or env)
+    current_project_id = config_manager.get_google_cloud_project()
+
+    if not current_project_id:
+        click.echo("❌ Google Cloud Project ID not configured")
+        click.echo("\nPlease set your project ID using one of these methods:")
+        click.echo("1. Use --project-id flag: mcp-config-manager google-auth --project-id YOUR_PROJECT_ID")
+        click.echo("2. Set environment variable: export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID")
+        click.echo("3. Use set-google-project command: mcp-config-manager set-google-project YOUR_PROJECT_ID")
+        return
+
+    click.echo(f"🔐 Using Google Cloud Project: {current_project_id}")
+
+    # Check if already authenticated
+    if config_manager.is_google_authenticated():
+        click.echo("✅ Already authenticated with Google")
+        if click.confirm("Do you want to re-authenticate?"):
+            config_manager.clear_google_credentials()
+        else:
+            return
+
+    # Get OAuth client ID
+    click.echo("\n📋 OAuth Client Setup")
+    click.echo("You need an OAuth 2.0 Client ID from Google Cloud Console.")
+    click.echo("Visit: https://console.cloud.google.com/apis/credentials")
+    click.echo("")
+
+    client_id = click.prompt("OAuth Client ID")
+    client_secret = click.prompt("OAuth Client Secret (optional, press Enter to skip)", default="", hide_input=True, show_default=False)
+
+    if not client_secret:
+        client_secret = None
+
+    click.echo("\n🔄 Starting authentication flow...")
+    result = config_manager.authenticate_google(client_id, client_secret)
+
+    if result['success']:
+        click.echo(f"✅ {result['message']}")
+        click.echo("\nYou can now use Gemini Code Assist with your Google account!")
+    else:
+        click.echo(f"❌ {result['error']}")
+        click.echo("\nTroubleshooting:")
+        click.echo("1. Ensure your browser can reach localhost:8080")
+        click.echo("2. Check that the Gemini for Cloud API is enabled in your project")
+        click.echo("3. Verify you have the necessary permissions")
+
+
+@cli.command()
+@click.argument('project_id')
+def set_google_project(project_id):
+    """Set the Google Cloud Project ID for Gemini"""
+    config_manager = ConfigManager()
+    result = config_manager.set_google_cloud_project(project_id)
+
+    if result['success']:
+        click.echo(f"✅ {result['message']}")
+
+        # Also set environment variable for current session
+        import os
+        os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
+
+        click.echo(f"\n💡 To make this permanent, add to your shell config:")
+        click.echo(f'   echo \'export GOOGLE_CLOUD_PROJECT="{project_id}"\' >> ~/.bashrc')
+        click.echo(f"   source ~/.bashrc")
+    else:
+        click.echo(f"❌ {result['error']}")
+
+
+@cli.command()
+def google_status():
+    """Check Google authentication status"""
+    config_manager = ConfigManager()
+
+    # Check project ID
+    project_id = config_manager.get_google_cloud_project()
+    if project_id:
+        click.echo(f"📁 Google Cloud Project: {project_id}")
+    else:
+        click.echo("❌ Google Cloud Project: Not configured")
+
+    # Check authentication
+    if config_manager.is_google_authenticated():
+        click.echo("✅ Google Authentication: Valid")
+
+        creds = config_manager.get_google_credentials()
+        if creds:
+            if 'expires_at' in creds:
+                click.echo(f"⏰ Token expires: {creds['expires_at']}")
+    else:
+        click.echo("❌ Google Authentication: Not authenticated")
+
+    click.echo("\n💡 Use 'mcp-config-manager google-auth' to authenticate")
+
+
 def main():
     """Main entry point"""
     cli()

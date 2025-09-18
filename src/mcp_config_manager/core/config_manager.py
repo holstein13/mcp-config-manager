@@ -11,13 +11,14 @@ from enum import Enum
 from ..parsers.claude_parser import ClaudeConfigParser
 from ..parsers.gemini_parser import GeminiConfigParser
 from ..utils.file_utils import (
-    get_claude_config_path, get_gemini_config_path, 
+    get_claude_config_path, get_gemini_config_path,
     ensure_config_directories
 )
 from ..utils.backup import backup_all_configs
 from ..utils.sync import sync_server_configs
 from .server_manager import ServerManager
 from .presets import PresetManager
+from ..auth.google_auth import GoogleAuthManager
 
 
 class ConfigMode(Enum):
@@ -36,12 +37,15 @@ class ConfigManager:
     def __init__(self, claude_path: Optional[Path] = None, gemini_path: Optional[Path] = None):
         self.claude_path = claude_path or get_claude_config_path()
         self.gemini_path = gemini_path or get_gemini_config_path()
-        
+
         self.claude_parser = ClaudeConfigParser()
         self.gemini_parser = GeminiConfigParser()
         self.server_manager = ServerManager()
         self.preset_manager = PresetManager()
-        
+
+        # Initialize Google auth (project_id can be set later)
+        self.google_auth = GoogleAuthManager()
+
         # Ensure all directories exist
         ensure_config_directories()
     
@@ -258,4 +262,105 @@ class ConfigManager:
             return {
                 'success': False,
                 'error': f"Error adding server: {str(e)}"
+            }
+
+    def get_google_cloud_project(self) -> Optional[str]:
+        """Get the configured Google Cloud Project ID
+
+        Returns:
+            Project ID from config or environment variable
+        """
+        gemini_data = self.gemini_parser.parse(self.gemini_path)
+        project_id = self.gemini_parser.get_google_cloud_project(gemini_data)
+
+        # Fall back to environment variable if not in config
+        if not project_id:
+            import os
+            project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+
+        return project_id
+
+    def set_google_cloud_project(self, project_id: str) -> Dict[str, Any]:
+        """Set the Google Cloud Project ID
+
+        Args:
+            project_id: Google Cloud Project ID to use
+
+        Returns:
+            Dictionary with 'success' and optional 'error' keys
+        """
+        try:
+            # Load config
+            gemini_data = self.gemini_parser.parse(self.gemini_path)
+
+            # Set project ID
+            gemini_data = self.gemini_parser.set_google_cloud_project(gemini_data, project_id)
+
+            # Save config
+            self.gemini_parser.write(gemini_data, self.gemini_path)
+
+            # Update auth manager
+            self.google_auth.set_project_id(project_id)
+
+            return {
+                'success': True,
+                'project_id': project_id,
+                'message': f"Google Cloud Project set to: {project_id}"
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f"Failed to set Google Cloud Project: {str(e)}"
+            }
+
+    def authenticate_google(self, client_id: str, client_secret: Optional[str] = None) -> Dict[str, Any]:
+        """Authenticate with Google OAuth
+
+        Args:
+            client_id: OAuth client ID
+            client_secret: OAuth client secret (optional)
+
+        Returns:
+            Dictionary with 'success' and 'message' or 'error' keys
+        """
+        # Ensure project ID is set
+        project_id = self.get_google_cloud_project()
+        if not project_id:
+            return {
+                'success': False,
+                'error': 'Google Cloud Project ID not configured. Set GOOGLE_CLOUD_PROJECT environment variable or use set_google_cloud_project()'
+            }
+
+        self.google_auth.set_project_id(project_id)
+
+        # Perform authentication
+        success, message = self.google_auth.authenticate(client_id, client_secret)
+
+        return {
+            'success': success,
+            'message': message if success else None,
+            'error': message if not success else None
+        }
+
+    def is_google_authenticated(self) -> bool:
+        """Check if Google authentication is valid"""
+        return self.google_auth.is_authenticated()
+
+    def get_google_credentials(self) -> Optional[Dict[str, str]]:
+        """Get cached Google credentials if available"""
+        return self.google_auth.get_credentials()
+
+    def clear_google_credentials(self) -> Dict[str, Any]:
+        """Clear cached Google credentials"""
+        try:
+            self.google_auth.clear_credentials()
+            return {
+                'success': True,
+                'message': 'Google credentials cleared successfully'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to clear credentials: {str(e)}'
             }

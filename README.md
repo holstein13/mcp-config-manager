@@ -352,11 +352,11 @@ mcp-config-manager interactive
 - **Claude config:** `~/.claude.json`
 - **Gemini config:** `~/.gemini/settings.json`
 - **Presets:** `~/.mcp_presets.json`
-- **Disabled servers:** `./disabled_servers.json` (in project directory)
-- **Organized backups:** `./backups/` directory with timestamped files:
-  - `./backups/claude-backup-YYYYMMDD_HHMMSS.json`
-  - `./backups/gemini-backup-YYYYMMDD_HHMMSS.json`
-  - `./backups/disabled-backup-YYYYMMDD_HHMMSS.json`
+- **Disabled servers:** `~/.mcp_disabled_servers.json` (in user's home directory)
+- **Organized backups:** `~/Documents/MCP Config Manager/backups/` with timestamped files:
+  - `claude-backup-YYYYMMDD_HHMMSS.json`
+  - `gemini-backup-YYYYMMDD_HHMMSS.json`
+  - `disabled-backup-YYYYMMDD_HHMMSS.json`
 - **Legacy backups:** `~/.claude.json.backup.YYYYMMDD_HHMMSS`
 
 ## 🗺️ Roadmap
