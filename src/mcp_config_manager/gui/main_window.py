@@ -1353,9 +1353,11 @@ class MainWindow(QMainWindow if USING_QT else object):
                     self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
                     
                     if USING_QT:
-                        backup_paths = '\n'.join([f"{name}: {path}" for name, path in all_backups])
-                        QMessageBox.information(self, "Backup Complete", 
-                                              f"Configuration backed up to backups/ directory:\n\n{backup_paths}")
+                        # Show only the filename, not the full path for cleaner display
+                        backup_list = '\n'.join([f"{name}: {Path(path).name}" for name, path in all_backups])
+                        backup_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
+                        QMessageBox.information(self, "Backup Complete",
+                                              f"Configuration backed up to:\n{backup_dir}\n\n{backup_list}")
                 else:
                     self.set_status_message(f"✅ Backup created: {backup_file}", timeout=5000)
                     if USING_QT:

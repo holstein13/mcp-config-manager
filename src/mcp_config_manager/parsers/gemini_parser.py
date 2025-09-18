@@ -3,7 +3,7 @@ Parser for Gemini configuration files (.gemini/settings.json)
 Enhanced with functionality from mcp_toggle.py
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 import json
 from .base_parser import BaseConfigParser
@@ -15,11 +15,15 @@ class GeminiConfigParser(BaseConfigParser):
     def parse(self, config_path: Path) -> Dict[str, Any]:
         """Parse Gemini configuration file"""
         if not config_path.exists():
-            return {"mcpServers": {}}
-        
+            return {"mcpServers": {}, "googleCloudProject": None}
+
         try:
             with open(config_path, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Ensure googleCloudProject field exists
+                if 'googleCloudProject' not in data:
+                    data['googleCloudProject'] = None
+                return data
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in Gemini config: {e}")
         except Exception as e:
@@ -82,4 +86,13 @@ class GeminiConfigParser(BaseConfigParser):
         """Remove a server from the configuration"""
         if 'mcpServers' in config and name in config['mcpServers']:
             del config['mcpServers'][name]
+        return config
+
+    def get_google_cloud_project(self, config: Dict[str, Any]) -> Optional[str]:
+        """Get the Google Cloud Project ID from config"""
+        return config.get('googleCloudProject')
+
+    def set_google_cloud_project(self, config: Dict[str, Any], project_id: str) -> Dict[str, Any]:
+        """Set the Google Cloud Project ID in config"""
+        config['googleCloudProject'] = project_id
         return config

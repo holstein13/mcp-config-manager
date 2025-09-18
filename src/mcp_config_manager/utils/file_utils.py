@@ -29,9 +29,14 @@ def get_disabled_servers_path() -> Path:
 
 
 def get_project_backups_dir() -> Path:
-    """Get the project backups directory path."""
-    script_dir = Path(__file__).parent.parent.parent.parent
-    return script_dir / 'backups'
+    """Get the project backups directory path.
+
+    Returns a user-specific directory that persists across app updates.
+    Uses ~/Documents/MCP Config Manager/backups/ for better accessibility.
+    """
+    # Use Documents folder for better user accessibility
+    backups_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
+    return backups_dir
 
 
 def ensure_gemini_config_exists() -> None:

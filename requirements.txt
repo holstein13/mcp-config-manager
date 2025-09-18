@@ -1,5 +1,6 @@
 # Core dependencies
 click>=8.0.0
+requests>=2.28.0
 
 # GUI dependencies (optional - for better GUI experience)
 # PyQt6>=6.4.0
