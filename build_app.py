@@ -97,6 +97,13 @@ if [ -z "$MCP_CMD" ]; then
     exit 1
 fi
 
+# Log to Console for debugging
+echo "Launching MCP Config Manager GUI from: $MCP_CMD" >&2
+
+# Launch the GUI with Python framework build for macOS GUI support
+# This ensures the app can properly create windows and receive events
+export PYTHONEXECUTABLE="/usr/bin/python3"
+
 # Launch the GUI
 exec "$MCP_CMD" gui
 """
@@ -132,6 +139,12 @@ exec "$MCP_CMD" gui
     <true/>
     <key>LSUIElement</key>
     <false/>
+    <key>LSBackgroundOnly</key>
+    <false/>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+    <key>CFBundleIconFile</key>
+    <string>icon</string>
 </dict>
 </plist>
 """
