@@ -73,6 +73,23 @@ Launch the graphical interface:
 mcp-config-manager gui
 ```
 
+#### macOS: Create a Native .app Bundle
+
+For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight:
+
+```bash
+# Create the .app bundle (one-time setup)
+python build_app.py
+
+# The app will be created in the dist/ folder
+# You can then:
+# 1. Double-click "MCP Config Manager.app" to launch
+# 2. Drag it to /Applications for system-wide access
+# 3. Add it to your Dock for quick access
+```
+
+**Note:** The .app bundle always launches the currently installed version of `mcp-config-manager`, so you don't need to rebuild it after code updates. Just run `pip install -e .` as usual to update the code.
+
 The GUI provides:
 - 🖥️ Visual server list with checkboxes
 - ☑ Master checkbox for bulk operations (☐/☑/⊟ states)
