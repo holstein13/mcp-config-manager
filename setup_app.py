@@ -29,7 +29,7 @@ DATA_FILES = []
 OPTIONS = {
     'py2app': {
         'argv_emulation': False,  # Don't use argv emulation
-        'iconfile': None,  # Add path to .icns file if you have one
+        'iconfile': 'icon.icns' if os.path.exists('icon.icns') else None,  # Uses icon.icns if it exists
         'plist': {
             'CFBundleName': APP_NAME,
             'CFBundleDisplayName': APP_NAME,
