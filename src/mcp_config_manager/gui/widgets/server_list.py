@@ -6,9 +6,10 @@ from enum import Enum
 try:
     from PyQt6.QtWidgets import (
         QWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QHBoxLayout,
-        QPushButton, QLabel, QMenu, QHeaderView, QCheckBox
+        QPushButton, QLabel, QMenu, QHeaderView, QCheckBox, QComboBox,
+        QLineEdit, QToolBar
     )
-    from PyQt6.QtCore import Qt, pyqtSignal, QPoint
+    from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer
     from PyQt6.QtGui import QAction, QIcon
     USING_QT = True
 except ImportError:
@@ -29,6 +30,7 @@ class ServerListWidget(QWidget if USING_QT else object):
         servers_bulk_toggled = pyqtSignal(str, bool)  # client, enable_all
         server_added = pyqtSignal(dict)  # server_config
         server_removed = pyqtSignal(str)  # server_name
+        server_promoted = pyqtSignal(str)  # server_name
     
     def __init__(self, parent=None):
         """Initialize the server list widget."""
@@ -37,7 +39,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             self._setup_qt_widget()
         else:
             self._setup_tk_widget(parent)
-        
+
         self.servers: Dict[str, ServerListItem] = {}
         self.selected_server: Optional[str] = None
         self.selected_servers: List[str] = []  # For multi-selection
@@ -47,12 +49,19 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.multi_select_enabled = False
         self.claude_master_state = None  # Track Claude master checkbox state
         self.gemini_master_state = None  # Track Gemini master checkbox state
+        self.filter_location = "All"  # Current location filter
+        self.group_by_location = False  # Whether to group by location
+        self.search_text = ""  # Search filter text
     
     def _setup_qt_widget(self):
         """Set up Qt widget."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
+        # Add filter toolbar
+        self._create_filter_toolbar()
+        layout.addWidget(self.filter_toolbar)
+
         # Tree widget for server list
         self.tree = QTreeWidget()
         # Don't set header labels yet - we'll do it in _setup_master_checkbox
@@ -94,6 +103,8 @@ class ServerListWidget(QWidget if USING_QT else object):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Server name
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(3, 100)  # Status column
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(4, 120)  # Location column
         
         # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
         # may render as solid blue squares instead of proper checkboxes.
@@ -119,7 +130,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             return
 
         # Set header labels initially
-        self.tree.setHeaderLabels(["Claude", "Gemini", "Server", "Status"])
+        self.tree.setHeaderLabels(["Claude", "Gemini", "Server", "Status", "Location"])
 
         # Store reference to header for updating checkbox display
         self.header = self.tree.header()
@@ -129,13 +140,63 @@ class ServerListWidget(QWidget if USING_QT else object):
         # Track master checkbox states
         self.claude_master_state = Qt.CheckState.Unchecked
         self.gemini_master_state = Qt.CheckState.Unchecked
+
+    def _create_filter_toolbar(self):
+        """Create the filter toolbar for Qt."""
+        self.filter_toolbar = QToolBar()
+        self.filter_toolbar.setMovable(False)
+        self.filter_toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: #f0f0f0;
+                border: 1px solid #d0d0d0;
+                padding: 2px;
+            }
+        """)
+
+        # Search box
+        search_label = QLabel("Search: ")
+        self.filter_toolbar.addWidget(search_label)
+
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Filter servers...")
+        self.search_box.setMaximumWidth(200)
+        self.search_box.textChanged.connect(self._apply_filters)
+        self.filter_toolbar.addWidget(self.search_box)
+
+        self.filter_toolbar.addSeparator()
+
+        # Location filter
+        location_label = QLabel("Location: ")
+        self.filter_toolbar.addWidget(location_label)
+
+        self.location_combo = QComboBox()
+        self.location_combo.addItems(["All", "Global", "Project"])
+        self.location_combo.setMaximumWidth(120)
+        self.location_combo.currentTextChanged.connect(self._on_location_filter_changed)
+        self.filter_toolbar.addWidget(self.location_combo)
+
+        self.filter_toolbar.addSeparator()
+
+        # Group by location checkbox
+        self.group_checkbox = QCheckBox("Group by Location")
+        self.group_checkbox.toggled.connect(self._on_group_by_changed)
+        self.filter_toolbar.addWidget(self.group_checkbox)
+
+        # Clear filters button
+        self.filter_toolbar.addSeparator()
+        clear_btn = QPushButton("🗑 Clear")
+        clear_btn.clicked.connect(self._clear_filters)
+        self.filter_toolbar.addWidget(clear_btn)
     
     def _setup_tk_widget(self, parent):
         """Set up tkinter widget."""
         self.frame = ttk.Frame(parent)
-        
+
+        # Add filter toolbar
+        self._create_tk_filter_toolbar()
+
         # Tree view for server list
-        columns = ("claude", "gemini", "server", "status")
+        columns = ("claude", "gemini", "server", "status", "location")
         self.tree = ttk.Treeview(self.frame, columns=columns, show="tree headings")
 
         # Configure columns
@@ -153,12 +214,16 @@ class ServerListWidget(QWidget if USING_QT else object):
 
         self.tree.heading("status", text="Status")
         self.tree.column("status", width=100)
+
+        self.tree.heading("location", text="Location")
+        self.tree.column("location", width=120)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         
-        # Pack tree and scrollbar
+        # Pack filter toolbar, tree and scrollbar
+        self.filter_frame.pack(fill=tk.X, padx=5, pady=2)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
@@ -172,6 +237,40 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.bind("<<TreeviewSelect>>", self._on_selection_changed)
         self.tree.bind("<Button-3>", self._show_tk_context_menu)  # Right-click
         self.tree.bind("<Double-1>", self._on_double_click)
+
+    def _create_tk_filter_toolbar(self):
+        """Create the filter toolbar for tkinter."""
+        self.filter_frame = ttk.Frame(self.frame)
+
+        # Search box
+        ttk.Label(self.filter_frame, text="Search:").pack(side=tk.LEFT, padx=(0, 5))
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace('w', lambda *args: self._apply_filters())
+        search_entry = ttk.Entry(self.filter_frame, textvariable=self.search_var, width=20)
+        search_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Location filter
+        ttk.Label(self.filter_frame, text="Location:").pack(side=tk.LEFT, padx=(0, 5))
+
+        self.location_var = tk.StringVar(value="All")
+        location_combo = ttk.Combobox(self.filter_frame, textvariable=self.location_var,
+                                     values=["All", "Global", "Project"],
+                                     state="readonly", width=10)
+        location_combo.bind('<<ComboboxSelected>>', lambda e: self._apply_filters())
+        location_combo.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Group by location checkbox
+        self.group_var = tk.BooleanVar(value=False)
+        group_check = ttk.Checkbutton(self.filter_frame, text="Group by Location",
+                                     variable=self.group_var,
+                                     command=self._on_group_by_changed_tk)
+        group_check.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Clear filters button
+        clear_btn = ttk.Button(self.filter_frame, text="Clear",
+                             command=self._clear_filters_tk)
+        clear_btn.pack(side=tk.LEFT)
     
     def add_server(self, server: ServerListItem):
         """Add a server to the list."""
@@ -196,6 +295,27 @@ class ServerListWidget(QWidget if USING_QT else object):
             item.setText(2, server.name)
             item.setText(3, str(server.status.value) if hasattr(server.status, 'value') else str(server.status))
 
+            # Set location text and apply visual indicators for project servers
+            location_text = getattr(server, 'location', 'global')
+            is_project = getattr(server, 'is_project_server', False)
+
+            if is_project and location_text != 'global':
+                # Show shortened project path for project servers
+                if '/' in location_text:
+                    # Show just the project folder name
+                    item.setText(4, f"📁 {location_text.split('/')[-1]}")
+                else:
+                    item.setText(4, f"📁 {location_text}")
+                # Set tooltip with full path
+                item.setToolTip(4, f"Project: {location_text}")
+                # Apply project server color (light blue background)
+                from PyQt6.QtGui import QColor
+                item.setBackground(2, QColor(230, 240, 255))  # Light blue for server name
+                item.setBackground(4, QColor(230, 240, 255))  # Light blue for location
+            else:
+                item.setText(4, "Global")
+                item.setToolTip(4, "Global Configuration")
+
             # Store server name in item data
             item.setData(0, Qt.ItemDataRole.UserRole, server.name)
 
@@ -211,8 +331,25 @@ class ServerListWidget(QWidget if USING_QT else object):
             # tkinter implementation
             claude_mark = "✓" if getattr(server, 'claude_enabled', server.status == ServerStatus.ENABLED) else ""
             gemini_mark = "✓" if getattr(server, 'gemini_enabled', server.status == ServerStatus.ENABLED) else ""
-            values = (claude_mark, gemini_mark, server.name, server.status.value)
-            item_id = self.tree.insert("", "end", values=values, tags=(server.status.value.lower(),))
+
+            # Set location text for project servers
+            location_text = getattr(server, 'location', 'global')
+            is_project = getattr(server, 'is_project_server', False)
+
+            if is_project and location_text != 'global':
+                # Show shortened project path for project servers
+                if '/' in location_text:
+                    location_display = f"📁 {location_text.split('/')[-1]}"
+                else:
+                    location_display = f"📁 {location_text}"
+            else:
+                location_display = "Global"
+
+            values = (claude_mark, gemini_mark, server.name, server.status.value, location_display)
+            tags = (server.status.value.lower(),)
+            if is_project:
+                tags = tags + ("project_server",)
+            item_id = self.tree.insert("", "end", values=values, tags=tags)
 
             # Store mapping
             self.servers[server.name] = server
@@ -311,6 +448,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             self.tree.tag_configure("loading", foreground="orange")
             self.tree.tag_configure("disabled", foreground="gray")
             self.tree.tag_configure("enabled", foreground="green")
+            self.tree.tag_configure("project_server", background="#E6F0FF")  # Light blue for project servers
     
     def _on_item_changed(self, item: 'QTreeWidgetItem', column: int):
         """Handle item changed event for checkbox state changes."""
@@ -456,6 +594,13 @@ class ServerListWidget(QWidget if USING_QT else object):
 
         menu.addSeparator()
 
+        # Add "Promote to Global" option for project servers
+        if getattr(server, 'is_project_server', False):
+            promote_action = QAction("🔄 Promote to Global", self)
+            promote_action.triggered.connect(lambda: self._promote_to_global(server_name))
+            menu.addAction(promote_action)
+            menu.addSeparator()
+
         remove_action = QAction("Remove", self)
         remove_action.triggered.connect(lambda: self.remove_server(server_name))
         menu.addAction(remove_action)
@@ -497,8 +642,15 @@ class ServerListWidget(QWidget if USING_QT else object):
         menu.add_command(label="Disable for Both", command=lambda: self._toggle_server(server_name, False, None))
         
         menu.add_separator()
+
+        # Add "Promote to Global" option for project servers
+        server = self.servers.get(server_name)
+        if server and getattr(server, 'is_project_server', False):
+            menu.add_command(label="🔄 Promote to Global", command=lambda: self._promote_to_global(server_name))
+            menu.add_separator()
+
         menu.add_command(label="Remove", command=lambda: self.remove_server(server_name))
-        
+
         menu.post(event.x_root, event.y_root)
     
     def load_servers(self, servers: List[ServerListItem]):
@@ -903,6 +1055,266 @@ class ServerListWidget(QWidget if USING_QT else object):
             if server_name in server_names:
                 # Remove highlight tags
                 self.tree.item(item, tags=())
+
+    def _promote_to_global(self, server_name: str):
+        """Promote a project server to global configuration.
+
+        Args:
+            server_name: Name of the server to promote
+        """
+        if USING_QT:
+            self.server_promoted.emit(server_name)
+
+        # Notify callbacks
+        for callback in self._toggle_callbacks:
+            try:
+                callback(server_name, 'promote', True)
+            except TypeError:
+                # Old-style callback without client parameter
+                pass
+
+    def _apply_filters(self):
+        """Apply search and location filters to the server list."""
+        if USING_QT:
+            search_text = self.search_box.text().lower()
+            location_filter = self.location_combo.currentText()
+        else:
+            search_text = self.search_var.get().lower()
+            location_filter = self.location_var.get()
+
+        self.search_text = search_text
+        self.filter_location = location_filter
+
+        # Apply filters
+        for i in range(self.tree.topLevelItemCount() if USING_QT else len(self.tree.get_children())):
+            if USING_QT:
+                item = self.tree.topLevelItem(i)
+                # Skip group headers when filtering
+                if item.childCount() > 0:
+                    continue
+                server_name = item.text(2).lower()
+                location = item.text(4)
+            else:
+                children = self.tree.get_children()
+                if i >= len(children):
+                    break
+                item_id = children[i]
+                # Skip group headers
+                if self.tree.get_children(item_id):
+                    continue
+                values = self.tree.item(item_id, 'values')
+                server_name = values[2].lower() if len(values) > 2 else ""
+                location = values[4] if len(values) > 4 else "Global"
+
+            # Check search filter
+            show = True
+            if search_text and search_text not in server_name:
+                show = False
+
+            # Check location filter
+            if show and location_filter != "All":
+                if location_filter == "Global" and location != "Global":
+                    show = False
+                elif location_filter == "Project" and location == "Global":
+                    show = False
+
+            # Show/hide item
+            if USING_QT:
+                item.setHidden(not show)
+            else:
+                # For tkinter, we need to be more careful with detach/reattach
+                try:
+                    if show and item_id not in self.tree.get_children():
+                        self.tree.reattach(item_id, '', 'end')
+                    elif not show and item_id in self.tree.get_children():
+                        self.tree.detach(item_id)
+                except:
+                    pass
+
+        self.update_status_count()
+
+    def _on_location_filter_changed(self, location: str):
+        """Handle location filter change."""
+        self._apply_filters()
+
+    def _on_group_by_changed(self, checked: bool):
+        """Handle group by location change for Qt."""
+        self.group_by_location = checked
+        self._reorganize_by_location()
+
+    def _on_group_by_changed_tk(self):
+        """Handle group by location change for tkinter."""
+        self.group_by_location = self.group_var.get()
+        self._reorganize_by_location()
+
+    def _reorganize_by_location(self):
+        """Reorganize servers by location (group or ungroup)."""
+        if self.group_by_location:
+            # Group servers by location
+            self._group_servers_by_location()
+        else:
+            # Ungroup servers (flat list)
+            self._ungroup_servers()
+
+    def _group_servers_by_location(self):
+        """Group servers by their location."""
+        if USING_QT:
+            # Collect all items
+            items_to_group = []
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.takeTopLevelItem(0)
+                items_to_group.append(item)
+
+            # Create location groups
+            global_group = QTreeWidgetItem(["", "", "📂 Global Servers", "", ""])
+            global_group.setExpanded(True)
+
+            # Make group headers bold
+            from PyQt6.QtGui import QFont
+            font = QFont()
+            font.setBold(True)
+            for col in range(5):
+                global_group.setFont(col, font)
+
+            self.tree.addTopLevelItem(global_group)
+
+            project_groups = {}
+
+            # Add servers to groups
+            for item in items_to_group:
+                location = item.text(4)
+                if location == "Global":
+                    global_group.addChild(item)
+                else:
+                    # Project server
+                    if location not in project_groups:
+                        project_group = QTreeWidgetItem(["", "", f"📂 {location}", "", ""])
+                        project_group.setExpanded(True)
+                        for col in range(5):
+                            project_group.setFont(col, font)
+                        self.tree.addTopLevelItem(project_group)
+                        project_groups[location] = project_group
+                    project_groups[location].addChild(item)
+        else:
+            # Tkinter version
+            # Store all items
+            items = []
+            for child in self.tree.get_children():
+                values = self.tree.item(child, 'values')
+                items.append(values)
+                self.tree.delete(child)
+
+            # Create groups
+            global_group = self.tree.insert('', 'end', text="📂 Global Servers", values=("", "", "Global Servers", "", ""), open=True)
+            project_groups = {}
+
+            # Re-add items to groups
+            for values in items:
+                if not values or len(values) < 3 or not values[2]:  # Skip empty items
+                    continue
+                location = values[4] if len(values) > 4 else "Global"
+                if location == "Global":
+                    self.tree.insert(global_group, 'end', values=values)
+                else:
+                    if location not in project_groups:
+                        project_group = self.tree.insert('', 'end', text=f"📂 {location}", values=("", "", location, "", ""), open=True)
+                        project_groups[location] = project_group
+                    self.tree.insert(project_groups[location], 'end', values=values)
+
+    def _ungroup_servers(self):
+        """Restore flat server list (remove grouping)."""
+        if USING_QT:
+            # Collect all child items from groups
+            all_items = []
+            for i in range(self.tree.topLevelItemCount()):
+                group_item = self.tree.topLevelItem(i)
+                if group_item.childCount() > 0:
+                    # This is a group
+                    while group_item.childCount() > 0:
+                        child = group_item.takeChild(0)
+                        all_items.append(child)
+
+            # Clear and re-add items
+            self.tree.clear()
+            for item in all_items:
+                self.tree.addTopLevelItem(item)
+
+            # Recreate header after clear
+            self._setup_master_checkbox()
+        else:
+            # Tkinter version
+            # Collect all items from groups
+            all_items = []
+            for group in self.tree.get_children():
+                children = self.tree.get_children(group)
+                if children:
+                    # This is a group
+                    for child in children:
+                        values = self.tree.item(child, 'values')
+                        all_items.append(values)
+
+            # Clear and re-add
+            self.tree.delete(*self.tree.get_children())
+            for values in all_items:
+                if values and len(values) > 2 and values[2]:  # Has valid server name
+                    self.tree.insert('', 'end', values=values)
+
+    def _clear_filters(self):
+        """Clear all filters for Qt."""
+        self.search_box.clear()
+        self.location_combo.setCurrentText("All")
+        self.group_checkbox.setChecked(False)
+        self._apply_filters()
+
+    def _clear_filters_tk(self):
+        """Clear all filters for tkinter."""
+        self.search_var.set("")
+        self.location_var.set("All")
+        self.group_var.set(False)
+        self._apply_filters()
+
+    def get_location_stats(self) -> Dict[str, int]:
+        """Get count of servers by location."""
+        stats = {"Global": 0, "Project": 0}
+
+        if USING_QT:
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                if item.childCount() == 0:  # Not a group
+                    location = item.text(4)
+                    if location == "Global":
+                        stats["Global"] += 1
+                    else:
+                        stats["Project"] += 1
+                else:  # It's a group, count children
+                    for j in range(item.childCount()):
+                        child = item.child(j)
+                        location = child.text(4)
+                        if location == "Global":
+                            stats["Global"] += 1
+                        else:
+                            stats["Project"] += 1
+        else:
+            for child in self.tree.get_children():
+                children = self.tree.get_children(child)
+                if children:  # It's a group
+                    for subchild in children:
+                        values = self.tree.item(subchild, 'values')
+                        location = values[4] if len(values) > 4 else "Global"
+                        if location == "Global":
+                            stats["Global"] += 1
+                        else:
+                            stats["Project"] += 1
+                else:  # Regular item
+                    values = self.tree.item(child, 'values')
+                    if values and len(values) > 2 and values[2]:  # Has server name
+                        location = values[4] if len(values) > 4 else "Global"
+                        if location == "Global":
+                            stats["Global"] += 1
+                        else:
+                            stats["Project"] += 1
+
+        return stats
 
     def _remove_servers(self, server_names: List[str]):
         """Remove servers from the list after flash animation.

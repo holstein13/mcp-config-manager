@@ -84,6 +84,8 @@ class ServerListItem:
     source_mode: Optional[str] = None  # "claude", "gemini", "both"
     last_modified: Optional[str] = None
     version: Optional[str] = None
+    location: Optional[str] = None  # "global" or project path
+    is_project_server: bool = False  # True if from project-specific config
     
     # Runtime info
     is_running: bool = False

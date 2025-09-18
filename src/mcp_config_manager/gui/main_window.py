@@ -293,7 +293,14 @@ class MainWindow(QMainWindow if USING_QT else object):
         tools_menu.addAction(self.restore_action)
         
         tools_menu.addSeparator()
-        
+
+        self.discover_servers_action = QAction("&Discover Project Servers...", self)
+        self.discover_servers_action.setShortcut(QKeySequence("Ctrl+D"))
+        self.discover_servers_action.triggered.connect(self.discover_project_servers)
+        tools_menu.addAction(self.discover_servers_action)
+
+        tools_menu.addSeparator()
+
         self.validate_action = QAction("&Validate Configuration", self)
         self.validate_action.triggered.connect(self.validate_configuration)
         tools_menu.addAction(self.validate_action)
@@ -339,6 +346,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         menubar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Backup Configuration", command=self.backup_configuration)
         tools_menu.add_command(label="Restore Configuration...", command=self.restore_configuration)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="Discover Project Servers...", command=self.discover_project_servers, accelerator="Ctrl+D")
         tools_menu.add_separator()
         tools_menu.add_command(label="Validate Configuration", command=self.validate_configuration)
         
@@ -431,7 +440,16 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.toolbar.addWidget(delete_btn)
         
         self.toolbar.addSeparator()
-        
+
+        # Discover Project Servers button
+        discover_btn = QPushButton("🔍 Discover")
+        discover_btn.clicked.connect(self.discover_project_servers)
+        discover_btn.setStyleSheet(button_style)
+        discover_btn.setToolTip("Discover project-specific MCP servers (Ctrl+D)")
+        self.toolbar.addWidget(discover_btn)
+
+        self.toolbar.addSeparator()
+
         # Tertiary action - Validate
         validate_btn = QPushButton("✓ Validate")
         validate_btn.clicked.connect(self.validate_configuration)
@@ -481,7 +499,12 @@ class MainWindow(QMainWindow if USING_QT else object):
         ttk.Button(toolbar, text="Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
         
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        
+
+        # Discover servers button
+        ttk.Button(toolbar, text="Discover", command=self.discover_project_servers).pack(side=tk.LEFT, padx=2)
+
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
         # Tertiary action
         ttk.Button(toolbar, text="Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
     
@@ -676,6 +699,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                 self.server_list.server_toggled.connect(self._on_server_toggled)
                 self.server_list.server_selected.connect(self._on_server_selected)
                 self.server_list.servers_bulk_toggled.connect(self._handle_servers_bulk_toggled)
+                self.server_list.server_promoted.connect(self._on_server_promoted)
             else:
                 # For tkinter callbacks
                 self.server_list._toggle_callbacks.append(self._on_server_toggled)
@@ -810,8 +834,41 @@ class MainWindow(QMainWindow if USING_QT else object):
         else:
             self.set_status_message(f"Failed to delete server: {result.get('error', 'Unknown error')}", timeout=5)
     
+    def _on_server_promoted(self, server_name: str):
+        """Handle server promotion from project to global.
+
+        Args:
+            server_name: Name of the server to promote
+        """
+        try:
+            # Get the server's current location info
+            if hasattr(self, 'server_list') and self.server_list:
+                server_item = self.server_list.servers.get(server_name)
+                if server_item and getattr(server_item, 'is_project_server', False):
+                    project_path = getattr(server_item, 'location', None)
+
+                    # Call server manager to promote the server
+                    result = self.server_controller.server_manager.promote_project_server(
+                        server_name,
+                        project_path,
+                        remove_from_project=True
+                    )
+
+                    if result.get('success', False):
+                        # Refresh the server list to show updated location
+                        self.refresh_server_list(force_reload=True)
+                        self.set_unsaved_changes(True)
+                        self.set_status_message(f"✅ Server '{server_name}' promoted to global configuration", timeout=5000)
+                    else:
+                        error = result.get('error', 'Unknown error')
+                        self.set_status_message(f"❌ Failed to promote server: {error}", timeout=5000)
+                else:
+                    self.set_status_message(f"⚠️ Server '{server_name}' is already global", timeout=3000)
+        except Exception as e:
+            self.set_status_message(f"❌ Error promoting server: {str(e)}", timeout=5000)
+
     # Mode change handler removed - no longer needed with per-client operations
-    
+
     # Dispatcher event handlers
     def _handle_config_loaded(self, event: Event):
         """Handle configuration loaded event."""
@@ -917,6 +974,17 @@ class MainWindow(QMainWindow if USING_QT else object):
                 servers = result['data']['servers']
                 print(f"DEBUG: Got {len(servers)} servers")
                 self.server_list.load_servers(servers)
+
+                # Count project servers for status display
+                project_count = sum(1 for s in servers if getattr(s, 'is_project_server', False))
+                global_count = len(servers) - project_count
+
+                # Update status message to show project server count if any exist
+                if project_count > 0:
+                    status_msg = f"✅ {len(servers)} servers loaded ({global_count} global, {project_count} project)"
+                else:
+                    status_msg = f"✅ {len(servers)} servers loaded"
+                self.set_status_message(status_msg, timeout=5000)
             else:
                 print(f"DEBUG: get_servers failed: {result.get('error', 'Unknown error')}")
         else:
@@ -1602,6 +1670,33 @@ Help:
                               "A cross-platform utility for managing Model Context Protocol servers.\n\n"
                               "Version 1.0.0")
     
+    def discover_project_servers(self):
+        """Open the project server discovery dialog."""
+        try:
+            from .dialogs.discover_servers_dialog import DiscoverServersDialog
+
+            if USING_QT:
+                dialog = DiscoverServersDialog(self, self.server_controller)
+                result = dialog.exec()
+
+                if result:
+                    # Refresh the server list to show newly promoted servers
+                    self.refresh_server_list(force_reload=True)
+                    self.set_status_message("✅ Project servers discovered and promoted", timeout=5000)
+            else:
+                # Tkinter version
+                dialog = DiscoverServersDialog(self.root, self.server_controller)
+                dialog.show()
+
+                # After dialog closes, refresh the server list
+                self.refresh_server_list(force_reload=True)
+
+        except ImportError:
+            # Dialog not available yet
+            self.set_status_message("⚠️ Project discovery feature coming soon", timeout=3000)
+        except Exception as e:
+            self.set_status_message(f"❌ Error discovering servers: {str(e)}", timeout=5000)
+
     def closeEvent(self, event):
         """Handle window close event (Qt)."""
         if self._unsaved_changes:
