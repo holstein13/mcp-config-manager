@@ -75,7 +75,7 @@ FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
 mkdir -p "$FEATURE_DIR"
 
 # Copy template if it exists
-TEMPLATE="$REPO_ROOT/templates/spec-template.md"
+TEMPLATE="$REPO_ROOT/documentation/templates/spec-template.md"
 SPEC_FILE="$FEATURE_DIR/spec.md"
 
 if [ -f "$TEMPLATE" ]; then

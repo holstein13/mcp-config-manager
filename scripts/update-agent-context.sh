@@ -47,10 +47,10 @@ update_agent_file() {
         echo "Creating new $agent_name context file..."
         
         # Check if this is the SDD repo itself
-        if [ -f "$REPO_ROOT/templates/agent-file-template.md" ]; then
-            cp "$REPO_ROOT/templates/agent-file-template.md" "$temp_file"
+        if [ -f "$REPO_ROOT/documentation/templates/agent-file-template.md" ]; then
+            cp "$REPO_ROOT/documentation/templates/agent-file-template.md" "$temp_file"
         else
-            echo "ERROR: Template not found at $REPO_ROOT/templates/agent-file-template.md"
+            echo "ERROR: Template not found at $REPO_ROOT/documentation/templates/agent-file-template.md"
             return 1
         fi
         
