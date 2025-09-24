@@ -340,7 +340,7 @@ The following new functions have been added across recent commits:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mcp-config-manager.git
+git clone hhttps://github.com/holstein13/mcp-config-manager
 cd mcp-config-manager
 
 # Set up development environment
