@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MCP Config Manager - One-Click Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash
 
 set -e
 
@@ -16,7 +16,7 @@ WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
 # Installation settings
-REPO_URL="https://github.com/yourusername/mcp-config-manager.git"
+REPO_URL="https://github.com/holstein13/mcp-config-manager.git"
 APP_NAME="mcp-config-manager"
 DEFAULT_INSTALL_DIR="$HOME/bin"
 VENV_NAME="venv"
@@ -266,7 +266,7 @@ VENV_PATH="\$INSTALL_DIR/$VENV_NAME"
 # Check if installation exists
 if [ ! -d "\$INSTALL_DIR" ]; then
     echo "❌ MCP Config Manager installation not found at \$INSTALL_DIR"
-    echo "   Please reinstall using: curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash"
+    echo "   Please reinstall using: curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash"
     exit 1
 fi
 
@@ -309,7 +309,7 @@ case "\$1" in
         # Check if we have git repository
         if [ -d ".git" ]; then
             # Save current branch/state
-            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "main")
+            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "master")
 
             # Fetch latest changes
             echo "📡 Checking for updates..."
@@ -336,7 +336,7 @@ case "\$1" in
             TARGET_BRANCH="\$CURRENT_BRANCH"
             case "\$UPDATE_CHANNEL" in
                 "stable")
-                    TARGET_BRANCH="main"
+                    TARGET_BRANCH="master"
                     ;;
                 "beta")
                     TARGET_BRANCH="beta"
@@ -371,7 +371,7 @@ case "\$1" in
         else
             echo "❌ Cannot update: Installation not git-enabled"
             echo "💡 Re-run the installer to get the latest version:"
-            echo "   curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash"
+            echo "   curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash"
         fi
         exit 0
         ;;
@@ -397,13 +397,13 @@ case "\$1" in
         fi
 
         if [ -d ".git" ]; then
-            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "main")
+            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "master")
             echo "🌿 Current branch: \$CURRENT_BRANCH"
 
             # Determine target branch
             TARGET_BRANCH="\$CURRENT_BRANCH"
             case "\$UPDATE_CHANNEL" in
-                "stable") TARGET_BRANCH="main" ;;
+                "stable") TARGET_BRANCH="master" ;;
                 "beta") TARGET_BRANCH="beta" ;;
                 "dev") TARGET_BRANCH="develop" ;;
             esac
@@ -763,8 +763,8 @@ print_final_instructions() {
     echo -e "  ⚡ Faster startup and better error handling"
     echo ""
     echo -e "${WHITE}Need Help?${NC}"
-    echo -e "  📖 Documentation: https://github.com/yourusername/mcp-config-manager"
-    echo -e "  🐛 Report Issues: https://github.com/yourusername/mcp-config-manager/issues"
+    echo -e "  📖 Documentation: https://github.com/holstein13/mcp-config-manager"
+    echo -e "  🐛 Report Issues: https://github.com/holstein13/mcp-config-manager/issues"
     echo ""
     echo -e "${WHITE}Uninstall:${NC}"
     echo -e "  Run: ${CYAN}$INSTALL_DIR/mcp uninstall${NC}"

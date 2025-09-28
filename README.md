@@ -53,7 +53,7 @@ The graphical interface is complete and working with all major features operatio
 **One-command installation:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash
 ```
 
 The installer will:
@@ -97,7 +97,7 @@ mcp uninstall
 
 ### Clone and Install
 ```bash
-git clone https://github.com/yourusername/mcp-config-manager.git
+git clone https://github.com/holstein13/mcp-config-manager.git
 cd mcp-config-manager
 pip install -e .
 
