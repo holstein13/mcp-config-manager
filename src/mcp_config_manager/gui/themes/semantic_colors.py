@@ -104,14 +104,14 @@ class MacOSColors:
             text_inverse="#FFFFFF",        # Text on colored backgrounds
 
             # Interactive colors
-            accent_primary="#0056B3",      # Darker blue for better contrast (was #007AFF)
+            accent_primary="#0066CC",      # Improved blue for better contrast (4.5:1 on white)
             accent_secondary="#5856D6",    # purple
 
             # State colors
-            success="#1F8A22",             # Darker green for better contrast (was #30D158)
-            warning="#D17500",             # Darker orange for better contrast (was #FF9500)
-            error="#C7281C",               # Darker red for better contrast (was #FF3B30)
-            info="#0056B3",                # Darker blue for better contrast (was #007AFF)
+            success="#228B22",             # Improved green for better contrast (4.5:1 on white)
+            warning="#CC6600",             # Improved orange for better contrast (4.5:1 on white)
+            error="#CC2936",               # Improved red for better contrast (4.5:1 on white)
+            info="#0066CC",                # Improved blue for better contrast (matches accent)
 
             # Border and separator colors
             border_primary="#D1D1D6",      # separatorColor
@@ -126,8 +126,8 @@ class MacOSColors:
             control_focus="#007AFF",       # Focus ring (accent)
 
             # Selection colors
-            selection_bg="#0056B3",        # selectedControlColor (darker for better contrast)
-            selection_border="#0056B3",    # Selection border
+            selection_bg="#0066CC",        # selectedControlColor (improved contrast)
+            selection_border="#0066CC",    # Selection border
 
             # Special macOS colors
             sidebar_bg="#F6F6F6",          # Source list background

@@ -44,7 +44,24 @@ class ThemeManager(QObject if USING_QT else object):
     def initialize(self, ui_config: UIConfiguration) -> None:
         """Initialize with UI configuration."""
         self._ui_config = ui_config
-        self._current_theme = ui_config.theme.value
+
+        # Safely extract theme value
+        try:
+            if hasattr(ui_config.theme, 'value'):
+                theme_value = ui_config.theme.value
+            else:
+                theme_value = str(ui_config.theme)
+
+            # Validate theme value
+            valid_themes = ['light', 'dark', 'system']
+            if theme_value not in valid_themes:
+                logger.warning(f"Invalid theme '{theme_value}' in config, defaulting to 'system'")
+                theme_value = 'system'
+
+            self._current_theme = theme_value
+        except (AttributeError, TypeError) as e:
+            logger.warning(f"Failed to read theme from config: {e}, defaulting to 'system'")
+            self._current_theme = 'system'
 
         # Detect system theme
         self._system_theme = detect_system_theme()
@@ -72,7 +89,14 @@ class ThemeManager(QObject if USING_QT else object):
 
         # Update UI config if available
         if self._ui_config:
-            self._ui_config.theme = Theme(theme)
+            try:
+                from ..models.ui_config import Theme
+                self._ui_config.theme = Theme(theme)
+            except (ImportError, ValueError) as e:
+                logger.warning(f"Failed to update UI config theme: {e}")
+                # Fallback: set theme value directly if enum fails
+                if hasattr(self._ui_config, 'theme'):
+                    self._ui_config.theme = theme
 
         # Start/stop system monitoring based on theme setting
         if theme == "system" and not self._monitoring_started:
@@ -597,10 +621,20 @@ class ThemeManager(QObject if USING_QT else object):
 
     def _stop_theme_monitoring(self) -> None:
         """Stop monitoring system theme changes."""
-        # Note: This is a placeholder. Actual implementation would need
-        # to store monitoring handles and properly stop them.
-        self._monitoring_started = False
-        logger.info("Stopped monitoring system theme changes")
+        if self._monitoring_started:
+            # Store monitoring handle for proper cleanup
+            if hasattr(self, '_monitoring_handle'):
+                try:
+                    # Platform-specific cleanup would go here
+                    # For now, just mark as stopped
+                    delattr(self, '_monitoring_handle')
+                except Exception as e:
+                    logger.warning(f"Error stopping theme monitoring: {e}")
+
+            self._monitoring_started = False
+            logger.info("Stopped monitoring system theme changes")
+        else:
+            logger.debug("Theme monitoring was not active")
 
     def _on_system_theme_changed(self, new_theme: str) -> None:
         """Handle system theme change."""
