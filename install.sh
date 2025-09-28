@@ -220,7 +220,94 @@ fi
 # Change to app directory
 cd "\$INSTALL_DIR"
 
-# Run the application with passed arguments
+# Handle special commands first
+case "\$1" in
+    update|upgrade)
+        echo "🔄 Updating MCP Config Manager..."
+        cd "\$INSTALL_DIR"
+
+        # Check if we have git repository
+        if [ -d ".git" ]; then
+            # Save current branch/state
+            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "main")
+
+            # Fetch latest changes
+            echo "📡 Checking for updates..."
+            git fetch origin
+
+            # Check if updates are available
+            LOCAL=\$(git rev-parse HEAD)
+            REMOTE=\$(git rev-parse origin/\$CURRENT_BRANCH)
+
+            if [ "\$LOCAL" = "\$REMOTE" ]; then
+                echo "✅ Already up to date!"
+                exit 0
+            fi
+
+            echo "📦 Updates available! Installing..."
+
+            # Backup current installation
+            cp -r "\$INSTALL_DIR" "\$INSTALL_DIR.backup.\$(date +%Y%m%d_%H%M%S)"
+
+            # Update repository
+            git pull origin \$CURRENT_BRANCH
+
+            # Reinstall dependencies
+            source "\$VENV_PATH/bin/activate"
+            pip install --quiet --upgrade pip
+            pip install --quiet -e .
+
+            # Try to update PyQt6
+            pip install --quiet --upgrade PyQt6 2>/dev/null || true
+
+            echo "✅ Update completed successfully!"
+            echo "💡 Run 'mcp --version' to see the new version"
+        else
+            echo "❌ Cannot update: Installation not git-enabled"
+            echo "💡 Re-run the installer to get the latest version:"
+            echo "   curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash"
+        fi
+        exit 0
+        ;;
+    uninstall)
+        exec "\$INSTALL_DIR/uninstall.sh"
+        ;;
+    --version|-v)
+        cd "\$INSTALL_DIR"
+        source "\$VENV_PATH/bin/activate"
+        python -c "import mcp_config_manager; print(f'MCP Config Manager v{mcp_config_manager.__version__}')" 2>/dev/null || echo "MCP Config Manager (version unknown)"
+        exit 0
+        ;;
+    --help|-h|help)
+        echo "MCP Config Manager - AI CLI Configuration Management"
+        echo ""
+        echo "Usage: mcp [command] [options]"
+        echo ""
+        echo "Commands:"
+        echo "  gui              Launch GUI interface (default)"
+        echo "  interactive      Launch interactive CLI mode"
+        echo "  status          Show configuration status"
+        echo "  update          Update to latest version"
+        echo "  uninstall       Remove MCP Config Manager"
+        echo "  --version       Show version information"
+        echo "  --help          Show this help message"
+        echo ""
+        echo "Examples:"
+        echo "  mcp             # Launch GUI (default)"
+        echo "  mcp gui         # Launch GUI explicitly"
+        echo "  mcp interactive # Launch CLI mode"
+        echo "  mcp status      # Show status"
+        echo "  mcp update      # Update application"
+        echo ""
+        exit 0
+        ;;
+    "")
+        # No arguments provided - default to GUI
+        set -- gui
+        ;;
+esac
+
+# Run the application with arguments
 exec mcp-config-manager "\$@"
 EOF
 
@@ -364,16 +451,17 @@ print_final_instructions() {
     echo -e "${WHITE}Quick Start:${NC}"
 
     if command_exists mcp 2>/dev/null || [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
-        echo -e "  ${GREEN}mcp gui${NC}          # Launch GUI interface"
+        echo -e "  ${GREEN}mcp${NC}              # Launch GUI interface (default)"
         echo -e "  ${GREEN}mcp interactive${NC}  # Launch interactive CLI"
         echo -e "  ${GREEN}mcp status${NC}       # Show configuration status"
+        echo -e "  ${GREEN}mcp update${NC}       # Update to latest version"
         echo -e "  ${GREEN}mcp --help${NC}       # Show all commands"
         echo ""
         echo -e "  ${GREEN}mcp-gui${NC}          # Quick alias for GUI mode"
     else
-        echo -e "  ${GREEN}$INSTALL_DIR/mcp gui${NC}          # Launch GUI interface"
+        echo -e "  ${GREEN}$INSTALL_DIR/mcp${NC}              # Launch GUI interface (default)"
         echo -e "  ${GREEN}$INSTALL_DIR/mcp interactive${NC}  # Launch interactive CLI"
-        echo -e "  ${GREEN}$INSTALL_DIR/mcp status${NC}       # Show configuration status"
+        echo -e "  ${GREEN}$INSTALL_DIR/mcp update${NC}       # Update to latest version"
         echo ""
         echo -e "${YELLOW}💡 Restart your terminal or run:${NC} source ~/.bashrc"
         echo -e "   ${YELLOW}Then you can use 'mcp' command directly${NC}"
