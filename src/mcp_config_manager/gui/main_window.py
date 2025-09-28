@@ -150,8 +150,11 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _setup_qt_window(self):
         """Set up Qt window properties."""
         self.setWindowTitle("MCP Config Manager")
-        self.setGeometry(100, 100, 1000, 700)
-        
+
+        # Set larger default size and minimum size for better usability
+        self.setGeometry(100, 100, 1400, 900)
+        self.setMinimumSize(1200, 800)
+
         # Ensure window gets focus and comes to front
         self.raise_()
         self.activateWindow()
@@ -160,7 +163,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         """Set up tkinter window properties."""
         self.root = tk.Tk()
         self.root.title("MCP Config Manager")
-        self.root.geometry("1000x700+100+100")
+        self.root.geometry("1400x900+100+100")
+        self.root.minsize(1200, 800)
     
     def _setup_ui(self):
         """Set up the main UI layout."""
