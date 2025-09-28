@@ -170,6 +170,19 @@ class MainWindow(QMainWindow if USING_QT else object):
         try:
             from .themes import get_theme_manager
             self.theme_manager = get_theme_manager()
+
+            # Fix: Properly validate and extract theme value
+            if hasattr(self.ui_config.theme, 'value'):
+                theme_value = self.ui_config.theme.value
+            else:
+                theme_value = str(self.ui_config.theme)
+
+            # Validate theme value
+            valid_themes = ['light', 'dark', 'system']
+            if theme_value not in valid_themes:
+                logging.warning(f"Invalid theme '{theme_value}', defaulting to 'system'")
+                theme_value = 'system'
+
             self.theme_manager.initialize(self.ui_config)
 
             # Register for theme changes
@@ -183,6 +196,9 @@ class MainWindow(QMainWindow if USING_QT else object):
 
         except ImportError as e:
             logging.warning(f"Theme system not available: {e}")
+            self.theme_manager = None
+        except Exception as e:
+            logging.error(f"Failed to initialize theme system: {e}")
             self.theme_manager = None
 
     def _apply_theme_stylesheet(self):
@@ -201,6 +217,9 @@ class MainWindow(QMainWindow if USING_QT else object):
             # Update toolbar button styles with new colors
             if hasattr(self, 'toolbar'):
                 self._update_toolbar_theme(colors)
+        else:
+            # Basic tkinter theme support
+            self._apply_tkinter_theme(colors)
 
     def _update_toolbar_theme(self, colors):
         """Update toolbar button styles with new theme colors."""
@@ -232,6 +251,66 @@ class MainWindow(QMainWindow if USING_QT else object):
         for widget in self.toolbar.children():
             if isinstance(widget, QPushButton):
                 widget.setStyleSheet(button_style)
+
+    def _apply_tkinter_theme(self, colors):
+        """Apply basic theme colors to tkinter widgets."""
+        if not USING_QT and hasattr(self, 'root'):
+            try:
+                # Convert colors dict to accessible format
+                color_dict = colors.to_dict() if hasattr(colors, 'to_dict') else colors
+
+                # Apply basic colors to root window
+                self.root.configure(
+                    bg=color_dict.get('bg_primary', '#FFFFFF'),
+                    fg=color_dict.get('text_primary', '#000000')
+                )
+
+                # Update all child widgets with basic theming
+                self._update_tkinter_widgets(self.root, color_dict)
+
+                logging.debug("Applied basic tkinter theme")
+            except Exception as e:
+                logging.warning(f"Failed to apply tkinter theme: {e}")
+
+    def _update_tkinter_widgets(self, parent, colors):
+        """Recursively update tkinter widgets with theme colors."""
+        try:
+            import tkinter as tk
+            for child in parent.winfo_children():
+                widget_class = child.winfo_class()
+
+                # Apply basic colors based on widget type
+                if widget_class in ['Frame', 'Toplevel']:
+                    child.configure(bg=colors.get('bg_secondary', '#F6F6F6'))
+                elif widget_class in ['Label']:
+                    child.configure(
+                        bg=colors.get('bg_primary', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000')
+                    )
+                elif widget_class in ['Button']:
+                    child.configure(
+                        bg=colors.get('control_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        activebackground=colors.get('control_hover', '#E5E5EA')
+                    )
+                elif widget_class in ['Entry', 'Text']:
+                    child.configure(
+                        bg=colors.get('control_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        insertbackground=colors.get('text_primary', '#000000')
+                    )
+                elif widget_class in ['Listbox']:
+                    child.configure(
+                        bg=colors.get('list_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        selectbackground=colors.get('selection_bg', '#0056B3'),
+                        selectforeground=colors.get('text_inverse', '#FFFFFF')
+                    )
+
+                # Recursively update children
+                self._update_tkinter_widgets(child, colors)
+        except Exception as e:
+            logging.debug(f"Error updating tkinter widget: {e}")
 
     def _setup_ui(self):
         """Set up the main UI layout."""

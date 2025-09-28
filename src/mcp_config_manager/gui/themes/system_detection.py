@@ -55,14 +55,14 @@ def _detect_macos_theme() -> str:
         import subprocess
         result = subprocess.run([
             "defaults", "read", "-g", "AppleInterfaceStyle"
-        ], capture_output=True, text=True)
+        ], capture_output=True, text=True, timeout=5)
 
         if result.returncode == 0 and "Dark" in result.stdout:
             return "dark"
         else:
             return "light"
 
-    except (FileNotFoundError, subprocess.SubprocessError, Exception):
+    except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired, Exception):
         # Fallback: try checking NSUserDefaults if available
         try:
             import objc
@@ -110,7 +110,7 @@ def _detect_linux_theme() -> str:
         import subprocess
         result = subprocess.run([
             "gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"
-        ], capture_output=True, text=True)
+        ], capture_output=True, text=True, timeout=5)
 
         if result.returncode == 0:
             theme_name = result.stdout.strip().lower()
@@ -122,7 +122,7 @@ def _detect_linux_theme() -> str:
         # Method 2: Check KDE theme
         result = subprocess.run([
             "kreadconfig5", "--group", "Colors:Window", "--key", "BackgroundNormal"
-        ], capture_output=True, text=True)
+        ], capture_output=True, text=True, timeout=5)
 
         if result.returncode == 0:
             # Parse color value and check if it's dark
@@ -141,7 +141,7 @@ def _detect_linux_theme() -> str:
             bg_color = palette.color(QPalette.ColorRole.Window)
             return "dark" if bg_color.lightness() < 128 else "light"
 
-    except (FileNotFoundError, subprocess.SubprocessError, ImportError):
+    except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired, ImportError):
         pass
 
     return "unknown"
