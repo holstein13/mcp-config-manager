@@ -194,40 +194,19 @@ create_update_config() {
 
     UPDATE_CONFIG="$APP_DIR/.mcp_update_config"
 
-    # Detect environment type
-    DETECTED_ENV="standard"
+    # Simple environment detection - just check for CI
     if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$JENKINS_URL" ]; then
-        DETECTED_ENV="ci"
-    elif [ -d "/etc/kubernetes" ] || [ -n "$KUBERNETES_SERVICE_HOST" ]; then
-        DETECTED_ENV="enterprise"
-    elif [ -f "/.dockerenv" ] || [ -n "$DOCKER_CONTAINER" ]; then
-        DETECTED_ENV="container"
-    elif [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_CLIENT" ]; then
-        DETECTED_ENV="remote"
+        DEFAULT_UPDATES="false"
+        DEFAULT_AUTO_CHECK="false"
+        print_info "Detected CI environment - updates disabled by default"
+    else
+        DEFAULT_UPDATES="true"
+        DEFAULT_AUTO_CHECK="true"
     fi
-
-    # Set defaults based on environment
-    case "$DETECTED_ENV" in
-        "ci"|"enterprise"|"container")
-            DEFAULT_UPDATES="false"
-            DEFAULT_AUTO_CHECK="false"
-            print_info "Detected $DETECTED_ENV environment - updates disabled by default"
-            ;;
-        "remote")
-            DEFAULT_UPDATES="true"
-            DEFAULT_AUTO_CHECK="false"
-            print_info "Detected remote environment - auto-check disabled by default"
-            ;;
-        *)
-            DEFAULT_UPDATES="true"
-            DEFAULT_AUTO_CHECK="true"
-            ;;
-    esac
 
     cat > "$UPDATE_CONFIG" << EOF
 # MCP Config Manager Update Configuration
 # Generated on $(date)
-# Detected environment: $DETECTED_ENV
 
 # Enable/disable updates completely
 UPDATES_ENABLED=$DEFAULT_UPDATES
@@ -237,14 +216,11 @@ AUTO_CHECK_UPDATES=$DEFAULT_AUTO_CHECK
 
 # Update channel: stable, beta, dev
 UPDATE_CHANNEL="stable"
-
-# Environment detection (informational)
-DETECTED_ENVIRONMENT="$DETECTED_ENV"
 EOF
 
-    print_success "Update configuration created with environment-specific defaults"
+    print_success "Update configuration created"
     if [ "$DEFAULT_UPDATES" = "false" ]; then
-        print_warning "Updates are disabled by default in this environment"
+        print_warning "Updates are disabled by default in CI environment"
         print_info "To enable: mcp config set updates.enabled true"
     fi
 }
@@ -434,7 +410,7 @@ case "\$1" in
     uninstall)
         exec "\$INSTALL_DIR/uninstall.sh"
         ;;
-    --version|-v)
+    --version|-v|version)
         cd "\$INSTALL_DIR"
         source "\$VENV_PATH/bin/activate"
         python -c "import mcp_config_manager; print(f'MCP Config Manager v{mcp_config_manager.__version__}')" 2>/dev/null || echo "MCP Config Manager (version unknown)"
@@ -561,20 +537,20 @@ CONFIG_EOF
         echo "Usage: mcp [command] [options]"
         echo ""
         echo "Commands:"
-        echo "  gui              Launch GUI interface (default)"
-        echo "  interactive      Launch interactive CLI mode"
-        echo "  status          Show configuration status"
-        echo "  update          Update to latest version"
-        echo "  update-status   Check for available updates"
-        echo "  config          Manage update preferences"
-        echo "  uninstall       Remove MCP Config Manager"
-        echo "  --version       Show version information"
-        echo "  --help          Show this help message"
+        echo "  gui            Launch GUI interface (default)"
+        echo "  interactive    Launch interactive CLI mode"
+        echo "  status         Show configuration status"
+        echo "  update         Update to latest version"
+        echo "  update-status  Check for available updates"
+        echo "  config         Manage update preferences"
+        echo "  uninstall      Remove MCP Config Manager"
+        echo "  version        Show version information"
+        echo "  help           Show this help message"
         echo ""
         echo "Configuration:"
-        echo "  mcp config get                    # Show all settings"
-        echo "  mcp config set updates.enabled false  # Disable updates"
-        echo "  mcp config set updates.channel beta   # Use beta channel"
+        echo "  mcp config get                       # Show all settings"
+        echo "  mcp config set updates.enabled false # Disable updates"
+        echo "  mcp config set updates.channel beta  # Use beta channel"
         echo ""
         echo "Examples:"
         echo "  mcp             # Launch GUI (default)"
@@ -661,113 +637,27 @@ setup_shell_integration() {
     fi
 }
 
-# Check for CLI tools
-check_cli_tools() {
-    print_step "Checking for supported CLI tools..."
 
-    CLI_FOUND=false
-
-    if command_exists claude; then
-        print_success "Claude CLI detected"
-        CLI_FOUND=true
-    else
-        print_warning "Claude CLI not found"
-    fi
-
-    if command_exists gemini; then
-        print_success "Gemini CLI detected"
-        CLI_FOUND=true
-    elif command_exists "google-gemini-cli"; then
-        print_success "Google Gemini CLI detected"
-        CLI_FOUND=true
-    else
-        print_warning "Gemini CLI not found"
-    fi
-
-    # Check for various codex/openai implementations
-    if command_exists codex || command_exists openai || command_exists "openai-cli"; then
-        print_success "OpenAI/Codex CLI detected"
-        CLI_FOUND=true
-    else
-        print_warning "OpenAI/Codex CLI not found"
-    fi
-
-    if [[ "$CLI_FOUND" == "false" ]]; then
-        print_warning "No supported CLI tools found"
-        echo "  MCP Config Manager will still work, but you'll need to install CLI tools to use them."
-        echo "  Supported tools: Claude CLI, Gemini CLI, OpenAI CLI"
-    fi
-}
-
-# Create desktop entry (Linux only)
-create_desktop_entry() {
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        print_step "Creating desktop entry..."
-
-        DESKTOP_DIR="$HOME/.local/share/applications"
-        mkdir -p "$DESKTOP_DIR"
-
-        cat > "$DESKTOP_DIR/mcp-config-manager.desktop" << EOF
-[Desktop Entry]
-Name=MCP Config Manager
-Comment=Manage your AI CLI configurations
-Exec=$INSTALL_DIR/mcp gui
-Icon=$APP_DIR/assets/icon.png
-Terminal=false
-Type=Application
-Categories=Development;Utility;
-StartupWMClass=mcp-config-manager
-EOF
-
-        print_success "Desktop entry created"
-    fi
-}
 
 # Print final instructions
 print_final_instructions() {
     echo ""
-    echo -e "${GREEN}================================================================${NC}"
-    echo -e "${WHITE}  🎉 Installation Complete!${NC}"
-    echo -e "${GREEN}================================================================${NC}"
+    echo -e "${GREEN}🎉 Installation Complete!${NC}"
     echo ""
-    echo -e "${WHITE}MCP Config Manager has been successfully installed!${NC}"
-    echo ""
-    echo -e "${CYAN}📍 Installation Location:${NC} $APP_DIR"
-    echo -e "${CYAN}🚀 Launcher Script:${NC} $INSTALL_DIR/mcp"
+    echo -e "${WHITE}MCP Config Manager installed to:${NC} $APP_DIR"
     echo ""
     echo -e "${WHITE}Quick Start:${NC}"
-
     if command_exists mcp 2>/dev/null || [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
-        echo -e "  ${GREEN}mcp${NC}              # Launch GUI interface (default)"
-        echo -e "  ${GREEN}mcp interactive${NC}  # Launch interactive CLI"
-        echo -e "  ${GREEN}mcp status${NC}       # Show configuration status"
-        echo -e "  ${GREEN}mcp update${NC}       # Update to latest version"
-        echo -e "  ${GREEN}mcp config get${NC}   # Show update preferences"
+        echo -e "  ${GREEN}mcp${NC}              # Launch GUI (default)"
+        echo -e "  ${GREEN}mcp interactive${NC}  # Interactive CLI"
         echo -e "  ${GREEN}mcp --help${NC}       # Show all commands"
-        echo ""
-        echo -e "  ${GREEN}mcp-gui${NC}          # Quick alias for GUI mode"
     else
-        echo -e "  ${GREEN}$INSTALL_DIR/mcp${NC}              # Launch GUI interface (default)"
-        echo -e "  ${GREEN}$INSTALL_DIR/mcp interactive${NC}  # Launch interactive CLI"
-        echo -e "  ${GREEN}$INSTALL_DIR/mcp update${NC}       # Update to latest version"
-        echo ""
-        echo -e "${YELLOW}💡 Restart your terminal or run:${NC} source ~/.bashrc"
-        echo -e "   ${YELLOW}Then you can use 'mcp' command directly${NC}"
+        echo -e "  ${GREEN}$INSTALL_DIR/mcp${NC}         # Launch GUI"
+        echo -e "  ${YELLOW}Restart terminal or run: source ~/.bashrc${NC}"
     fi
-
     echo ""
-    echo -e "${WHITE}What's New:${NC}"
-    echo -e "  ✨ Enhanced dark theme support with automatic system detection"
-    echo -e "  🎨 Improved accessibility with WCAG AA compliance"
-    echo -e "  🖥️  Cross-platform GUI (PyQt6 + tkinter fallback)"
-    echo -e "  ⚡ Faster startup and better error handling"
-    echo ""
-    echo -e "${WHITE}Need Help?${NC}"
-    echo -e "  📖 Documentation: https://github.com/holstein13/mcp-config-manager"
-    echo -e "  🐛 Report Issues: https://github.com/holstein13/mcp-config-manager/issues"
-    echo ""
-    echo -e "${WHITE}Uninstall:${NC}"
-    echo -e "  Run: ${CYAN}$INSTALL_DIR/mcp uninstall${NC}"
+    echo -e "${WHITE}Documentation:${NC} https://github.com/holstein13/mcp-config-manager"
+    echo -e "${WHITE}Uninstall:${NC} ${CYAN}$INSTALL_DIR/mcp uninstall${NC}"
     echo ""
 }
 
@@ -821,12 +711,6 @@ print_step "Removing application files..."
 if [ -f "$LAUNCHER_PATH" ]; then
     rm -f "$LAUNCHER_PATH"
     print_success "Removed launcher script"
-fi
-
-print_step "Removing desktop entry..."
-if [ -f "$HOME/.local/share/applications/mcp-config-manager.desktop" ]; then
-    rm -f "$HOME/.local/share/applications/mcp-config-manager.desktop"
-    print_success "Removed desktop entry"
 fi
 
 print_step "Removing shell integration..."
@@ -886,8 +770,6 @@ main() {
     create_launcher
     create_uninstaller
     setup_shell_integration
-    check_cli_tools
-    create_desktop_entry
     print_final_instructions
 }
 
