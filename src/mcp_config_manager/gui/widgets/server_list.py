@@ -77,21 +77,9 @@ class ServerListWidget(QWidget if USING_QT else object):
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         
-        # Apply custom stylesheet for blue selection highlight
-        self.tree.setStyleSheet("""
-            QTreeWidget::item:selected {
-                background-color: #0078D4;
-                color: white;
-            }
-            QTreeWidget::item:selected:!active {
-                background-color: #0078D4;
-                color: white;
-            }
-            QTreeWidget::item:hover {
-                background-color: #E3F2FD;
-            }
-        """)
-        
+        # Apply theme-aware styling
+        self._apply_theme_styles()
+
         # Add master checkbox to header
         self._setup_master_checkbox()
         
@@ -126,7 +114,80 @@ class ServerListWidget(QWidget if USING_QT else object):
         status_layout.addWidget(self.status_label)
         
         layout.addLayout(status_layout)
-    
+
+    def _apply_theme_styles(self):
+        """Apply theme-aware styling to the tree widget."""
+        if not USING_QT:
+            return
+
+        try:
+            from ..themes import get_theme_manager
+            theme_manager = get_theme_manager()
+            colors = theme_manager.get_colors()
+
+            # Theme-aware selection and hover styling
+            self.tree.setStyleSheet(f"""
+                QTreeWidget {{
+                    background-color: {colors.bg_primary};
+                    alternate-background-color: {colors.bg_primary};
+                    color: {colors.text_primary};
+                    selection-background-color: {colors.selection_bg};
+                    selection-color: {colors.text_inverse};
+                    outline: none;
+                    border: none;
+                }}
+                QTreeWidget::item {{
+                    background-color: {colors.bg_primary};
+                    color: {colors.text_primary};
+                    border: none;
+                    padding: 4px;
+                }}
+                QTreeWidget::item:alternate {{
+                    background-color: {colors.bg_primary};
+                }}
+                QTreeWidget::item:selected {{
+                    background-color: {colors.selection_bg};
+                    color: {colors.text_inverse};
+                }}
+                QTreeWidget::item:selected:active {{
+                    background-color: {colors.selection_bg};
+                    color: {colors.text_inverse};
+                }}
+                QTreeWidget::item:selected:!active {{
+                    background-color: {colors.selection_bg};
+                    color: {colors.text_inverse};
+                }}
+                QTreeWidget::item:hover {{
+                    background-color: {colors.control_hover};
+                }}
+                QTreeWidget QScrollBar:vertical {{
+                    background-color: {colors.bg_secondary};
+                }}
+                QTreeWidget::branch {{
+                    background-color: {colors.bg_primary};
+                }}
+            """)
+
+            # Apply transparent background to status label
+            if hasattr(self, 'status_label'):
+                self.status_label.setStyleSheet("background: transparent;")
+
+        except ImportError:
+            # Fallback to hardcoded colors if theme system not available
+            self.tree.setStyleSheet("""
+                QTreeWidget::item:selected {
+                    background-color: #0078D4;
+                    color: white;
+                }
+                QTreeWidget::item:selected:!active {
+                    background-color: #0078D4;
+                    color: white;
+                }
+                QTreeWidget::item:hover {
+                    background-color: #E3F2FD;
+                }
+            """)
+
     def _setup_master_checkbox(self):
         """Set up the master checkboxes in the header."""
         if not USING_QT:
@@ -152,13 +213,90 @@ class ServerListWidget(QWidget if USING_QT else object):
         """Create the filter toolbar for Qt."""
         self.filter_toolbar = QToolBar()
         self.filter_toolbar.setMovable(False)
-        self.filter_toolbar.setStyleSheet("""
-            QToolBar {
-                background-color: #f0f0f0;
-                border: 1px solid #d0d0d0;
-                padding: 2px;
-            }
-        """)
+
+        # Apply theme-aware styling to toolbar
+        try:
+            from ..themes import get_theme_manager
+            theme_manager = get_theme_manager()
+            colors = theme_manager.get_colors()
+
+            self.filter_toolbar.setStyleSheet(f"""
+                QToolBar {{
+                    background-color: {colors.toolbar_bg};
+                    border: 1px solid {colors.border_primary};
+                    padding: 4px;
+                    spacing: 8px;
+                }}
+                QToolBar QLabel {{
+                    color: {colors.text_primary};
+                    background: transparent;
+                }}
+                QToolBar QLineEdit {{
+                    background-color: {colors.control_bg};
+                    border: 1px solid {colors.control_border};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    color: {colors.text_primary};
+                }}
+                QToolBar QComboBox {{
+                    background-color: {colors.control_bg};
+                    border: 1px solid {colors.control_border};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    color: {colors.text_primary};
+                }}
+                QToolBar QCheckBox {{
+                    color: {colors.text_primary};
+                    background: transparent;
+                }}
+                QToolBar QPushButton {{
+                    background-color: {colors.control_bg};
+                    border: 1px solid {colors.control_border};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    color: {colors.text_primary};
+                }}
+                QToolBar QPushButton:hover {{
+                    background-color: {colors.control_hover};
+                }}
+                QToolBar::separator {{
+                    background-color: {colors.separator};
+                    width: 1px;
+                    margin: 4px 2px;
+                }}
+            """)
+        except ImportError:
+            # Fallback styling if theme system not available
+            self.filter_toolbar.setStyleSheet("""
+                QToolBar {
+                    background-color: #2d2d30;
+                    border: 1px solid #3e3e42;
+                    padding: 4px;
+                }
+                QToolBar QLabel {
+                    color: #cccccc;
+                    background: transparent;
+                }
+                QToolBar QLineEdit {
+                    background-color: #3c3c3c;
+                    border: 1px solid #5a5a5a;
+                    color: #cccccc;
+                }
+                QToolBar QComboBox {
+                    background-color: #3c3c3c;
+                    border: 1px solid #5a5a5a;
+                    color: #cccccc;
+                }
+                QToolBar QCheckBox {
+                    color: #cccccc;
+                    background: transparent;
+                }
+                QToolBar QPushButton {
+                    background-color: #3c3c3c;
+                    border: 1px solid #5a5a5a;
+                    color: #cccccc;
+                }
+            """)
 
         # Search box
         search_label = QLabel("Search: ")
