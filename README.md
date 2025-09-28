@@ -19,6 +19,7 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
+- **🎨 Enhanced Dark Theme Support** - ✨ NEW! Automatic system theme detection with WCAG AA compliance
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
 - **🔍 Project Discovery** - Automatically discover MCP servers from project .claude.json files
@@ -47,14 +48,54 @@ The graphical interface is complete and working with all major features operatio
 - **Health Monitoring** - Real-time server connection status
 - **Import/Export** - Backup and restore entire configurations
 
-## 📦 Installation
+## 🚀 Quick Install (Recommended)
+
+**One-command installation:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/mcp-config-manager/main/install.sh | bash
+```
+
+The installer will:
+- ✅ Check system requirements automatically
+- 📁 Ask where to install (with smart defaults)
+- 🐍 Set up isolated Python environment
+- 🔗 Add `mcp` command to your PATH
+- 🖥️ Create desktop shortcuts (Linux)
+- 🗑️ Provide easy uninstall option
+
+### Quick Start After Installation
+
+```bash
+# Launch GUI (recommended)
+mcp gui
+# or use the alias
+mcp-gui
+
+# Interactive CLI mode
+mcp interactive
+
+# Check status
+mcp status
+
+# Show all options
+mcp --help
+
+# Uninstall easily
+mcp uninstall
+```
+
+## 📦 Manual Installation
+
+<details>
+<summary>Click to expand manual installation steps</summary>
 
 ### Prerequisites
 - Python 3.8 or higher
 - Claude Code CLI, Gemini CLI, and/or Codex installed
 - PyQt6 (optional, for better GUI experience): `pip install PyQt6`
 
-### Quick Install
+### Clone and Install
 ```bash
 git clone https://github.com/yourusername/mcp-config-manager.git
 cd mcp-config-manager
@@ -63,6 +104,20 @@ pip install -e .
 # Optional: Install PyQt6 for better GUI experience
 pip install PyQt6
 ```
+
+### Development Setup
+```bash
+# Set up development environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements-dev.txt
+pip install -e .
+
+# Run tests
+pytest
+```
+
+</details>
 
 ## 🚀 Usage
 
