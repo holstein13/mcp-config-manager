@@ -188,6 +188,67 @@ install_application() {
     print_success "Application installed successfully"
 }
 
+# Create default update configuration
+create_update_config() {
+    print_step "Creating update configuration..."
+
+    UPDATE_CONFIG="$APP_DIR/.mcp_update_config"
+
+    # Detect environment type
+    DETECTED_ENV="standard"
+    if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$JENKINS_URL" ]; then
+        DETECTED_ENV="ci"
+    elif [ -d "/etc/kubernetes" ] || [ -n "$KUBERNETES_SERVICE_HOST" ]; then
+        DETECTED_ENV="enterprise"
+    elif [ -f "/.dockerenv" ] || [ -n "$DOCKER_CONTAINER" ]; then
+        DETECTED_ENV="container"
+    elif [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_CLIENT" ]; then
+        DETECTED_ENV="remote"
+    fi
+
+    # Set defaults based on environment
+    case "$DETECTED_ENV" in
+        "ci"|"enterprise"|"container")
+            DEFAULT_UPDATES="false"
+            DEFAULT_AUTO_CHECK="false"
+            print_info "Detected $DETECTED_ENV environment - updates disabled by default"
+            ;;
+        "remote")
+            DEFAULT_UPDATES="true"
+            DEFAULT_AUTO_CHECK="false"
+            print_info "Detected remote environment - auto-check disabled by default"
+            ;;
+        *)
+            DEFAULT_UPDATES="true"
+            DEFAULT_AUTO_CHECK="true"
+            ;;
+    esac
+
+    cat > "$UPDATE_CONFIG" << EOF
+# MCP Config Manager Update Configuration
+# Generated on $(date)
+# Detected environment: $DETECTED_ENV
+
+# Enable/disable updates completely
+UPDATES_ENABLED=$DEFAULT_UPDATES
+
+# Check for updates on startup (future feature)
+AUTO_CHECK_UPDATES=$DEFAULT_AUTO_CHECK
+
+# Update channel: stable, beta, dev
+UPDATE_CHANNEL="stable"
+
+# Environment detection (informational)
+DETECTED_ENVIRONMENT="$DETECTED_ENV"
+EOF
+
+    print_success "Update configuration created with environment-specific defaults"
+    if [ "$DEFAULT_UPDATES" = "false" ]; then
+        print_warning "Updates are disabled by default in this environment"
+        print_info "To enable: mcp config set updates.enabled true"
+    fi
+}
+
 # Create launcher script
 create_launcher() {
     print_step "Creating launcher script..."
@@ -226,6 +287,25 @@ case "\$1" in
         echo "🔄 Updating MCP Config Manager..."
         cd "\$INSTALL_DIR"
 
+        # Check update settings
+        UPDATE_CONFIG="\$INSTALL_DIR/.mcp_update_config"
+        if [ -f "\$UPDATE_CONFIG" ]; then
+            source "\$UPDATE_CONFIG"
+        else
+            # Default settings
+            UPDATES_ENABLED=true
+            AUTO_CHECK_UPDATES=true
+            UPDATE_CHANNEL="stable"
+        fi
+
+        # Check if updates are disabled
+        if [ "\$UPDATES_ENABLED" != "true" ]; then
+            echo "❌ Updates are disabled for this installation"
+            echo "💡 To enable updates, run: mcp config set updates.enabled true"
+            echo "   Or edit: \$UPDATE_CONFIG"
+            exit 1
+        fi
+
         # Check if we have git repository
         if [ -d ".git" ]; then
             # Save current branch/state
@@ -245,12 +325,38 @@ case "\$1" in
             fi
 
             echo "📦 Updates available! Installing..."
+            echo "📡 Update channel: \$UPDATE_CHANNEL"
 
             # Backup current installation
-            cp -r "\$INSTALL_DIR" "\$INSTALL_DIR.backup.\$(date +%Y%m%d_%H%M%S)"
+            BACKUP_DIR="\$INSTALL_DIR.backup.\$(date +%Y%m%d_%H%M%S)"
+            echo "💾 Creating backup: \$BACKUP_DIR"
+            cp -r "\$INSTALL_DIR" "\$BACKUP_DIR"
+
+            # Determine branch based on update channel
+            TARGET_BRANCH="\$CURRENT_BRANCH"
+            case "\$UPDATE_CHANNEL" in
+                "stable")
+                    TARGET_BRANCH="main"
+                    ;;
+                "beta")
+                    TARGET_BRANCH="beta"
+                    ;;
+                "dev")
+                    TARGET_BRANCH="develop"
+                    ;;
+            esac
+
+            # Switch to appropriate branch if needed
+            if [ "\$CURRENT_BRANCH" != "\$TARGET_BRANCH" ]; then
+                echo "🔄 Switching to \$UPDATE_CHANNEL channel (branch: \$TARGET_BRANCH)"
+                git checkout \$TARGET_BRANCH 2>/dev/null || {
+                    echo "⚠️  Branch \$TARGET_BRANCH not found, staying on \$CURRENT_BRANCH"
+                    TARGET_BRANCH="\$CURRENT_BRANCH"
+                }
+            fi
 
             # Update repository
-            git pull origin \$CURRENT_BRANCH
+            git pull origin \$TARGET_BRANCH
 
             # Reinstall dependencies
             source "\$VENV_PATH/bin/activate"
@@ -269,6 +375,62 @@ case "\$1" in
         fi
         exit 0
         ;;
+    update-status|check-updates)
+        echo "🔍 Checking for updates..."
+        cd "\$INSTALL_DIR"
+
+        # Check update settings
+        UPDATE_CONFIG="\$INSTALL_DIR/.mcp_update_config"
+        if [ -f "\$UPDATE_CONFIG" ]; then
+            source "\$UPDATE_CONFIG"
+        else
+            UPDATES_ENABLED=true
+            UPDATE_CHANNEL="stable"
+        fi
+
+        echo "📡 Update channel: \$UPDATE_CHANNEL"
+        echo "🔧 Updates enabled: \$UPDATES_ENABLED"
+
+        if [ "\$UPDATES_ENABLED" != "true" ]; then
+            echo "❌ Updates are disabled for this installation"
+            exit 0
+        fi
+
+        if [ -d ".git" ]; then
+            CURRENT_BRANCH=\$(git branch --show-current 2>/dev/null || echo "main")
+            echo "🌿 Current branch: \$CURRENT_BRANCH"
+
+            # Determine target branch
+            TARGET_BRANCH="\$CURRENT_BRANCH"
+            case "\$UPDATE_CHANNEL" in
+                "stable") TARGET_BRANCH="main" ;;
+                "beta") TARGET_BRANCH="beta" ;;
+                "dev") TARGET_BRANCH="develop" ;;
+            esac
+
+            git fetch origin --quiet
+
+            LOCAL=\$(git rev-parse HEAD)
+            REMOTE=\$(git rev-parse origin/\$TARGET_BRANCH 2>/dev/null || git rev-parse origin/\$CURRENT_BRANCH)
+
+            if [ "\$LOCAL" = "\$REMOTE" ]; then
+                echo "✅ You have the latest version!"
+            else
+                echo "📦 Updates are available!"
+                echo "💡 Run 'mcp update' to install updates"
+
+                # Show commit summary
+                COMMIT_COUNT=\$(git rev-list --count HEAD..origin/\$TARGET_BRANCH 2>/dev/null || echo "unknown")
+                if [ "\$COMMIT_COUNT" != "unknown" ] && [ "\$COMMIT_COUNT" -gt 0 ]; then
+                    echo "📊 \$COMMIT_COUNT new commit(s) available"
+                fi
+            fi
+        else
+            echo "❌ Cannot check for updates: Installation not git-enabled"
+            echo "💡 Re-run the installer to get a git-enabled installation"
+        fi
+        exit 0
+        ;;
     uninstall)
         exec "\$INSTALL_DIR/uninstall.sh"
         ;;
@@ -276,6 +438,121 @@ case "\$1" in
         cd "\$INSTALL_DIR"
         source "\$VENV_PATH/bin/activate"
         python -c "import mcp_config_manager; print(f'MCP Config Manager v{mcp_config_manager.__version__}')" 2>/dev/null || echo "MCP Config Manager (version unknown)"
+        exit 0
+        ;;
+    config)
+        # Configuration management
+        UPDATE_CONFIG="\$INSTALL_DIR/.mcp_update_config"
+
+        case "\$2" in
+            "get")
+                if [ -f "\$UPDATE_CONFIG" ]; then
+                    if [ -n "\$3" ]; then
+                        # Get specific setting
+                        case "\$3" in
+                            "updates.enabled")
+                                source "\$UPDATE_CONFIG" && echo "\$UPDATES_ENABLED"
+                                ;;
+                            "updates.auto_check")
+                                source "\$UPDATE_CONFIG" && echo "\$AUTO_CHECK_UPDATES"
+                                ;;
+                            "updates.channel")
+                                source "\$UPDATE_CONFIG" && echo "\$UPDATE_CHANNEL"
+                                ;;
+                            *)
+                                echo "❌ Unknown setting: \$3"
+                                echo "Available settings: updates.enabled, updates.auto_check, updates.channel"
+                                exit 1
+                                ;;
+                        esac
+                    else
+                        echo "📋 Current update configuration:"
+                        source "\$UPDATE_CONFIG"
+                        echo "  updates.enabled: \$UPDATES_ENABLED"
+                        echo "  updates.auto_check: \$AUTO_CHECK_UPDATES"
+                        echo "  updates.channel: \$UPDATE_CHANNEL"
+                    fi
+                else
+                    echo "📋 Default update configuration:"
+                    echo "  updates.enabled: true"
+                    echo "  updates.auto_check: true"
+                    echo "  updates.channel: stable"
+                fi
+                ;;
+            "set")
+                # Create config file if it doesn't exist
+                if [ ! -f "\$UPDATE_CONFIG" ]; then
+                    cat > "\$UPDATE_CONFIG" << 'CONFIG_EOF'
+# MCP Config Manager Update Configuration
+# Generated on \$(date)
+
+# Enable/disable updates completely
+UPDATES_ENABLED=true
+
+# Check for updates on startup (future feature)
+AUTO_CHECK_UPDATES=true
+
+# Update channel: stable, beta, dev
+UPDATE_CHANNEL="stable"
+CONFIG_EOF
+                fi
+
+                case "\$3" in
+                    "updates.enabled")
+                        if [ "\$4" = "true" ] || [ "\$4" = "false" ]; then
+                            sed -i.bak "s/UPDATES_ENABLED=.*/UPDATES_ENABLED=\$4/" "\$UPDATE_CONFIG"
+                            echo "✅ Set updates.enabled = \$4"
+                        else
+                            echo "❌ Value must be 'true' or 'false'"
+                            exit 1
+                        fi
+                        ;;
+                    "updates.auto_check")
+                        if [ "\$4" = "true" ] || [ "\$4" = "false" ]; then
+                            sed -i.bak "s/AUTO_CHECK_UPDATES=.*/AUTO_CHECK_UPDATES=\$4/" "\$UPDATE_CONFIG"
+                            echo "✅ Set updates.auto_check = \$4"
+                        else
+                            echo "❌ Value must be 'true' or 'false'"
+                            exit 1
+                        fi
+                        ;;
+                    "updates.channel")
+                        if [ "\$4" = "stable" ] || [ "\$4" = "beta" ] || [ "\$4" = "dev" ]; then
+                            sed -i.bak "s/UPDATE_CHANNEL=.*/UPDATE_CHANNEL=\"\$4\"/" "\$UPDATE_CONFIG"
+                            echo "✅ Set updates.channel = \$4"
+                        else
+                            echo "❌ Channel must be 'stable', 'beta', or 'dev'"
+                            exit 1
+                        fi
+                        ;;
+                    *)
+                        echo "❌ Unknown setting: \$3"
+                        echo "Available settings: updates.enabled, updates.auto_check, updates.channel"
+                        exit 1
+                        ;;
+                esac
+                ;;
+            "reset")
+                rm -f "\$UPDATE_CONFIG"
+                echo "✅ Reset to default update configuration"
+                ;;
+            *)
+                echo "Usage: mcp config [get|set|reset] [setting] [value]"
+                echo ""
+                echo "Settings:"
+                echo "  updates.enabled     Enable/disable updates (true/false)"
+                echo "  updates.auto_check  Check for updates on startup (true/false)"
+                echo "  updates.channel     Update channel (stable/beta/dev)"
+                echo ""
+                echo "Examples:"
+                echo "  mcp config get                    # Show all settings"
+                echo "  mcp config get updates.enabled   # Show specific setting"
+                echo "  mcp config set updates.enabled false  # Disable updates"
+                echo "  mcp config set updates.channel beta   # Use beta channel"
+                echo "  mcp config reset                 # Reset to defaults"
+                exit 1
+                ;;
+        esac
         exit 0
         ;;
     --help|-h|help)
@@ -288,9 +565,16 @@ case "\$1" in
         echo "  interactive      Launch interactive CLI mode"
         echo "  status          Show configuration status"
         echo "  update          Update to latest version"
+        echo "  update-status   Check for available updates"
+        echo "  config          Manage update preferences"
         echo "  uninstall       Remove MCP Config Manager"
         echo "  --version       Show version information"
         echo "  --help          Show this help message"
+        echo ""
+        echo "Configuration:"
+        echo "  mcp config get                    # Show all settings"
+        echo "  mcp config set updates.enabled false  # Disable updates"
+        echo "  mcp config set updates.channel beta   # Use beta channel"
         echo ""
         echo "Examples:"
         echo "  mcp             # Launch GUI (default)"
@@ -313,6 +597,9 @@ EOF
 
     chmod +x "$LAUNCHER_PATH"
     print_success "Launcher created: $LAUNCHER_PATH"
+
+    # Create default update configuration
+    create_update_config
 }
 
 # Add to shell configuration
@@ -455,6 +742,7 @@ print_final_instructions() {
         echo -e "  ${GREEN}mcp interactive${NC}  # Launch interactive CLI"
         echo -e "  ${GREEN}mcp status${NC}       # Show configuration status"
         echo -e "  ${GREEN}mcp update${NC}       # Update to latest version"
+        echo -e "  ${GREEN}mcp config get${NC}   # Show update preferences"
         echo -e "  ${GREEN}mcp --help${NC}       # Show all commands"
         echo ""
         echo -e "  ${GREEN}mcp-gui${NC}          # Quick alias for GUI mode"
