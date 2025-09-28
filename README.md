@@ -19,7 +19,6 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
-- **🎨 Enhanced Dark Theme Support** - ✨ NEW! Automatic system theme detection with WCAG AA compliance
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
 - **🔍 Project Discovery** - Automatically discover MCP servers from project .claude.json files
