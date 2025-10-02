@@ -67,9 +67,11 @@ cleanup_on_failure() {
         print_error "Installation failed with exit code: $exit_code"
 
         # Clean up temp files
-        for temp_file in "${TEMP_FILES[@]}"; do
-            [ -f "$temp_file" ] && rm -f "$temp_file"
-        done
+        if [ ${#TEMP_FILES[@]} -gt 0 ]; then
+            for temp_file in "${TEMP_FILES[@]}"; do
+                [ -f "$temp_file" ] && rm -f "$temp_file"
+            done
+        fi
 
         # Clean up partial installation
         if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
