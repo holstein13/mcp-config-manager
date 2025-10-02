@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MCP Config Manager - Secure One-Click Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/master/install.sh | bash
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 IFS=$'\n\t'        # Set secure Internal Field Separator
@@ -92,7 +92,8 @@ validate_path_input() {
     local path_type="${2:-directory}"
 
     # Check for dangerous characters and patterns
-    if [[ "$input" =~ [;&|<>$\`\\] ]]; then
+    # Using alternation instead of character class for bash 3.x compatibility
+    if [[ "$input" =~ (\;|\&|\||\<|\>|\$|\`|\\) ]]; then
         print_error "Invalid $path_type path: contains shell metacharacters"
         return 1
     fi
