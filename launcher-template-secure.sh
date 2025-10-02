@@ -89,20 +89,29 @@ safe_sed_replace() {
     local file="$1"
     local pattern="$2"
     local replacement="$3"
+    local temp_file=""
 
     [ ! -f "$file" ] && return 1
 
-    local temp_file=$(mktemp)
+    # Create temp file and ensure cleanup
+    temp_file=$(mktemp) || return 1
+    trap "rm -f '$temp_file'" RETURN
+
     if sed "s/${pattern}/${replacement}/" "$file" > "$temp_file" 2>/dev/null; then
         if [ -s "$file" ] && [ ! -s "$temp_file" ]; then
-            rm -f "$temp_file"
             return 1
         fi
-        chmod --reference="$file" "$temp_file" 2>/dev/null || chmod 644 "$temp_file"
+        # Preserve permissions with secure fallback
+        if ! chmod --reference="$file" "$temp_file" 2>/dev/null; then
+            if [[ "$file" == *config* ]]; then
+                chmod 600 "$temp_file"
+            else
+                chmod 644 "$temp_file"
+            fi
+        fi
         mv -f "$temp_file" "$file"
         return 0
     fi
-    rm -f "$temp_file"
     return 1
 }
 
@@ -127,10 +136,18 @@ case "${1:-}" in
             exit 1
         fi
 
-        # Verify repository
+        # Verify repository with strict matching
         REMOTE_URL=$(git config --get remote.origin.url 2>/dev/null)
-        if [[ "$REMOTE_URL" != *"github.com/holstein13/mcp-config-manager"* ]]; then
+        EXPECTED_HTTPS="https://github.com/holstein13/mcp-config-manager.git"
+        EXPECTED_HTTPS_NO_GIT="https://github.com/holstein13/mcp-config-manager"
+        EXPECTED_SSH="git@github.com:holstein13/mcp-config-manager.git"
+
+        if [[ "$REMOTE_URL" != "$EXPECTED_HTTPS" ]] &&
+           [[ "$REMOTE_URL" != "$EXPECTED_HTTPS_NO_GIT" ]] &&
+           [[ "$REMOTE_URL" != "$EXPECTED_SSH" ]]; then
             echo "❌ Repository verification failed"
+            echo "   Expected: github.com/holstein13/mcp-config-manager"
+            echo "   Got: $REMOTE_URL"
             exit 1
         fi
 
