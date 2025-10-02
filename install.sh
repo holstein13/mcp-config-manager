@@ -84,6 +84,59 @@ safe_sed_replace() {
     fi
 }
 
+# Check for timeout command or use alternative
+get_timeout_cmd() {
+    if command -v timeout >/dev/null 2>&1; then
+        echo "timeout"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        # macOS with coreutils installed
+        echo "gtimeout"
+    else
+        # No timeout available, use background job with sleep
+        echo "none"
+    fi
+}
+
+# Run command with timeout
+run_with_timeout() {
+    local duration="$1"
+    shift
+    local timeout_cmd=$(get_timeout_cmd)
+
+    if [ "$timeout_cmd" = "none" ]; then
+        # Fallback: run in background and kill after timeout
+        "$@" &
+        local pid=$!
+        ( sleep "$duration" && kill -9 $pid 2>/dev/null ) &
+        local sleep_pid=$!
+        if wait $pid 2>/dev/null; then
+            kill $sleep_pid 2>/dev/null
+            return 0
+        else
+            return 1
+        fi
+    else
+        $timeout_cmd "$duration" "$@"
+    fi
+}
+
+# Check disk space (needs at least 100MB)
+check_disk_space() {
+    local required_mb=100
+    local install_dir="$1"
+
+    # Get available space in MB
+    local available_mb
+    if command -v df >/dev/null 2>&1; then
+        available_mb=$(df -m "$(dirname "$install_dir")" 2>/dev/null | awk 'NR==2 {print $4}')
+        if [ -n "$available_mb" ] && [ "$available_mb" -lt "$required_mb" ]; then
+            print_error "Insufficient disk space. Need at least ${required_mb}MB, but only ${available_mb}MB available."
+            return 1
+        fi
+    fi
+    return 0
+}
+
 # Check system requirements
 check_requirements() {
     print_step "Checking system requirements..."
@@ -123,6 +176,20 @@ check_requirements() {
     fi
     print_success "Download tools available"
 }
+
+# Cleanup on failure
+cleanup_on_failure() {
+    if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
+        print_warning "Cleaning up partial installation..."
+        rm -rf "$APP_DIR"
+    fi
+    if [ -n "$LAUNCHER_PATH" ] && [ -f "$LAUNCHER_PATH" ]; then
+        rm -f "$LAUNCHER_PATH"
+    fi
+}
+
+# Set trap for cleanup
+trap 'cleanup_on_failure' ERR
 
 # Get installation directory from user
 get_install_directory() {
@@ -167,6 +234,12 @@ get_install_directory() {
     done
 
     APP_DIR="$INSTALL_DIR/$APP_NAME"
+
+    # Check disk space
+    if ! check_disk_space "$APP_DIR"; then
+        exit 1
+    fi
+
     print_success "Installation directory: $APP_DIR"
 }
 
@@ -195,8 +268,10 @@ install_application() {
     fi
 
     # Clone repository with shallow clone for performance
-    if ! git clone --depth 1 "$REPO_URL" "$APP_DIR" --quiet 2>/dev/null; then
+    print_info "Downloading from $REPO_URL..."
+    if ! git clone --depth 1 "$REPO_URL" "$APP_DIR" --quiet; then
         print_error "Failed to download repository"
+        cleanup_on_failure
         exit 1
     fi
 
@@ -319,6 +394,42 @@ fi
 # Change to app directory
 cd "$INSTALL_DIR"
 
+# Check for timeout command or use alternative
+get_timeout_cmd() {
+    if command -v timeout >/dev/null 2>&1; then
+        echo "timeout"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        # macOS with coreutils installed
+        echo "gtimeout"
+    else
+        # No timeout available
+        echo "none"
+    fi
+}
+
+# Run command with timeout
+run_with_timeout() {
+    local duration="$1"
+    shift
+    local timeout_cmd=$(get_timeout_cmd)
+
+    if [ "$timeout_cmd" = "none" ]; then
+        # Fallback: run in background and kill after timeout
+        "$@" &
+        local pid=$!
+        ( sleep "$duration" && kill -9 $pid 2>/dev/null ) &
+        local sleep_pid=$!
+        if wait $pid 2>/dev/null; then
+            kill $sleep_pid 2>/dev/null
+            return 0
+        else
+            return 1
+        fi
+    else
+        $timeout_cmd "$duration" "$@"
+    fi
+}
+
 # Safe config reader function
 read_config_value() {
     local config_file="$1"
@@ -376,7 +487,7 @@ case "$1" in
 
             # Fetch latest changes with timeout
             echo "📡 Checking for updates..."
-            if ! timeout 30 git fetch origin 2>/dev/null; then
+            if ! run_with_timeout 30 git fetch origin; then
                 echo "❌ Failed to check for updates (network timeout or authentication issue)"
                 exit 1
             fi
@@ -396,8 +507,13 @@ case "$1" in
             # Backup current installation (lighter backup - exclude venv)
             BACKUP_DIR="$INSTALL_DIR.backup.$(date +%Y%m%d_%H%M%S)"
             echo "💾 Creating backup: $BACKUP_DIR"
-            rsync -a --exclude=venv --exclude=.git "$INSTALL_DIR/" "$BACKUP_DIR/" 2>/dev/null || \
-                cp -r "$INSTALL_DIR" "$BACKUP_DIR"
+            if command -v rsync >/dev/null 2>&1; then
+                rsync -a --exclude=venv --exclude=.git "$INSTALL_DIR/" "$BACKUP_DIR/"
+            else
+                # Fallback: use find and cpio to exclude directories
+                mkdir -p "$BACKUP_DIR"
+                (cd "$INSTALL_DIR" && find . -type d \( -name venv -o -name .git \) -prune -o -print | cpio -pdm "$BACKUP_DIR" 2>/dev/null)
+            fi
 
             # Determine branch based on update channel
             TARGET_BRANCH="$CURRENT_BRANCH"
@@ -423,8 +539,18 @@ case "$1" in
             fi
 
             # Update repository with timeout
-            if ! timeout 60 git pull origin $TARGET_BRANCH; then
+            if ! run_with_timeout 60 git pull origin $TARGET_BRANCH; then
                 echo "❌ Failed to pull updates (timeout or merge conflict)"
+                echo "💡 Restoring from backup..."
+                rm -rf "$INSTALL_DIR"
+                mv "$BACKUP_DIR" "$INSTALL_DIR"
+                exit 1
+            fi
+
+            # Verify update succeeded
+            NEW_LOCAL=$(git rev-parse HEAD)
+            if [ "$LOCAL" = "$NEW_LOCAL" ]; then
+                echo "❌ Update verification failed - no changes applied"
                 echo "💡 Restoring from backup..."
                 rm -rf "$INSTALL_DIR"
                 mv "$BACKUP_DIR" "$INSTALL_DIR"
@@ -486,7 +612,7 @@ case "$1" in
                 "dev") TARGET_BRANCH="develop" ;;
             esac
 
-            if timeout 30 git fetch origin --quiet 2>/dev/null; then
+            if run_with_timeout 30 git fetch origin --quiet; then
                 LOCAL=$(git rev-parse HEAD)
                 REMOTE=$(git rev-parse origin/$TARGET_BRANCH 2>/dev/null || git rev-parse origin/$CURRENT_BRANCH)
 
@@ -709,25 +835,51 @@ setup_shell_integration() {
         # Check if already in PATH to avoid duplicates
         PATH_EXPORT="export PATH=\"$INSTALL_DIR:\$PATH\""
 
-        # Remove any existing MCP Config Manager PATH entries first
+        # Safe shell config modification
         if [ -f "$SHELL_CONFIG" ]; then
-            # Remove old entries
+            # Create backup first
+            cp "$SHELL_CONFIG" "${SHELL_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
+
+            # Remove old entries safely
+            TEMP_FILE="${SHELL_CONFIG}.tmp.$$"
             grep -v "# Added by MCP Config Manager installer" "$SHELL_CONFIG" | \
-            grep -v "$INSTALL_DIR" > "${SHELL_CONFIG}.tmp" 2>/dev/null || true
-            mv "${SHELL_CONFIG}.tmp" "$SHELL_CONFIG" 2>/dev/null || true
+            grep -v "$INSTALL_DIR" | \
+            grep -v "mcp-gui" > "$TEMP_FILE" || echo -n "" > "$TEMP_FILE"
+
+            # Verify temp file is not empty (unless original was empty)
+            if [ -s "$SHELL_CONFIG" ] && [ ! -s "$TEMP_FILE" ]; then
+                print_error "Failed to process shell config safely. Backup saved as ${SHELL_CONFIG}.backup.*"
+                rm -f "$TEMP_FILE"
+                exit 1
+            fi
+
+            mv "$TEMP_FILE" "$SHELL_CONFIG"
         fi
 
-        # Add new PATH entry
+        # Add new PATH entry based on shell type
         echo "" >> "$SHELL_CONFIG"
         echo "# Added by MCP Config Manager installer" >> "$SHELL_CONFIG"
-        echo "$PATH_EXPORT" >> "$SHELL_CONFIG"
+
+        if [ "$SHELL_NAME" = "fish" ]; then
+            # Fish shell uses different syntax
+            echo "set -gx PATH $INSTALL_DIR \$PATH" >> "$SHELL_CONFIG"
+        else
+            echo "$PATH_EXPORT" >> "$SHELL_CONFIG"
+        fi
+
         print_success "Added to $SHELL_CONFIG"
 
-        # Create alias for convenience
-        ALIAS_LINE="alias mcp-gui='mcp gui'"
-        if ! grep -q "mcp-gui" "$SHELL_CONFIG" 2>/dev/null; then
-            echo "alias mcp-gui='mcp gui'" >> "$SHELL_CONFIG"
-            print_success "Added 'mcp-gui' alias"
+        # Create alias for convenience (except Fish which uses functions)
+        if [ "$SHELL_NAME" != "fish" ]; then
+            ALIAS_LINE="alias mcp-gui='mcp gui'"
+            if ! grep -q "mcp-gui" "$SHELL_CONFIG" 2>/dev/null; then
+                echo "alias mcp-gui='mcp gui'" >> "$SHELL_CONFIG"
+                print_success "Added 'mcp-gui' alias"
+            fi
+        else
+            # Fish uses functions instead of aliases
+            echo "function mcp-gui; mcp gui; end" >> "$SHELL_CONFIG"
+            print_success "Added 'mcp-gui' function for Fish"
         fi
 
         export PATH="$INSTALL_DIR:$PATH"
@@ -780,14 +932,26 @@ fi
 if [ -z "$INSTALL_DIR" ] || [ -z "$APP_DIR" ]; then
     APP_DIR="$SCRIPT_DIR"
     # Try to determine INSTALL_DIR from launcher location
-    if [ -f "$HOME/bin/mcp" ] && grep -q "$SCRIPT_DIR" "$HOME/bin/mcp" 2>/dev/null; then
-        INSTALL_DIR="$HOME/bin"
-    elif [ -f "$HOME/.local/bin/mcp" ] && grep -q "$SCRIPT_DIR" "$HOME/.local/bin/mcp" 2>/dev/null; then
-        INSTALL_DIR="$HOME/.local/bin"
-    elif [ -f "/usr/local/bin/mcp" ] && grep -q "$SCRIPT_DIR" "/usr/local/bin/mcp" 2>/dev/null; then
-        INSTALL_DIR="/usr/local/bin"
-    else
+    FOUND_LAUNCHER=false
+    for check_dir in "$HOME/bin" "$HOME/.local/bin" "/usr/local/bin"; do
+        if [ -f "$check_dir/mcp" ]; then
+            # Verify this launcher points to our installation
+            if grep -q "$SCRIPT_DIR" "$check_dir/mcp" 2>/dev/null; then
+                INSTALL_DIR="$check_dir"
+                FOUND_LAUNCHER=true
+                break
+            fi
+        fi
+    done
+
+    if [ "$FOUND_LAUNCHER" = false ]; then
+        # Last resort: assume parent directory
         INSTALL_DIR="$(dirname "$APP_DIR")"
+        echo "⚠️  Warning: Could not determine original install directory."
+        echo "   Assuming: $INSTALL_DIR"
+        echo "   If this is incorrect, please manually remove:"
+        echo "   - The installation directory"
+        echo "   - The launcher script from your PATH"
     fi
 fi
 
@@ -814,15 +978,26 @@ if [ -f "$LAUNCHER_PATH" ]; then
 fi
 
 print_step "Removing shell integration..."
-for config_file in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+for config_file in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
     if [ -f "$config_file" ]; then
         if grep -q "MCP Config Manager installer" "$config_file" 2>/dev/null; then
-            # Remove the installer lines
+            # Create backup
+            cp "$config_file" "${config_file}.uninstall.backup"
+
+            # Remove the installer lines safely
+            TEMP_FILE="${config_file}.tmp.$$"
             grep -v "# Added by MCP Config Manager installer" "$config_file" | \
             grep -v "$INSTALL_DIR" | \
-            grep -v "mcp-gui" > "${config_file}.tmp" 2>/dev/null || true
-            mv "${config_file}.tmp" "$config_file" 2>/dev/null || true
-            print_success "Cleaned $config_file"
+            grep -v "mcp-gui" > "$TEMP_FILE" || echo -n "" > "$TEMP_FILE"
+
+            # Only replace if we have a valid file
+            if [ -s "$config_file" ] && [ ! -s "$TEMP_FILE" ]; then
+                print_warning "Skipped $config_file - backup saved as ${config_file}.uninstall.backup"
+                rm -f "$TEMP_FILE"
+            else
+                mv "$TEMP_FILE" "$config_file"
+                print_success "Cleaned $config_file"
+            fi
         fi
     fi
 done
