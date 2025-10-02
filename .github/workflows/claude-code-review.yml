@@ -14,7 +14,8 @@ permissions:        # Top-level permissions for OIDC
   contents: read
   pull-requests: write
   issues: read
-  id-token: write
+  actions: read            # Add this for some actions that expect it
+  id-token: write          # Required for OIDC
 
 jobs:
   claude-review:
@@ -22,10 +23,11 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
     runs-on: ubuntu-latest
-    permissions:
+    permissions:           # Job-level (duplicates above on purpose)
       contents: read
-      pull-requests: write  # Changed from 'read' to 'write' to allow PR comments
+      pull-requests: write
       issues: read
+      actions: read
       id-token: write
     
     steps:
@@ -38,6 +40,7 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}            # Add this to bypass OIDC issues
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Please review this pull request and provide feedback on:
