@@ -43,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # Provide as env variable
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}   # Also keep as input
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}  # Use OAuth token as API key
           prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices
