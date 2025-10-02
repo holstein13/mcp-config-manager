@@ -24,7 +24,7 @@ setup(
     description="A cross-platform GUI utility for managing MCP server configurations",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/mcp-config-manager",
+    url="https://github.com/holstein13/mcp-config-manager",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     classifiers=[
