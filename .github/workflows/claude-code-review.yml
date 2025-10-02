@@ -39,8 +39,10 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # Provide as env variable
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}            # Add this to bypass OIDC issues
+          github_token: ${{ secrets.GITHUB_TOKEN }}   # Also keep as input
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Please review this pull request and provide feedback on:
