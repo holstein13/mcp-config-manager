@@ -52,7 +52,7 @@ The graphical interface is complete and working with all major features operatio
 **One-command installation:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/holstein13/mcp-config-manager/master/install.sh | bash
 ```
 
 The installer will:
