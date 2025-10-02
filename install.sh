@@ -229,8 +229,17 @@ safe_sed_replace() {
             return 1
         fi
 
-        # Preserve permissions
-        chmod --reference="$file" "$temp_file" 2>/dev/null || chmod 644 "$temp_file"
+        # Preserve permissions (secure fallback based on file type)
+        if ! chmod --reference="$file" "$temp_file" 2>/dev/null; then
+            # Determine appropriate permissions
+            if [[ "$file" == *.sh ]] || [[ -x "$file" ]]; then
+                chmod 755 "$temp_file"
+            elif [[ "$file" == *config* ]] || [[ "$file" == *rc ]]; then
+                chmod 600 "$temp_file"  # Restrictive for config files
+            else
+                chmod 644 "$temp_file"  # Default for regular files
+            fi
+        fi
 
         # Atomic replace
         mv -f "$temp_file" "$file"
@@ -332,8 +341,16 @@ get_install_directory() {
                     install_dir="$(pwd)/$custom_dir"
                 fi
 
-                # Canonicalize path safely
-                install_dir=$(readlink -m "$install_dir" 2>/dev/null) || install_dir="$install_dir"
+                # Canonicalize path safely (portable)
+                if command_exists realpath; then
+                    install_dir=$(realpath -m "$install_dir" 2>/dev/null) || install_dir="$install_dir"
+                elif command_exists readlink && readlink -f /dev/null >/dev/null 2>&1; then
+                    # macOS readlink doesn't have -m, use -f for existing paths
+                    install_dir=$(cd "$(dirname "$install_dir")" 2>/dev/null && pwd)/$(basename "$install_dir") || install_dir="$install_dir"
+                else
+                    # Fallback: just use the path as-is
+                    install_dir="$install_dir"
+                fi
                 break
                 ;;
             *)
@@ -395,7 +412,14 @@ verify_repository() {
     # Check git remote URL
     local remote_url=$(cd "$repo_dir" && git config --get remote.origin.url 2>/dev/null)
 
-    if [[ "$remote_url" != *"$REPO_FINGERPRINT"* ]]; then
+    # Strict repository URL verification (no wildcards)
+    local expected_https="https://${REPO_FINGERPRINT}.git"
+    local expected_ssh="git@${REPO_FINGERPRINT}.git"
+    local expected_https_no_git="https://${REPO_FINGERPRINT}"
+
+    if [[ "$remote_url" != "$expected_https" ]] &&
+       [[ "$remote_url" != "$expected_ssh" ]] &&
+       [[ "$remote_url" != "$expected_https_no_git" ]]; then
         print_error "Repository verification failed: unexpected remote URL"
         print_error "Expected: $REPO_FINGERPRINT"
         print_error "Got: $remote_url"
@@ -422,8 +446,11 @@ install_application() {
     print_info "Cloning from $REPO_URL..."
 
     # Clone with explicit error handling
-    if ! git clone --depth 1 "$REPO_URL" "$APP_DIR" 2>&1 | tee /tmp/git_clone_$$.log; then
-        print_error "Failed to download repository. Check /tmp/git_clone_$$.log for details"
+    local git_log=$(mktemp)
+    TEMP_FILES+=("$git_log")
+
+    if ! git clone --depth 1 "$REPO_URL" "$APP_DIR" 2>&1 | tee "$git_log"; then
+        print_error "Failed to download repository. Check $git_log for details"
         exit 1
     fi
 
@@ -454,16 +481,22 @@ install_application() {
     print_step "Installing dependencies..."
 
     # Upgrade pip with output for debugging
-    if ! pip install --upgrade pip 2>&1 | tee /tmp/pip_upgrade_$$.log; then
-        print_error "Failed to upgrade pip. Check /tmp/pip_upgrade_$$.log for details"
+    local pip_upgrade_log=$(mktemp)
+    TEMP_FILES+=("$pip_upgrade_log")
+
+    if ! pip install --upgrade pip 2>&1 | tee "$pip_upgrade_log"; then
+        print_error "Failed to upgrade pip. Check $pip_upgrade_log for details"
         exit 1
     fi
 
     # Install application with visible output for error detection
     print_info "Installing application (this may take a moment)..."
-    if ! pip install -e . 2>&1 | tee /tmp/pip_install_$$.log; then
+    local pip_install_log=$(mktemp)
+    TEMP_FILES+=("$pip_install_log")
+
+    if ! pip install -e . 2>&1 | tee "$pip_install_log"; then
         print_error "Failed to install application dependencies"
-        print_error "Check /tmp/pip_install_$$.log for details"
+        print_error "Check $pip_install_log for details"
         exit 1
     fi
 
@@ -532,53 +565,57 @@ EOF
     fi
 }
 
-# Create launcher script (content truncated for brevity - use full secure version)
+# Create launcher script with consistent permissions
 create_launcher() {
     print_step "Creating launcher script..."
 
     LAUNCHER_PATH="$INSTALL_DIR/mcp"
 
-    # Create launcher with secure permissions
-    (umask 077 && cat > "$LAUNCHER_PATH" << 'LAUNCHER_EOF'
+    # Create complete launcher in one operation for consistent permissions
+    cat > "$LAUNCHER_PATH" << EOF
 #!/bin/bash
 # MCP Config Manager Launcher
 # Auto-generated - Do not edit
+# Security: This launcher validates installation integrity before execution
 
 set -euo pipefail
+IFS=\$'\\n\\t'
 
-LAUNCHER_EOF
-    )
+# Installation paths
+readonly INSTALL_DIR="$APP_DIR"
+readonly VENV_PATH="\$INSTALL_DIR/$VENV_NAME"
 
-    # Add paths
-    cat >> "$LAUNCHER_PATH" << EOF
-INSTALL_DIR="$APP_DIR"
-VENV_PATH="\$INSTALL_DIR/$VENV_NAME"
+# Verify installation integrity
+if [ ! -d "\$INSTALL_DIR" ]; then
+    echo "❌ MCP Config Manager installation not found at \$INSTALL_DIR" >&2
+    echo "   Please reinstall from: https://github.com/holstein13/mcp-config-manager" >&2
+    exit 1
+fi
 
-EOF
+if [ ! -f "\$VENV_PATH/bin/activate" ]; then
+    echo "❌ Virtual environment not found or corrupted" >&2
+    echo "   Please reinstall from: https://github.com/holstein13/mcp-config-manager" >&2
+    exit 1
+fi
 
-    # Add the rest of launcher (secure version)
-    cat >> "$LAUNCHER_PATH" << 'LAUNCHER_EOF'
-# Verify installation
-if [ ! -d "$INSTALL_DIR" ]; then
-    echo "❌ MCP Config Manager installation not found at $INSTALL_DIR" >&2
+# Verify no symlink attacks
+if [ -L "\$INSTALL_DIR" ] || [ -L "\$VENV_PATH" ]; then
+    echo "❌ Security warning: Installation directory contains symlinks" >&2
     exit 1
 fi
 
 # Activate virtual environment
-if [ -f "$VENV_PATH/bin/activate" ]; then
-    # shellcheck source=/dev/null
-    source "$VENV_PATH/bin/activate"
-else
-    echo "❌ Virtual environment not found" >&2
-    exit 1
-fi
+# shellcheck source=/dev/null
+source "\$VENV_PATH/bin/activate"
 
-cd "$INSTALL_DIR" || exit 1
+# Change to app directory
+cd "\$INSTALL_DIR" || exit 1
 
-# Execute application with all arguments
-exec mcp-config-manager "$@"
-LAUNCHER_EOF
+# Execute application with all arguments (no string expansion)
+exec mcp-config-manager "\$@"
+EOF
 
+    # Set secure permissions after creation
     chmod 755 "$LAUNCHER_PATH"
     print_success "Launcher created: $LAUNCHER_PATH"
 }
