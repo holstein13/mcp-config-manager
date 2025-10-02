@@ -292,7 +292,7 @@ class TkinterMainWindow:
     def _on_documentation(self):
         """Handle documentation action."""
         import webbrowser
-        webbrowser.open("https://github.com/yourusername/mcp-config-manager")
+        webbrowser.open("https://github.com/holstein13/mcp-config-manager")
     
     def _on_server_toggled(self, server_name: str, enabled: bool):
         """Handle server toggle event."""
