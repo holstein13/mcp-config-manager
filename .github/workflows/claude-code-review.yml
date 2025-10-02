@@ -10,6 +10,12 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+permissions:        # Top-level permissions for OIDC
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
 jobs:
   claude-review:
     # Skip if the PR is from a fork (runs only for same-repo branches)
