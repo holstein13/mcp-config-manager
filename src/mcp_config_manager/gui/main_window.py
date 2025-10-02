@@ -95,6 +95,9 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.app_state = ApplicationState()
         self.ui_config = UIConfiguration()
         self._unsaved_changes = False
+
+        # Initialize theme system
+        self._setup_theme_system()
         self._status_bar = None
         self._status_label = None
         self._save_indicator = None
@@ -165,7 +168,154 @@ class MainWindow(QMainWindow if USING_QT else object):
         self.root.title("MCP Config Manager")
         self.root.geometry("1400x900+100+100")
         self.root.minsize(1200, 800)
-    
+
+    def _setup_theme_system(self):
+        """Initialize the theme management system."""
+        try:
+            from .themes import get_theme_manager
+            self.theme_manager = get_theme_manager()
+
+            # Fix: Properly validate and extract theme value
+            if hasattr(self.ui_config.theme, 'value'):
+                theme_value = self.ui_config.theme.value
+            else:
+                theme_value = str(self.ui_config.theme)
+
+            # Validate theme value
+            valid_themes = ['light', 'dark', 'system']
+            if theme_value not in valid_themes:
+                logging.warning(f"Invalid theme '{theme_value}', defaulting to 'system'")
+                theme_value = 'system'
+
+            self.theme_manager.initialize(self.ui_config)
+
+            # Register for theme changes
+            self.theme_manager.register_theme_callback('main_window', self._on_theme_changed)
+
+            # Apply initial stylesheet
+            if USING_QT:
+                self._apply_theme_stylesheet()
+
+            logging.debug(f"Theme system initialized with {self.theme_manager.get_current_theme()} theme")
+
+        except ImportError as e:
+            logging.warning(f"Theme system not available: {e}")
+            self.theme_manager = None
+        except Exception as e:
+            logging.error(f"Failed to initialize theme system: {e}")
+            self.theme_manager = None
+
+    def _apply_theme_stylesheet(self):
+        """Apply the current theme stylesheet to the application."""
+        if USING_QT and hasattr(self, 'theme_manager') and self.theme_manager:
+            stylesheet = self.theme_manager.generate_stylesheet()
+            QApplication.instance().setStyleSheet(stylesheet)
+            logging.debug("Applied theme stylesheet")
+
+    def _on_theme_changed(self, theme_name: str, colors):
+        """Handle theme change notifications."""
+        logging.info(f"Theme changed to: {theme_name}")
+        if USING_QT:
+            self._apply_theme_stylesheet()
+
+            # Update toolbar button styles with new colors
+            if hasattr(self, 'toolbar'):
+                self._update_toolbar_theme(colors)
+        else:
+            # Basic tkinter theme support
+            self._apply_tkinter_theme(colors)
+
+    def _update_toolbar_theme(self, colors):
+        """Update toolbar button styles with new theme colors."""
+        button_style = f"""
+            QPushButton {{
+                background-color: {colors.control_bg};
+                border: 1px solid {colors.control_border};
+                padding: 4px 8px;
+                border-radius: 3px;
+                font-size: 12px;
+                color: {colors.text_primary};
+            }}
+            QPushButton:hover {{
+                background-color: {colors.control_hover};
+                border: 1px solid {colors.accent_primary};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors.control_pressed};
+            }}
+            QPushButton:disabled {{
+                background-color: {colors.bg_secondary};
+                color: {colors.text_disabled};
+                border-color: {colors.border_secondary};
+            }}
+        """
+
+        # Update all toolbar buttons
+        from PyQt6.QtWidgets import QPushButton
+        for widget in self.toolbar.children():
+            if isinstance(widget, QPushButton):
+                widget.setStyleSheet(button_style)
+
+    def _apply_tkinter_theme(self, colors):
+        """Apply basic theme colors to tkinter widgets."""
+        if not USING_QT and hasattr(self, 'root'):
+            try:
+                # Convert colors dict to accessible format
+                color_dict = colors.to_dict() if hasattr(colors, 'to_dict') else colors
+
+                # Apply basic colors to root window
+                self.root.configure(
+                    bg=color_dict.get('bg_primary', '#FFFFFF'),
+                    fg=color_dict.get('text_primary', '#000000')
+                )
+
+                # Update all child widgets with basic theming
+                self._update_tkinter_widgets(self.root, color_dict)
+
+                logging.debug("Applied basic tkinter theme")
+            except Exception as e:
+                logging.warning(f"Failed to apply tkinter theme: {e}")
+
+    def _update_tkinter_widgets(self, parent, colors):
+        """Recursively update tkinter widgets with theme colors."""
+        try:
+            import tkinter as tk
+            for child in parent.winfo_children():
+                widget_class = child.winfo_class()
+
+                # Apply basic colors based on widget type
+                if widget_class in ['Frame', 'Toplevel']:
+                    child.configure(bg=colors.get('bg_secondary', '#F6F6F6'))
+                elif widget_class in ['Label']:
+                    child.configure(
+                        bg=colors.get('bg_primary', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000')
+                    )
+                elif widget_class in ['Button']:
+                    child.configure(
+                        bg=colors.get('control_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        activebackground=colors.get('control_hover', '#E5E5EA')
+                    )
+                elif widget_class in ['Entry', 'Text']:
+                    child.configure(
+                        bg=colors.get('control_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        insertbackground=colors.get('text_primary', '#000000')
+                    )
+                elif widget_class in ['Listbox']:
+                    child.configure(
+                        bg=colors.get('list_bg', '#FFFFFF'),
+                        fg=colors.get('text_primary', '#000000'),
+                        selectbackground=colors.get('selection_bg', '#0056B3'),
+                        selectforeground=colors.get('text_inverse', '#FFFFFF')
+                    )
+
+                # Recursively update children
+                self._update_tkinter_widgets(child, colors)
+        except Exception as e:
+            logging.debug(f"Error updating tkinter widget: {e}")
+
     def _setup_ui(self):
         """Set up the main UI layout."""
         if USING_QT:
@@ -390,22 +540,33 @@ class MainWindow(QMainWindow if USING_QT else object):
         # Store reference to the action for later use
         self.revert_action_added = False
         
-        # Consistent button style for all toolbar buttons
-        button_style = """
-            QPushButton {
-                background-color: #F8F8F8;
-                border: 1px solid #CCCCCC;
+        # Get theme-aware colors from theme manager
+        from .themes import get_theme_manager
+        theme_manager = get_theme_manager()
+        colors = theme_manager.get_colors()
+
+        # Theme-aware button style for all toolbar buttons
+        button_style = f"""
+            QPushButton {{
+                background-color: {colors.control_bg};
+                border: 1px solid {colors.control_border};
                 padding: 4px 8px;
                 border-radius: 3px;
                 font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #E8E8E8;
-                border: 1px solid #999999;
-            }
-            QPushButton:pressed {
-                background-color: #D0D0D0;
-            }
+                color: {colors.text_primary};
+            }}
+            QPushButton:hover {{
+                background-color: {colors.control_hover};
+                border: 1px solid {colors.accent_primary};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors.control_pressed};
+            }}
+            QPushButton:disabled {{
+                background-color: {colors.bg_secondary};
+                color: {colors.text_disabled};
+                border-color: {colors.border_secondary};
+            }}
         """
         
         # Add spacing at the start of the toolbar
@@ -531,6 +692,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         # Save indicator (permanent widget on the right)
         self._save_indicator = QLabel("")
+        # Ensure transparent background to prevent odd background blocks
+        self._save_indicator.setStyleSheet("background: transparent;")
         self._status_bar.addPermanentWidget(self._save_indicator)
         
         self._update_save_indicator()
@@ -552,20 +715,31 @@ class MainWindow(QMainWindow if USING_QT else object):
     
     def _update_save_indicator(self):
         """Update the save indicator based on unsaved changes."""
+        # Get theme-aware colors
+        warning_color = "#FF9500"  # Default fallback
+        success_color = "#30D158"  # Default fallback
+
+        if hasattr(self, 'theme_manager') and self.theme_manager:
+            colors = self.theme_manager.get_colors()
+            warning_color = colors.warning
+            success_color = colors.success
+
         if self._unsaved_changes:
             text = "● Modified"
             if USING_QT:
                 self._save_indicator.setText(text)
-                self._save_indicator.setStyleSheet("color: orange;")
+                # Use transparent background to avoid odd background blocks
+                self._save_indicator.setStyleSheet(f"background: transparent; color: {warning_color};")
             else:
-                self._save_indicator.config(text=text, foreground="orange")
+                self._save_indicator.config(text=text, foreground=warning_color)
         else:
             text = "✓ Saved"
             if USING_QT:
                 self._save_indicator.setText(text)
-                self._save_indicator.setStyleSheet("color: green;")
+                # Use transparent background to avoid odd background blocks
+                self._save_indicator.setStyleSheet(f"background: transparent; color: {success_color};")
             else:
-                self._save_indicator.config(text=text, foreground="green")
+                self._save_indicator.config(text=text, foreground=success_color)
     
     def set_unsaved_changes(self, unsaved: bool):
         """Set unsaved changes state and update UI."""
