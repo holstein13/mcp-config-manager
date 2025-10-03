@@ -21,7 +21,7 @@ class ClaudeConfigParser(BaseConfigParser):
             return {"mcpServers": {}}
         
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in Claude config: {e}")
@@ -33,8 +33,8 @@ class ClaudeConfigParser(BaseConfigParser):
         try:
             # Ensure parent directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(output_path, 'w') as f:
+
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
             raise IOError(f"Error writing Claude config: {e}")
