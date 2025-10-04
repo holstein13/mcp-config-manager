@@ -55,14 +55,31 @@ class GeminiConfigParser(BaseConfigParser):
         """Validate server configurations"""
         if not isinstance(servers, dict):
             return False
-        
+
         for server_name, server_config in servers.items():
             if not isinstance(server_config, dict):
                 return False
-            
-            if 'command' not in server_config:
+
+            # Check for required fields based on server type
+            server_type = server_config.get('type', 'stdio')
+
+            if server_type == 'stdio':
+                # stdio servers require command
+                if 'command' not in server_config:
+                    return False
+            elif server_type in ('http', 'sse'):
+                # http/sse servers require url, command is optional
+                if 'url' not in server_config:
+                    return False
+
+            # Validate field types if present
+            if 'args' in server_config and not isinstance(server_config['args'], list):
                 return False
-        
+            if 'env' in server_config and not isinstance(server_config['env'], dict):
+                return False
+            if 'headers' in server_config and not isinstance(server_config['headers'], dict):
+                return False
+
         return True
     
     def get_servers(self, config: Dict[str, Any]) -> Dict[str, Any]:
