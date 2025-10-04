@@ -70,7 +70,9 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         'trust': 'boolean',
         'disabled': 'boolean',
         'restart': 'dropdown',
-        'transport': 'dropdown'
+        'transport': 'dropdown',
+        'type': 'dropdown',  # SSE server type
+        'url': 'string'      # SSE server URL
     }
     
     # Field descriptions for tooltips
@@ -84,7 +86,9 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
         'trust': 'Trust this server',
         'disabled': 'Disable this server',
         'restart': 'Restart policy (never, on-failure, always)',
-        'transport': 'Transport type (stdio, http, websocket)'
+        'transport': 'Transport type (stdio, http, websocket)',
+        'type': 'Server type (stdio, sse, http)',
+        'url': 'Server URL (for SSE/HTTP servers)'
     }
     
     def __init__(self, parent=None):
@@ -487,6 +491,8 @@ class ServerDetailsPanel(QWidget if USING_QT else object):
                 editor.set_options(['never', 'on-failure', 'always'])
             elif field_name == 'transport':
                 editor.set_options(['stdio', 'http', 'websocket'])
+            elif field_name == 'type':
+                editor.set_options(['stdio', 'sse', 'http'])
         
         if editor:
             
