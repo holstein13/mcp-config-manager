@@ -129,11 +129,34 @@ mcp-config-manager gui
 
 #### macOS: Create a Native .app Bundle
 
-For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight:
+For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight.
+
+##### Initial Setup (One-time)
+
+Due to macOS's externally-managed Python environment (PEP 668), you need to use a virtual environment:
 
 ```bash
-# Install py2app (one-time setup)
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Install build dependencies
 pip install py2app
+
+# Install the application in editable mode
+pip install -e .
+
+# Install PyQt6 for GUI support
+pip install PyQt6
+```
+
+##### Building the .app Bundle
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
 
 # Build the .app bundle (from project root)
 ./build_app.sh
@@ -141,14 +164,45 @@ pip install py2app
 # Or manually:
 python3 scripts/build/setup_app.py py2app --dist-dir artifacts/dist
 
-# The app will be created in artifacts/dist/
-# You can then:
-# 1. Double-click "MCP Config Manager.app" to launch
-# 2. Drag it to /Applications for system-wide access
-# 3. Add it to your Dock for quick access
+# Install to Applications folder
+cp -r "artifacts/dist/MCP Config Manager.app" /Applications/
 ```
 
-**Note:** The .app bundle is completely self-contained with Python and all dependencies bundled. After code changes, rebuild the app with the same command above.
+The app will be created in `artifacts/dist/MCP Config Manager.app`. You can then:
+1. Double-click "MCP Config Manager.app" to launch
+2. Launch via Spotlight (⌘ + Space, type "MCP Config Manager")
+3. Add it to your Dock for quick access
+
+##### Rebuilding After Code Changes
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Clean previous build artifacts
+rm -rf build artifacts/dist
+
+# Build the .app bundle
+./build_app.sh
+
+# Install to Applications folder
+cp -r "artifacts/dist/MCP Config Manager.app" /Applications/
+```
+
+##### Troubleshooting
+
+If the build fails:
+- Make sure you're in the virtual environment (`source venv/bin/activate`)
+- Check that all dependencies are installed (`pip list`)
+- Clean build artifacts and try again (`rm -rf build artifacts/dist`)
+
+If the app crashes on launch:
+- Run from terminal to see error messages:
+  ```bash
+  /Applications/MCP\ Config\ Manager.app/Contents/MacOS/MCP\ Config\ Manager
+  ```
+
+**Note:** The .app bundle is completely self-contained with Python and all dependencies bundled. It works independently of your virtual environment once built.
 
 The GUI provides:
 - 🖥️ Visual server list with checkboxes
