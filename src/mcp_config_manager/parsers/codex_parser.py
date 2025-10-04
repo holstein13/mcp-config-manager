@@ -207,17 +207,16 @@ class CodexConfigParser(BaseConfigParser):
                     # Provide a default or skip this server
                     logger.warning(f"Server '{name}' of type stdio missing command field, skipping")
                     continue
-            elif server_type == "http":
-                # http requires url, but Codex also seems to require command
+            elif server_type in ("http", "sse"):
+                # http/sse requires url, command is optional
                 if "url" in server_config:
                     toml_entry["url"] = server_config["url"]
                 else:
-                    logger.warning(f"Server '{name}' of type http missing url field, skipping")
+                    logger.warning(f"Server '{name}' of type {server_type} missing url field, skipping")
                     continue
-                # Add command for http servers (Codex requirement)
-                if "command" not in server_config:
-                    toml_entry["command"] = "curl"  # Default command for HTTP servers
-                    toml_entry["args"] = []
+                # Only include command if explicitly provided (not required for http/sse)
+                if "command" in server_config and server_config["command"]:
+                    toml_entry["command"] = server_config["command"]
 
             # Copy other fields
             for key, value in server_config.items():
@@ -243,11 +242,11 @@ class CodexConfigParser(BaseConfigParser):
             if not server_config.get("command"):
                 logger.debug(f"Server config missing required 'command' field for stdio type")
                 return False
-        elif server_type == "http":
+        elif server_type in ("http", "sse"):
             if not server_config.get("url"):
-                logger.debug(f"Server config missing required 'url' field for http type")
+                logger.debug(f"Server config missing required 'url' field for {server_type} type")
                 return False
-            # Note: Codex also requires 'command' for http servers, but we'll add a default in conversion
+            # Command is optional for http/sse servers - they connect via URL
 
         # Validate field types
         if "args" in server_config and not isinstance(server_config["args"], (list, tuple)):

@@ -53,17 +53,29 @@ class ClaudeConfigParser(BaseConfigParser):
             for server_name, server_config in config['mcpServers'].items():
                 if not isinstance(server_config, dict):
                     return False
-                
-                # Check for required fields
-                if 'command' not in server_config:
-                    return False
-                
+
+                # Check for required fields based on server type
+                server_type = server_config.get('type', 'stdio')
+
+                if server_type == 'stdio':
+                    # stdio servers require command
+                    if 'command' not in server_config:
+                        return False
+                elif server_type in ('http', 'sse'):
+                    # http/sse servers require url, command is optional
+                    if 'url' not in server_config:
+                        return False
+
                 # Validate args if present
                 if 'args' in server_config and not isinstance(server_config['args'], list):
                     return False
-                
+
                 # Validate env if present
                 if 'env' in server_config and not isinstance(server_config['env'], dict):
+                    return False
+
+                # Validate headers if present (for http/sse)
+                if 'headers' in server_config and not isinstance(server_config['headers'], dict):
                     return False
         
         return True
