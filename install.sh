@@ -31,6 +31,86 @@ readonly NC='\033[0m' # No Color
 APP_DIR=""
 LAUNCHER_PATH=""
 TEMP_FILES=()
+INPUT_FD=0
+
+# Detect interactive input source even when script is piped through curl
+setup_input_device() {
+    if [ -t 0 ]; then
+        INPUT_FD=0
+    elif [ -r /dev/tty ]; then
+        exec 3</dev/tty
+        INPUT_FD=3
+    else
+        print_error "Interactive input is required but /dev/tty is unavailable"
+        exit 1
+    fi
+}
+
+# Safely read user input from the detected source
+safe_read() {
+    local prompt="$1"
+    local var_name="$2"
+    local default_value="${3:-}"
+    local input=""
+
+    if [ "$INPUT_FD" -eq 0 ]; then
+        if ! read -r -p "$prompt" input; then
+            print_error "Failed to read input. Please try again."
+            exit 1
+        fi
+    else
+        if ! read -r -u "$INPUT_FD" -p "$prompt" input; then
+            print_error "Failed to read input from terminal."
+            exit 1
+        fi
+    fi
+
+    # Trim carriage returns that can appear when input comes from pseudo terminals
+    input="${input%$'\r'}"
+
+    if [ -z "$input" ] && [ -n "$default_value" ]; then
+        input="$default_value"
+    fi
+
+    printf -v "$var_name" "%s" "$input"
+}
+
+# Canonicalize paths without relying on platform-specific realpath flags
+canonicalize_path() {
+    local raw_path="$1"
+    local canonical=""
+
+    if command_exists python3; then
+        canonical=$(python3 - "$raw_path" <<'PY' 2>/dev/null
+import os
+import sys
+path = sys.argv[1]
+print(os.path.abspath(os.path.expanduser(path)))
+PY
+) || canonical=""
+        if [ -n "$canonical" ]; then
+            printf '%s\n' "$canonical"
+            return 0
+        fi
+    fi
+
+    if command_exists realpath; then
+        canonical=$(realpath "$raw_path" 2>/dev/null) || canonical=""
+        if [ -n "$canonical" ]; then
+            printf '%s\n' "$canonical"
+            return 0
+        fi
+    fi
+
+    if command_exists readlink && readlink -f /dev/null >/dev/null 2>&1; then
+        canonical=$(cd "$(dirname "$raw_path")" 2>/dev/null && pwd)/$(basename "$raw_path")
+        printf '%s\n' "$canonical"
+        return 0
+    fi
+
+    printf '%s\n' "$raw_path"
+    return 0
+}
 
 # Print formatted messages
 print_header() {
@@ -82,6 +162,10 @@ cleanup_on_failure() {
         if [ -n "$LAUNCHER_PATH" ] && [ -f "$LAUNCHER_PATH" ]; then
             rm -f "$LAUNCHER_PATH"
         fi
+    fi
+
+    if [ "$INPUT_FD" -eq 3 ]; then
+        exec 3<&-
     fi
 }
 
@@ -312,7 +396,7 @@ get_install_directory() {
 
     local install_dir=""
     while true; do
-        read -rp "Enter your choice (1-4): " choice
+        safe_read "Enter your choice (1-4): " choice
         case "$choice" in
             1)
                 install_dir="$HOME/bin"
@@ -328,7 +412,7 @@ get_install_directory() {
                 break
                 ;;
             4)
-                read -rp "Enter custom directory path: " custom_dir
+                safe_read "Enter custom directory path: " custom_dir
 
                 # Validate custom directory input
                 if ! validate_path_input "$custom_dir"; then
@@ -343,17 +427,7 @@ get_install_directory() {
                     # Relative path - safely combine
                     install_dir="$(pwd)/$custom_dir"
                 fi
-
-                # Canonicalize path safely (portable)
-                if command_exists realpath; then
-                    install_dir=$(realpath -m "$install_dir" 2>/dev/null) || install_dir="$install_dir"
-                elif command_exists readlink && readlink -f /dev/null >/dev/null 2>&1; then
-                    # macOS readlink doesn't have -m, use -f for existing paths
-                    install_dir=$(cd "$(dirname "$install_dir")" 2>/dev/null && pwd)/$(basename "$install_dir") || install_dir="$install_dir"
-                else
-                    # Fallback: just use the path as-is
-                    install_dir="$install_dir"
-                fi
+                install_dir=$(canonicalize_path "$install_dir")
                 break
                 ;;
             *)
@@ -632,7 +706,7 @@ setup_shell_integration() {
     echo "This will allow you to run 'mcp' from anywhere in your terminal."
     echo ""
 
-    read -rp "Add to shell PATH? (y/n): " add_to_path
+    safe_read "Add to shell PATH? (y/n): " add_to_path
 
     if [[ ! "$add_to_path" =~ ^[Yy]$ ]]; then
         print_info "Skipping shell integration"
@@ -806,6 +880,7 @@ print_final_instructions() {
 main() {
     print_header
 
+    setup_input_device
     check_requirements
     get_install_directory
     create_install_directory
@@ -815,6 +890,10 @@ main() {
     create_uninstaller
     setup_shell_integration
     print_final_instructions
+
+    if [ "$INPUT_FD" -eq 3 ]; then
+        exec 3<&-
+    fi
 
     # Success - disable cleanup trap
     trap - EXIT
