@@ -1950,19 +1950,22 @@ def run_gui_in_main_thread():
     if USING_QT:
         app = QApplication(sys.argv)
         app.setApplicationName("MCP Config Manager")
-        
+        app.setApplicationDisplayName("MCP Config Manager")
+
         # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
         # may render as solid blue squares. This is a Qt rendering issue that
         # should be fixed in future Qt versions. The application is using the
         # native macOS style correctly.
-        
+
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
+
+        # Show window
         window.show()
-        # Ensure window gets focus after showing
         window.raise_()
         window.activateWindow()
-        app.exec()
+
+        sys.exit(app.exec())
     else:
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
