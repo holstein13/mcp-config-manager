@@ -18,7 +18,7 @@ class GeminiConfigParser(BaseConfigParser):
             return {"mcpServers": {}, "googleCloudProject": None}
 
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 # Ensure googleCloudProject field exists
                 if 'googleCloudProject' not in data:
@@ -34,8 +34,8 @@ class GeminiConfigParser(BaseConfigParser):
         try:
             # Ensure parent directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(output_path, 'w') as f:
+
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
             raise IOError(f"Error writing Gemini config: {e}")
