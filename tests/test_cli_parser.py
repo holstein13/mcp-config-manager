@@ -159,7 +159,7 @@ class TestClaudeCliParser:
 
     def test_error_on_sse_without_url(self):
         """Test error when SSE transport has no URL"""
-        with pytest.raises(ValueError, match="SSE transport requires a URL"):
+        with pytest.raises(ValueError, match="SSE transport requires a valid URL"):
             ClaudeCliParser.parse_cli_command("claude mcp add --transport sse myserver")
 
     def test_error_on_stdio_without_command(self):
@@ -244,3 +244,108 @@ class TestClaudeCliParser:
 
         assert "myserver" in result
         assert result["myserver"]["command"] == "npx"
+
+    # mcp-remote conversion tests
+    def test_mcp_remote_conversion_disabled_default(self):
+        """Test mcp-remote command preserved when conversion disabled (default)"""
+        command = "claude mcp add linear -- npx -y mcp-remote https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command)
+
+        assert "linear" in result
+        assert result["linear"]["command"] == "npx"
+        assert result["linear"]["args"] == ["-y", "mcp-remote", "https://mcp.linear.app/sse"]
+        assert "type" not in result["linear"]
+        assert "url" not in result["linear"]
+
+    def test_mcp_remote_conversion_disabled_explicit(self):
+        """Test mcp-remote command preserved when explicitly disabled"""
+        command = "claude mcp add linear -- npx -y mcp-remote https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=False)
+
+        assert "linear" in result
+        assert result["linear"]["command"] == "npx"
+        assert result["linear"]["args"] == ["-y", "mcp-remote", "https://mcp.linear.app/sse"]
+        assert "type" not in result["linear"]
+        assert "url" not in result["linear"]
+
+    def test_mcp_remote_conversion_enabled(self):
+        """Test mcp-remote command conversion when enabled"""
+        command = "claude mcp add linear -- npx -y mcp-remote https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=True)
+
+        assert "linear" in result
+        assert result["linear"]["type"] == "sse"
+        assert result["linear"]["url"] == "https://mcp.linear.app/sse"
+        assert "command" not in result["linear"]
+        assert "args" not in result["linear"]
+
+    def test_mcp_remote_conversion_without_y_flag(self):
+        """Test mcp-remote conversion works without -y flag"""
+        command = "claude mcp add linear -- npx mcp-remote https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=True)
+
+        assert result["linear"]["type"] == "sse"
+        assert result["linear"]["url"] == "https://mcp.linear.app/sse"
+
+    def test_mcp_remote_conversion_with_env(self):
+        """Test mcp-remote conversion preserves environment variables"""
+        command = "claude mcp add linear -e API_KEY=test -- npx -y mcp-remote https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=True)
+
+        assert result["linear"]["type"] == "sse"
+        assert result["linear"]["url"] == "https://mcp.linear.app/sse"
+        assert result["linear"]["env"]["API_KEY"] == "test"
+
+    def test_regular_npx_not_converted(self):
+        """Test that regular npx commands are not mistakenly converted"""
+        command = "claude mcp add firecrawl -- npx -y @mendable/firecrawl-mcp"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=True)
+
+        # Should remain as command/args since it's not mcp-remote
+        assert result["firecrawl"]["command"] == "npx"
+        assert result["firecrawl"]["args"] == ["-y", "@mendable/firecrawl-mcp"]
+        assert "type" not in result["firecrawl"]
+
+    def test_native_sse_transport_still_works(self):
+        """Test that native SSE transport flag still works"""
+        command = "claude mcp add linear --transport sse https://mcp.linear.app/sse"
+        result = ClaudeCliParser.parse_cli_command(command, convert_mcp_remote=False)
+
+        assert result["linear"]["type"] == "sse"
+        assert result["linear"]["url"] == "https://mcp.linear.app/sse"
+        assert "command" not in result["linear"]
+
+    def test_is_mcp_remote_command(self):
+        """Test _is_mcp_remote_command helper"""
+        assert ClaudeCliParser._is_mcp_remote_command(["npx", "-y", "mcp-remote", "https://test.com"])
+        assert ClaudeCliParser._is_mcp_remote_command(["npx", "mcp-remote", "https://test.com"])
+        assert not ClaudeCliParser._is_mcp_remote_command(["npx", "-y", "@package/name"])
+        assert not ClaudeCliParser._is_mcp_remote_command(["node", "server.js"])
+        assert not ClaudeCliParser._is_mcp_remote_command([])
+
+    def test_extract_mcp_remote_url(self):
+        """Test _extract_mcp_remote_url helper"""
+        url = ClaudeCliParser._extract_mcp_remote_url(["npx", "-y", "mcp-remote", "https://mcp.linear.app/sse"])
+        assert url == "https://mcp.linear.app/sse"
+
+        url = ClaudeCliParser._extract_mcp_remote_url(["npx", "mcp-remote", "http://localhost:3000"])
+        assert url == "http://localhost:3000"
+
+    def test_extract_mcp_remote_url_missing(self):
+        """Test _extract_mcp_remote_url raises error when URL is missing"""
+        with pytest.raises(ValueError, match="No URL provided after mcp-remote"):
+            ClaudeCliParser._extract_mcp_remote_url(["npx", "mcp-remote"])
+
+    def test_extract_mcp_remote_url_invalid(self):
+        """Test _extract_mcp_remote_url raises error for invalid URL"""
+        with pytest.raises(ValueError, match="Invalid URL for mcp-remote"):
+            ClaudeCliParser._extract_mcp_remote_url(["npx", "mcp-remote", "not-a-url"])
+
+    def test_extract_mcp_remote_url_invalid_prefix(self):
+        """Test _extract_mcp_remote_url raises error for URLs with invalid prefix"""
+        # Should reject URLs that start with 'http' but aren't valid http:// or https://
+        with pytest.raises(ValueError, match="Invalid URL for mcp-remote"):
+            ClaudeCliParser._extract_mcp_remote_url(["npx", "mcp-remote", "httpgarbage"])
+
+        with pytest.raises(ValueError, match="Invalid URL for mcp-remote"):
+            ClaudeCliParser._extract_mcp_remote_url(["npx", "mcp-remote", "httpsomething"])
