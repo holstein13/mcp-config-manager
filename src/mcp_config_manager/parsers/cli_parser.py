@@ -34,6 +34,10 @@ class ClaudeCliParser:
             True if text appears to be a Claude MCP add command
         """
         text = text.strip()
+        # Avoid false positives: JSON objects/arrays starting with { or [
+        # should not be mistaken for CLI commands even if they contain the prefix
+        if text.startswith(('{', '[')):
+            return False
         return text.startswith('claude mcp add')
 
     @staticmethod
@@ -52,12 +56,15 @@ class ClaudeCliParser:
         """
         command = command.strip()
 
+        # Normalize whitespace for prefix check (collapse multiple spaces)
+        normalized = ' '.join(command.split())
+
         # Verify it's a valid command
-        if not command.startswith('claude mcp add'):
+        if not normalized.startswith('claude mcp add'):
             raise ValueError("Command must start with 'claude mcp add'")
 
-        # Remove 'claude mcp add' prefix
-        command = command[len('claude mcp add'):].strip()
+        # Remove 'claude mcp add' prefix (use normalized version)
+        command = normalized[len('claude mcp add'):].strip()
 
         if not command:
             raise ValueError("No server configuration provided after 'claude mcp add'")
@@ -72,7 +79,7 @@ class ClaudeCliParser:
             raise ValueError("No tokens found after 'claude mcp add'")
 
         # Extract server name, flags, and command
-        server_name, transport, env_vars, scope, command_parts = ClaudeCliParser._parse_tokens(tokens)
+        server_name, transport, env_vars, _, command_parts = ClaudeCliParser._parse_tokens(tokens)
 
         # Build the server configuration
         server_config = ClaudeCliParser._build_config(transport, env_vars, command_parts)

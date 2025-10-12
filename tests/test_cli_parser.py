@@ -22,6 +22,16 @@ class TestClaudeCliParser:
         assert not ClaudeCliParser.is_cli_command("")
         assert not ClaudeCliParser.is_cli_command("claude mcp list")
 
+    def test_is_cli_command_false_positive_prevention(self):
+        """Test that JSON starting with { or [ is not mistaken for CLI command"""
+        # JSON object that happens to contain the CLI prefix as a key
+        assert not ClaudeCliParser.is_cli_command('{"claude mcp add": "value"}')
+        # JSON array
+        assert not ClaudeCliParser.is_cli_command('["claude mcp add", "something"]')
+        # JSON with whitespace
+        assert not ClaudeCliParser.is_cli_command('  {"server": "claude mcp add test"}')
+        assert not ClaudeCliParser.is_cli_command('  ["data"]')
+
     def test_parse_basic_stdio_command(self):
         """Test parsing a basic stdio command"""
         command = "claude mcp add myserver -- npx -y @package/name"
