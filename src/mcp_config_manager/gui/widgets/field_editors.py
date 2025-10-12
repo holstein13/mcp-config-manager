@@ -668,6 +668,7 @@ class DropdownEditor(FieldEditor):
         """Create a dropdown/combo box widget."""
         if USING_QT:
             self.widget = QComboBox(self.parent)
+            self.widget.setMinimumWidth(200)  # Ensure dropdown has enough width
             self.widget.addItems(self.options)
             if not self.required:
                 self.widget.setEditable(True)

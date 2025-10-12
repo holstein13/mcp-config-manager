@@ -88,6 +88,17 @@ class AddFieldDialog(QDialog if USING_QT else object):
             'description': 'Transport protocol for communication',
             'default': 'stdio',
             'options': ['stdio', 'http', 'websocket']
+        },
+        'type': {
+            'type': 'dropdown',
+            'description': 'Server type (stdio, sse, http)',
+            'default': 'stdio',
+            'options': ['stdio', 'sse', 'http']
+        },
+        'url': {
+            'type': 'string',
+            'description': 'Server URL (for SSE/HTTP servers)',
+            'default': ''
         }
     }
     
@@ -143,12 +154,14 @@ class AddFieldDialog(QDialog if USING_QT else object):
         self.desc_frame = QFrame()
         self.desc_frame.setFrameStyle(QFrame.Shape.Box)
         self.desc_frame.setStyleSheet("background-color: #f0f0f0; padding: 10px;")
+        self.desc_frame.setMinimumHeight(60)  # Ensure enough height for wrapped text
         desc_layout = QVBoxLayout(self.desc_frame)
         desc_layout.setContentsMargins(5, 5, 5, 5)
-        
+
         self.desc_label = QLabel("")
         self.desc_label.setWordWrap(True)
         self.desc_label.setStyleSheet("color: #333;")
+        self.desc_label.setMinimumWidth(350)  # Ensure label has width for proper wrapping
         desc_layout.addWidget(self.desc_label)
         
         form_layout.addRow("Description:", self.desc_frame)
