@@ -211,10 +211,10 @@ class ClaudeCliParser:
         # Handle SSE transport
         if transport == 'sse':
             config['type'] = 'sse'
-            if command_parts and command_parts[0].startswith('http'):
+            if command_parts and (command_parts[0].startswith('https://') or command_parts[0].startswith('http://')):
                 config['url'] = command_parts[0]
             else:
-                raise ValueError("SSE transport requires a URL")
+                raise ValueError("SSE transport requires a valid URL (http:// or https://)")
 
         # Handle stdio transport (default)
         else:
@@ -290,7 +290,7 @@ class ClaudeCliParser:
 
         url = command_parts[url_index]
 
-        if not url.startswith('http'):
+        if not (url.startswith('https://') or url.startswith('http://')):
             raise ValueError(f"Invalid URL for mcp-remote: {url}")
 
         return url

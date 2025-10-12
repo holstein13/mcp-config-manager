@@ -423,14 +423,14 @@ class AddServerDialog:
             
             # Validate each server
             for name, server in config.items():
+                # Skip _client_enablement metadata early
+                if name == '_client_enablement':
+                    continue
+
                 if not isinstance(server, dict):
                     self.status_label.setText(f"Server '{name}' must be an object")
                     self.status_label.setStyleSheet("color: red;")
                     return False
-
-                # Skip _client_enablement metadata
-                if name == '_client_enablement':
-                    continue
 
                 # Check if it's an SSE/HTTP server (requires type and url)
                 server_type = server.get('type')
@@ -500,13 +500,13 @@ class AddServerDialog:
             
             # Validate each server
             for name, server in config.items():
+                # Skip _client_enablement metadata early
+                if name == '_client_enablement':
+                    continue
+
                 if not isinstance(server, dict):
                     self.status_label.config(text=f"Server '{name}' must be an object", foreground="red")
                     return False
-
-                # Skip _client_enablement metadata
-                if name == '_client_enablement':
-                    continue
 
                 # Check if it's an SSE/HTTP server (requires type and url)
                 server_type = server.get('type')
