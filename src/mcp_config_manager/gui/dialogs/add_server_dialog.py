@@ -17,7 +17,7 @@ except ImportError:
     from tkinter import ttk, messagebox, scrolledtext
     USING_QT = False
 
-from ..parsers.cli_parser import ClaudeCliParser
+from ...parsers.cli_parser import ClaudeCliParser
 
 
 class AddServerDialog:
