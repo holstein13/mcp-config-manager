@@ -11,9 +11,7 @@ def test_qt_window_geometry():
     print("Window Geometry Test")
     print("=" * 30)
 
-    if not main_window_path.exists():
-        print("❌ Main window file not found")
-        return False
+    assert main_window_path.exists(), "Main window file not found"
 
     content = main_window_path.read_text()
 
@@ -31,7 +29,7 @@ def test_qt_window_geometry():
     print(f"  Larger default size (1400x900): {'✅ Yes' if has_tk_larger_default else '❌ No'}")
     print(f"  Minimum size constraint (1200x800): {'✅ Yes' if has_tk_minimum else '❌ No'}")
 
-    return has_larger_default and has_minimum_size and has_tk_larger_default and has_tk_minimum
+    assert has_larger_default and has_minimum_size and has_tk_larger_default and has_tk_minimum, "Window geometry settings not properly configured"
 
 def test_theme_font_sizing():
     """Test that custom font sizing has been removed from headers."""
@@ -40,9 +38,7 @@ def test_theme_font_sizing():
     print("\nTheme Header Font Test")
     print("=" * 30)
 
-    if not theme_manager_path.exists():
-        print("❌ Theme manager file not found")
-        return False
+    assert theme_manager_path.exists(), "Theme manager file not found"
 
     content = theme_manager_path.read_text()
 
@@ -55,7 +51,7 @@ def test_theme_font_sizing():
     print(f"  Custom font-size removed: {'✅ Yes' if not has_custom_font_size else '❌ No'}")
     print(f"  Header font-weight removed: {'✅ Yes' if not has_header_font_weight else '❌ No'}")
 
-    return not has_custom_font_size and not has_header_font_weight
+    assert not has_custom_font_size and not has_header_font_weight, "Custom font sizing should be removed from headers"
 
 def main():
     """Run all geometry and styling tests."""

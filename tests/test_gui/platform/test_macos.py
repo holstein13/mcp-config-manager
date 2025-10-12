@@ -11,6 +11,7 @@ Tests macOS-specific features, behaviors, and platform integration:
 - Dark mode integration
 - Retina display support
 """
+import pytest
 
 import os
 import sys
@@ -27,6 +28,7 @@ skip_if_not_macos = skipUnless(IS_MACOS, "macOS-specific tests")
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSPaths(TestCase):
     """Test macOS-specific file paths and locations."""
     
@@ -74,6 +76,7 @@ class TestMacOSPaths(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSGUIFramework(TestCase):
     """Test GUI framework behavior on macOS."""
     
@@ -124,7 +127,7 @@ class TestMacOSGUIFramework(TestCase):
     def test_framework_selection(self):
         """Test that correct GUI framework is selected on macOS."""
         # Import should work
-        from src.gui import GUI_FRAMEWORK
+        from src.mcp_config_manager.gui import GUI_FRAMEWORK
         
         # In test environment, may not have GUI frameworks
         if GUI_FRAMEWORK is None:
@@ -144,6 +147,7 @@ class TestMacOSGUIFramework(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSKeyboardShortcuts(TestCase):
     """Test macOS-specific keyboard shortcuts."""
     
@@ -184,6 +188,7 @@ class TestMacOSKeyboardShortcuts(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSMenuBar(TestCase):
     """Test macOS menu bar integration."""
     
@@ -222,6 +227,7 @@ class TestMacOSMenuBar(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSDarkMode(TestCase):
     """Test dark mode integration on macOS."""
     
@@ -263,6 +269,7 @@ class TestMacOSDarkMode(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSFileDialogs(TestCase):
     """Test native file dialogs on macOS."""
     
@@ -291,6 +298,7 @@ class TestMacOSFileDialogs(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSNotifications(TestCase):
     """Test macOS notification center integration."""
     
@@ -326,6 +334,7 @@ class TestMacOSNotifications(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSRetina(TestCase):
     """Test Retina display support."""
     
@@ -356,6 +365,7 @@ class TestMacOSRetina(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSBundleIntegration(TestCase):
     """Test macOS application bundle integration."""
     
@@ -396,6 +406,7 @@ class TestMacOSBundleIntegration(TestCase):
 
 
 @skip_if_not_macos
+@pytest.mark.unimplemented
 class TestMacOSPermissions(TestCase):
     """Test macOS permission handling."""
     

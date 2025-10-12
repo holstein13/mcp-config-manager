@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 
+@pytest.mark.unimplemented
 class TestServerEvents:
     """Contract tests for server events."""
     
     def test_server_toggled_event_structure(self):
         """Test ServerToggled event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServerToggledEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServerToggledEvent
         
         dispatcher = EventDispatcher()
         
@@ -42,8 +43,8 @@ class TestServerEvents:
     
     def test_server_added_event_structure(self):
         """Test ServerAdded event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServerAddedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServerAddedEvent
         
         dispatcher = EventDispatcher()
         
@@ -66,8 +67,8 @@ class TestServerEvents:
     
     def test_server_removed_event_structure(self):
         """Test ServerRemoved event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServerRemovedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServerRemovedEvent
         
         dispatcher = EventDispatcher()
         
@@ -88,8 +89,8 @@ class TestServerEvents:
     
     def test_servers_bulk_toggled_event_structure(self):
         """Test ServersBulkToggled event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServersBulkToggledEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServersBulkToggledEvent
         
         dispatcher = EventDispatcher()
         
@@ -119,8 +120,8 @@ class TestServerEvents:
     
     def test_server_enabled_disabled_events(self):
         """Test specific enabled/disabled events."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import (
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import (
             ServerEnabledEvent,
             ServerDisabledEvent
         )
@@ -149,8 +150,8 @@ class TestServerEvents:
     
     def test_server_event_chaining(self):
         """Test chaining server events."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import (
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import (
             ServerToggledEvent,
             ServerEnabledEvent,
             ServerDisabledEvent
@@ -197,8 +198,8 @@ class TestServerEvents:
     
     def test_server_validation_event(self):
         """Test server validation event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServerValidatedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServerValidatedEvent
         
         dispatcher = EventDispatcher()
         
@@ -226,8 +227,8 @@ class TestServerEvents:
     
     def test_servers_list_changed_event(self):
         """Test servers list changed event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.server_events import ServersListChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.server_events import ServersListChangedEvent
         
         dispatcher = EventDispatcher()
         

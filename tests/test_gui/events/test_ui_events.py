@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 
+@pytest.mark.unimplemented
 class TestUIEvents:
     """Contract tests for UI events."""
     
     def test_view_changed_event_structure(self):
         """Test ViewChanged event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import ViewChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import ViewChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -39,8 +40,8 @@ class TestUIEvents:
     
     def test_selection_changed_event_structure(self):
         """Test SelectionChanged event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import SelectionChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import SelectionChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -69,8 +70,8 @@ class TestUIEvents:
     
     def test_dialog_opened_event(self):
         """Test DialogOpened event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import DialogOpenedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import DialogOpenedEvent
         
         dispatcher = EventDispatcher()
         
@@ -93,8 +94,8 @@ class TestUIEvents:
     
     def test_dialog_closed_event(self):
         """Test DialogClosed event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import DialogClosedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import DialogClosedEvent
         
         dispatcher = EventDispatcher()
         
@@ -119,8 +120,8 @@ class TestUIEvents:
     
     def test_menu_action_event(self):
         """Test MenuAction event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import MenuActionEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import MenuActionEvent
         
         dispatcher = EventDispatcher()
         
@@ -141,8 +142,8 @@ class TestUIEvents:
     
     def test_toolbar_action_event(self):
         """Test ToolbarAction event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import ToolbarActionEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import ToolbarActionEvent
         
         dispatcher = EventDispatcher()
         
@@ -161,8 +162,8 @@ class TestUIEvents:
     
     def test_context_menu_event(self):
         """Test ContextMenu event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import ContextMenuEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import ContextMenuEvent
         
         dispatcher = EventDispatcher()
         
@@ -188,8 +189,8 @@ class TestUIEvents:
     
     def test_drag_drop_event(self):
         """Test DragDrop event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import DragDropEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import DragDropEvent
         
         dispatcher = EventDispatcher()
         
@@ -217,8 +218,8 @@ class TestUIEvents:
     
     def test_search_event(self):
         """Test Search event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import SearchEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import SearchEvent
         
         dispatcher = EventDispatcher()
         
@@ -243,8 +244,8 @@ class TestUIEvents:
     
     def test_filter_changed_event(self):
         """Test FilterChanged event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import FilterChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import FilterChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -275,8 +276,8 @@ class TestUIEvents:
     
     def test_shortcut_triggered_event(self):
         """Test ShortcutTriggered event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import ShortcutTriggeredEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import ShortcutTriggeredEvent
         
         dispatcher = EventDispatcher()
         
@@ -297,8 +298,8 @@ class TestUIEvents:
     
     def test_window_state_event(self):
         """Test WindowState event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.ui_events import WindowStateEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.ui_events import WindowStateEvent
         
         dispatcher = EventDispatcher()
         

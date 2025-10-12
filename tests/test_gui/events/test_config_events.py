@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 
+@pytest.mark.unimplemented
 class TestConfigurationEvents:
     """Contract tests for configuration events."""
     
     def test_configuration_loaded_event_structure(self):
         """Test ConfigurationLoaded event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -42,8 +43,8 @@ class TestConfigurationEvents:
     
     def test_configuration_saved_event_structure(self):
         """Test ConfigurationSaved event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationSavedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationSavedEvent
         
         dispatcher = EventDispatcher()
         
@@ -66,8 +67,8 @@ class TestConfigurationEvents:
     
     def test_configuration_error_event_structure(self):
         """Test ConfigurationError event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationErrorEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationErrorEvent
         
         dispatcher = EventDispatcher()
         
@@ -90,8 +91,8 @@ class TestConfigurationEvents:
     
     def test_event_subscription_and_dispatch(self):
         """Test event subscription and dispatching."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -120,8 +121,8 @@ class TestConfigurationEvents:
     
     def test_event_unsubscribe(self):
         """Test event unsubscription."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -158,8 +159,8 @@ class TestConfigurationEvents:
     
     def test_wildcard_event_subscription(self):
         """Test wildcard event subscription."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import (
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import (
             ConfigurationLoadedEvent,
             ConfigurationSavedEvent
         )
@@ -199,8 +200,8 @@ class TestConfigurationEvents:
     
     def test_event_priority_handling(self):
         """Test event handler priority."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -234,8 +235,8 @@ class TestConfigurationEvents:
     
     def test_event_stop_propagation(self):
         """Test stopping event propagation."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -268,8 +269,8 @@ class TestConfigurationEvents:
     
     def test_event_async_handling(self):
         """Test async event handling."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.config_events import ConfigurationLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.config_events import ConfigurationLoadedEvent
         import asyncio
         
         dispatcher = EventDispatcher()
