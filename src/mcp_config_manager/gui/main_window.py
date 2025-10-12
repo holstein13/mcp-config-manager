@@ -1471,8 +1471,30 @@ class MainWindow(QMainWindow if USING_QT else object):
         dialog = AddServerDialog(self if USING_QT else self.root)
         server_json = dialog.show()
         if server_json:
-            # Add to both clients by default
-            result = self.server_controller.add_server(server_json, 'both')
+            # Extract client enablement metadata (if present)
+            client_enablement = server_json.pop('_client_enablement', None)
+
+            # Determine which clients to enable for based on metadata
+            if client_enablement:
+                claude_enabled = client_enablement.get('claude', True)
+                gemini_enabled = client_enablement.get('gemini', True)
+
+                # Determine mode based on client selections
+                if claude_enabled and gemini_enabled:
+                    mode = 'both'
+                elif claude_enabled:
+                    mode = 'claude'
+                elif gemini_enabled:
+                    mode = 'gemini'
+                else:
+                    # If neither selected, default to both
+                    mode = 'both'
+            else:
+                # Default to both clients if no metadata
+                mode = 'both'
+
+            # Add server with appropriate mode
+            result = self.server_controller.add_server(server_json, mode)
             if result['success']:
                 server_names = result.get('server_names', [])
                 # For now, emit event for each server added
@@ -1489,11 +1511,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         """Show delete servers dialog for bulk deletion."""
         # Get all servers from both clients
         result = self.server_controller.get_servers('both')
-        
+
         if not result['success']:
             self.set_status_message(f"Failed to get servers: {result.get('error', 'Unknown error')}", timeout=5)
             return
-        
+
         servers_list = result['data']['servers']
         if not servers_list:
             if USING_QT:
@@ -1501,40 +1523,63 @@ class MainWindow(QMainWindow if USING_QT else object):
             else:
                 messagebox.showinfo("No Servers", "There are no servers to delete.")
             return
-        
+
         # Convert list of ServerListItem objects to dict with server names as keys
+        # Include per-client enabled flags for the dialog
         servers = {}
         for server_item in servers_list:
-            # ServerListItem has name and config attributes
+            # ServerListItem has name, config, and per-client flags
             servers[server_item.name] = {
                 'config': server_item.config,
-                'status': server_item.status
+                'status': server_item.status,
+                'claude_enabled': server_item.claude_enabled,
+                'gemini_enabled': server_item.gemini_enabled
             }
-        
+
         # Show delete dialog
         dialog = DeleteServersDialog(self if USING_QT else self.root, servers)
         if dialog.exec() if USING_QT else dialog.show():
             selected_servers = dialog.get_selected_servers()
-            
+            client_selections = dialog.get_client_selections()
+
             if selected_servers:
-                # Delete each selected server
+                # Delete each selected server from the specified clients
                 deleted_count = 0
                 failed_servers = []
-                
+
                 for server_name in selected_servers:
-                    delete_result = self.server_controller.delete_server(server_name, 'both')
+                    # Get the client selections for this server
+                    client_selection = client_selections.get(server_name, {})
+                    delete_claude = client_selection.get('claude', True)
+                    delete_gemini = client_selection.get('gemini', True)
+
+                    # Determine mode based on client selections
+                    if delete_claude and delete_gemini:
+                        mode = 'both'
+                    elif delete_claude:
+                        mode = 'claude'
+                    elif delete_gemini:
+                        mode = 'gemini'
+                    else:
+                        # Skip if neither selected (shouldn't happen due to dialog validation)
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Server '{server_name}' skipped: neither Claude nor Gemini selected for deletion")
+                        continue
+
+                    delete_result = self.server_controller.delete_server(server_name, mode)
                     if delete_result['success']:
                         deleted_count += 1
                     else:
                         failed_servers.append((server_name, delete_result.get('error', 'Unknown error')))
-                
+
                 # Refresh the server list
                 self.refresh_server_list()
-                
+
                 # Mark configuration as changed
                 if deleted_count > 0:
                     self.set_unsaved_changes(True)
-                
+
                 # Show results
                 if deleted_count > 0 and not failed_servers:
                     self.set_status_message(f"Successfully deleted {deleted_count} server(s)", timeout=5)
