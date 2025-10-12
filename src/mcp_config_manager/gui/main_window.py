@@ -1532,8 +1532,8 @@ class MainWindow(QMainWindow if USING_QT else object):
             servers[server_item.name] = {
                 'config': server_item.config,
                 'status': server_item.status,
-                'claude_enabled': getattr(server_item, 'claude_enabled', False),
-                'gemini_enabled': getattr(server_item, 'gemini_enabled', False)
+                'claude_enabled': server_item.claude_enabled,
+                'gemini_enabled': server_item.gemini_enabled
             }
 
         # Show delete dialog
@@ -1562,6 +1562,9 @@ class MainWindow(QMainWindow if USING_QT else object):
                         mode = 'gemini'
                     else:
                         # Skip if neither selected (shouldn't happen due to dialog validation)
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Server '{server_name}' skipped: neither Claude nor Gemini selected for deletion")
                         continue
 
                     delete_result = self.server_controller.delete_server(server_name, mode)
