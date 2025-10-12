@@ -19,12 +19,14 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
+- **🎨 Dual GUI Backend** - PyQt6 for rich styling and tooltips, automatic fallback to tkinter if PyQt6 not available
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
 - **🔍 Project Discovery** - Automatically discover MCP servers from project .claude.json files
 - **🗑️ Bulk Server Deletion** - Delete multiple servers with confirmation dialog
 - **➕ Enhanced Server Addition** - Add servers with improved JSON validation and cleanup
 - **💾 Advanced Backup System** - Organized backups in dedicated directory with GUI integration
+- **📦 Quick Backup & Restore** - One-click backup and restore from toolbar with file selection
 - **🔄 Server Restore** - Restore servers from backup files including disabled servers
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages `.claude.json`, `.gemini/settings.json`, and Codex configuration files
@@ -43,9 +45,8 @@ The graphical interface is complete and working with all major features operatio
 - **Visual Polish** - Blue selection highlights, orange unsaved indicators, red validation errors
 
 ### 🚧 Next Features (Planning Phase)
-- **Tkinter Support** - Alternative GUI backend for systems without Qt
 - **Health Monitoring** - Real-time server connection status
-- **Import/Export** - Backup and restore entire configurations
+- **Advanced Import/Export** - Import/export presets and configurations between machines
 
 ## 🚀 Quick Install (Recommended)
 
@@ -92,7 +93,9 @@ mcp uninstall
 ### Prerequisites
 - Python 3.8 or higher
 - Claude Code CLI, Gemini CLI, and/or Codex installed
-- PyQt6 (optional, for better GUI experience): `pip install PyQt6`
+- **PyQt6** (recommended but optional): Provides rich styling, tooltips, and better UX
+  - If not installed, app automatically falls back to tkinter (built into Python)
+  - Install with: `pip install PyQt6`
 
 ### Clone and Install
 ```bash
