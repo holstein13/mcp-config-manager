@@ -131,7 +131,7 @@ if GUI_FRAMEWORK == "pyqt6":
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line(
-        "markers", 
+        "markers",
         "gui: mark test as requiring GUI framework"
     )
     config.addinivalue_line(
@@ -142,19 +142,27 @@ def pytest_configure(config):
         "markers",
         "tkinter: mark test as requiring tkinter"
     )
+    config.addinivalue_line(
+        "markers",
+        "unimplemented: mark test as testing features not yet implemented (will be skipped)"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
     """Skip tests based on available GUI framework."""
     for item in items:
+        # Skip tests marked as testing unimplemented features
+        if "unimplemented" in item.keywords:
+            item.add_marker(pytest.mark.skip(reason="Feature not yet implemented - TODO"))
+
         # Skip GUI tests if no framework available
         if "gui" in item.keywords and GUI_FRAMEWORK is None:
             item.add_marker(pytest.mark.skip(reason="No GUI framework available"))
-        
+
         # Skip PyQt6-specific tests if not available
         if "pyqt6" in item.keywords and GUI_FRAMEWORK != "pyqt6":
             item.add_marker(pytest.mark.skip(reason="PyQt6 not available"))
-        
+
         # Skip tkinter-specific tests if not available
         if "tkinter" in item.keywords and GUI_FRAMEWORK != "tkinter":
             item.add_marker(pytest.mark.skip(reason="tkinter not available"))

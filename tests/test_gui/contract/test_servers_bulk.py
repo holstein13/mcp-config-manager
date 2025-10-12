@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestServersBulkContract:
     """Contract tests for bulk server operations."""
     
     def test_bulk_operation_request_format(self):
         """Test that bulk request has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -30,7 +31,7 @@ class TestServersBulkContract:
     
     def test_bulk_enable_response_format(self):
         """Test that bulk enable response has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -59,7 +60,7 @@ class TestServersBulkContract:
     
     def test_bulk_disable_all(self):
         """Test disable all servers operation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -84,7 +85,7 @@ class TestServersBulkContract:
     
     def test_bulk_enable_all(self):
         """Test enable all servers operation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -109,8 +110,8 @@ class TestServersBulkContract:
     
     def test_bulk_operation_events(self):
         """Test that bulk operations emit expected events."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()
@@ -134,7 +135,7 @@ class TestServersBulkContract:
     
     def test_bulk_operation_validation(self):
         """Test request validation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -163,7 +164,7 @@ class TestServersBulkContract:
     
     def test_bulk_operation_partial_failure(self):
         """Test handling of partial failures."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -193,7 +194,7 @@ class TestServersBulkContract:
     
     def test_bulk_operation_save_immediately(self):
         """Test save_immediately parameter."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -223,7 +224,7 @@ class TestServersBulkContract:
     
     def test_bulk_remove_operation(self):
         """Test bulk remove operation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()

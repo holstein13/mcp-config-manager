@@ -21,7 +21,7 @@ class ClaudeConfigParser(BaseConfigParser):
             return {"mcpServers": {}}
         
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in Claude config: {e}")
@@ -33,8 +33,8 @@ class ClaudeConfigParser(BaseConfigParser):
         try:
             # Ensure parent directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(output_path, 'w') as f:
+
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
             raise IOError(f"Error writing Claude config: {e}")
@@ -53,17 +53,29 @@ class ClaudeConfigParser(BaseConfigParser):
             for server_name, server_config in config['mcpServers'].items():
                 if not isinstance(server_config, dict):
                     return False
-                
-                # Check for required fields
-                if 'command' not in server_config:
-                    return False
-                
+
+                # Check for required fields based on server type
+                server_type = server_config.get('type', 'stdio')
+
+                if server_type == 'stdio':
+                    # stdio servers require command
+                    if 'command' not in server_config:
+                        return False
+                elif server_type in ('http', 'sse'):
+                    # http/sse servers require url, command is optional
+                    if 'url' not in server_config:
+                        return False
+
                 # Validate args if present
                 if 'args' in server_config and not isinstance(server_config['args'], list):
                     return False
-                
+
                 # Validate env if present
                 if 'env' in server_config and not isinstance(server_config['env'], dict):
+                    return False
+
+                # Validate headers if present (for http/sse)
+                if 'headers' in server_config and not isinstance(server_config['headers'], dict):
                     return False
         
         return True

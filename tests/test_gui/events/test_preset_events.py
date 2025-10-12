@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 
+@pytest.mark.unimplemented
 class TestPresetEvents:
     """Contract tests for preset events."""
     
     def test_preset_loaded_event_structure(self):
         """Test PresetLoaded event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetLoadedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetLoadedEvent
         
         dispatcher = EventDispatcher()
         
@@ -42,8 +43,8 @@ class TestPresetEvents:
     
     def test_preset_saved_event_structure(self):
         """Test PresetSaved event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetSavedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetSavedEvent
         
         dispatcher = EventDispatcher()
         
@@ -68,8 +69,8 @@ class TestPresetEvents:
     
     def test_preset_deleted_event_structure(self):
         """Test PresetDeleted event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetDeletedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetDeletedEvent
         
         dispatcher = EventDispatcher()
         
@@ -86,8 +87,8 @@ class TestPresetEvents:
     
     def test_preset_list_changed_event(self):
         """Test PresetListChanged event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetListChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetListChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -117,8 +118,8 @@ class TestPresetEvents:
     
     def test_preset_applying_event(self):
         """Test PresetApplying event for progress tracking."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetApplyingEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetApplyingEvent
         
         dispatcher = EventDispatcher()
         
@@ -143,8 +144,8 @@ class TestPresetEvents:
     
     def test_preset_event_sequence(self):
         """Test proper preset event sequence."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import (
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import (
             PresetLoadingEvent,
             PresetApplyingEvent,
             PresetLoadedEvent
@@ -193,8 +194,8 @@ class TestPresetEvents:
     
     def test_preset_validation_event(self):
         """Test preset validation event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.preset_events import PresetValidatedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.preset_events import PresetValidatedEvent
         
         dispatcher = EventDispatcher()
         

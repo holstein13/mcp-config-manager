@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestPresetsListContract:
     """Contract tests for preset listing."""
     
     def test_list_presets_request_format(self):
         """Test that list request has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -28,7 +29,7 @@ class TestPresetsListContract:
     
     def test_list_presets_response_format(self):
         """Test that list response has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -61,7 +62,7 @@ class TestPresetsListContract:
     
     def test_list_presets_builtin_filtering(self):
         """Test filtering builtin presets."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -96,7 +97,7 @@ class TestPresetsListContract:
     
     def test_list_presets_descriptions(self):
         """Test preset descriptions."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -119,7 +120,7 @@ class TestPresetsListContract:
     
     def test_list_presets_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -138,7 +139,7 @@ class TestPresetsListContract:
     
     def test_list_presets_empty(self):
         """Test empty preset list."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()

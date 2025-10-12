@@ -352,11 +352,11 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _setup_tk_ui(self):
         """Set up tkinter UI layout."""
         # Main frame
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
         
         # Paned window (splitter)
-        self.paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        self.paned = ttk.PanedWindow(self.main_frame, orient=tk.HORIZONTAL)
         self.paned.pack(fill=tk.BOTH, expand=True)
         
         # Server list widget
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         # Server details panel
         self.server_details_panel = ServerDetailsPanel(self.paned)
-        self.paned.add(self.server_details_panel.get_widget(), weight=4)
+        self.paned.add(self.server_details_panel.frame, weight=4)
     
     def _setup_menus(self):
         """Set up the menu bar."""
@@ -642,36 +642,44 @@ class MainWindow(QMainWindow if USING_QT else object):
         """Set up tkinter toolbar with improved visual hierarchy."""
         # Insert toolbar after menu but before main content
         toolbar = ttk.Frame(self.root)
-        toolbar.pack(side=tk.TOP, fill=tk.X, before=self.root.winfo_children()[-1])
+        if hasattr(self, 'main_frame'):
+            toolbar.pack(side=tk.TOP, fill=tk.X, before=self.main_frame)
+        else:
+            toolbar.pack(side=tk.TOP, fill=tk.X)
         
         # Dynamic Revert button - only shown when there are unsaved changes
         self.revert_btn = ttk.Button(toolbar, text="Revert", command=self.on_revert_changes)
         # Initially hidden by not packing
-        
+
         # Primary action - Save
-        save_btn = ttk.Button(toolbar, text="Save", command=self.save_configuration)
+        save_btn = ttk.Button(toolbar, text="💾 Save", command=self.save_configuration)
         save_btn.pack(side=tk.LEFT, padx=2)
-        # Note: tkinter doesn't support button styling as richly as Qt
 
         # Refresh button
-        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.reload_servers_from_disk)
+        refresh_btn = ttk.Button(toolbar, text="🔄 Refresh", command=self.reload_servers_from_disk)
         refresh_btn.pack(side=tk.LEFT, padx=2)
 
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        
+
         # Secondary actions
-        ttk.Button(toolbar, text="Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
-        
+        ttk.Button(toolbar, text="➕ Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="🗑️ Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
+
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Discover servers button
-        ttk.Button(toolbar, text="Discover", command=self.discover_project_servers).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="🔍 Discover", command=self.discover_project_servers).pack(side=tk.LEFT, padx=2)
+
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Backup and Restore buttons
+        ttk.Button(toolbar, text="📦 Backup", command=self.quick_backup).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="📂 Restore", command=self.quick_restore).pack(side=tk.LEFT, padx=2)
 
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Tertiary action
-        ttk.Button(toolbar, text="Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="✓ Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
     
     def _setup_status_bar(self):
         """Set up the status bar with save indicator."""
@@ -890,7 +898,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                 self.server_details_panel.server_deleted.connect(self._on_server_deleted)
             else:
                 # For tkinter callbacks
-                self.server_details_panel.update_callbacks.append(self._on_server_updated)
+                self.server_details_panel.server_updated_callbacks.append(self._on_server_updated)
                 self.server_details_panel.server_deleted_callbacks.append(self._on_server_deleted)
     
     def _register_event_handlers(self):
@@ -1463,8 +1471,30 @@ class MainWindow(QMainWindow if USING_QT else object):
         dialog = AddServerDialog(self if USING_QT else self.root)
         server_json = dialog.show()
         if server_json:
-            # Add to both clients by default
-            result = self.server_controller.add_server(server_json, 'both')
+            # Extract client enablement metadata (if present)
+            client_enablement = server_json.pop('_client_enablement', None)
+
+            # Determine which clients to enable for based on metadata
+            if client_enablement:
+                claude_enabled = client_enablement.get('claude', True)
+                gemini_enabled = client_enablement.get('gemini', True)
+
+                # Determine mode based on client selections
+                if claude_enabled and gemini_enabled:
+                    mode = 'both'
+                elif claude_enabled:
+                    mode = 'claude'
+                elif gemini_enabled:
+                    mode = 'gemini'
+                else:
+                    # If neither selected, default to both
+                    mode = 'both'
+            else:
+                # Default to both clients if no metadata
+                mode = 'both'
+
+            # Add server with appropriate mode
+            result = self.server_controller.add_server(server_json, mode)
             if result['success']:
                 server_names = result.get('server_names', [])
                 # For now, emit event for each server added
@@ -1481,11 +1511,11 @@ class MainWindow(QMainWindow if USING_QT else object):
         """Show delete servers dialog for bulk deletion."""
         # Get all servers from both clients
         result = self.server_controller.get_servers('both')
-        
+
         if not result['success']:
             self.set_status_message(f"Failed to get servers: {result.get('error', 'Unknown error')}", timeout=5)
             return
-        
+
         servers_list = result['data']['servers']
         if not servers_list:
             if USING_QT:
@@ -1493,40 +1523,63 @@ class MainWindow(QMainWindow if USING_QT else object):
             else:
                 messagebox.showinfo("No Servers", "There are no servers to delete.")
             return
-        
+
         # Convert list of ServerListItem objects to dict with server names as keys
+        # Include per-client enabled flags for the dialog
         servers = {}
         for server_item in servers_list:
-            # ServerListItem has name and config attributes
+            # ServerListItem has name, config, and per-client flags
             servers[server_item.name] = {
                 'config': server_item.config,
-                'status': server_item.status
+                'status': server_item.status,
+                'claude_enabled': server_item.claude_enabled,
+                'gemini_enabled': server_item.gemini_enabled
             }
-        
+
         # Show delete dialog
         dialog = DeleteServersDialog(self if USING_QT else self.root, servers)
         if dialog.exec() if USING_QT else dialog.show():
             selected_servers = dialog.get_selected_servers()
-            
+            client_selections = dialog.get_client_selections()
+
             if selected_servers:
-                # Delete each selected server
+                # Delete each selected server from the specified clients
                 deleted_count = 0
                 failed_servers = []
-                
+
                 for server_name in selected_servers:
-                    delete_result = self.server_controller.delete_server(server_name, 'both')
+                    # Get the client selections for this server
+                    client_selection = client_selections.get(server_name, {})
+                    delete_claude = client_selection.get('claude', True)
+                    delete_gemini = client_selection.get('gemini', True)
+
+                    # Determine mode based on client selections
+                    if delete_claude and delete_gemini:
+                        mode = 'both'
+                    elif delete_claude:
+                        mode = 'claude'
+                    elif delete_gemini:
+                        mode = 'gemini'
+                    else:
+                        # Skip if neither selected (shouldn't happen due to dialog validation)
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Server '{server_name}' skipped: neither Claude nor Gemini selected for deletion")
+                        continue
+
+                    delete_result = self.server_controller.delete_server(server_name, mode)
                     if delete_result['success']:
                         deleted_count += 1
                     else:
                         failed_servers.append((server_name, delete_result.get('error', 'Unknown error')))
-                
+
                 # Refresh the server list
                 self.refresh_server_list()
-                
+
                 # Mark configuration as changed
                 if deleted_count > 0:
                     self.set_unsaved_changes(True)
-                
+
                 # Show results
                 if deleted_count > 0 and not failed_servers:
                     self.set_status_message(f"Successfully deleted {deleted_count} server(s)", timeout=5)
@@ -1618,18 +1671,26 @@ class MainWindow(QMainWindow if USING_QT else object):
                     # Show all backed up files
                     files_str = ', '.join([name for name, path in all_backups])
                     self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
-                    
+
+                    # Show only the filename, not the full path for cleaner display
+                    backup_list = '\n'.join([f"{name}: {Path(path).name}" for name, path in all_backups])
+                    backup_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
                     if USING_QT:
-                        # Show only the filename, not the full path for cleaner display
-                        backup_list = '\n'.join([f"{name}: {Path(path).name}" for name, path in all_backups])
-                        backup_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
                         QMessageBox.information(self, "Backup Complete",
                                               f"Configuration backed up to:\n{backup_dir}\n\n{backup_list}")
+                    else:
+                        from tkinter import messagebox
+                        messagebox.showinfo("Backup Complete",
+                                          f"Configuration backed up to:\n{backup_dir}\n\n{backup_list}")
                 else:
                     self.set_status_message(f"✅ Backup created: {backup_file}", timeout=5000)
                     if USING_QT:
-                        QMessageBox.information(self, "Backup Complete", 
+                        QMessageBox.information(self, "Backup Complete",
                                               f"Configuration backed up to:\n{backup_file}")
+                    else:
+                        from tkinter import messagebox
+                        messagebox.showinfo("Backup Complete",
+                                          f"Configuration backed up to:\n{backup_file}")
                         
                 # Emit backup created event
                 dispatcher.emit_now(EventType.BACKUP_CREATED,
@@ -1640,12 +1701,18 @@ class MainWindow(QMainWindow if USING_QT else object):
                 self.set_status_message(f"❌ Backup failed: {error_msg}", timeout=0)
                 if USING_QT:
                     QMessageBox.critical(self, "Backup Error", f"Backup failed: {error_msg}")
-                    
+                else:
+                    from tkinter import messagebox
+                    messagebox.showerror("Backup Error", f"Backup failed: {error_msg}")
+
         except Exception as e:
             error_msg = f"Backup failed: {str(e)}"
             self.set_status_message(f"❌ {error_msg}", timeout=0)
             if USING_QT:
                 QMessageBox.critical(self, "Backup Error", error_msg)
+            else:
+                from tkinter import messagebox
+                messagebox.showerror("Backup Error", error_msg)
     
     def quick_restore(self):
         """Quick restore from backup files in the backups directory."""
@@ -1718,7 +1785,70 @@ class MainWindow(QMainWindow if USING_QT else object):
                 error_msg = f"Restore failed: {str(e)}"
                 self.set_status_message(error_msg, timeout=0)
                 QMessageBox.critical(self, "Restore Error", error_msg)
-    
+        else:
+            # Tkinter implementation
+            from tkinter import filedialog, messagebox
+
+            backups_dir = get_project_backups_dir()
+
+            # Show file selection dialog starting from backups directory
+            files = filedialog.askopenfilenames(
+                parent=self.root,
+                title="Select Backup Files to Restore",
+                initialdir=str(backups_dir) if backups_dir.exists() else str(Path.cwd()),
+                filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")]
+            )
+
+            if not files:
+                return
+
+            # Ask for confirmation
+            file_list = '\n'.join([Path(f).name for f in files])
+            reply = messagebox.askyesno(
+                "Confirm Restore",
+                f"This will replace your current configuration with:\n{file_list}\n\nAre you sure?"
+            )
+
+            if not reply:
+                return
+
+            try:
+                restored = []
+                for backup_file in files:
+                    backup_path = Path(backup_file)
+                    filename = backup_path.name.lower()
+
+                    # Determine destination based on filename
+                    if filename.startswith('claude-backup'):
+                        dest = Path.home() / '.claude.json'
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Claude')
+                    elif filename.startswith('gemini-backup'):
+                        dest = Path.home() / '.gemini' / 'settings.json'
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Gemini')
+                    elif filename.startswith('disabled-backup'):
+                        dest = get_disabled_servers_path()
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Disabled Servers')
+
+                if restored:
+                    self.set_status_message(f"✅ Restored: {', '.join(restored)}", timeout=5000)
+                    messagebox.showinfo("Restore Complete",
+                                      f"Configuration restored for: {', '.join(restored)}\n\nReloading configuration...")
+                    # Reload the configuration
+                    self.load_configuration()
+                else:
+                    messagebox.showwarning("No Files Restored",
+                                         "Could not determine configuration type from filenames.\nFiles should start with 'claude-backup', 'gemini-backup', or 'disabled-backup'.")
+
+            except Exception as e:
+                error_msg = f"Restore failed: {str(e)}"
+                self.set_status_message(error_msg, timeout=0)
+                messagebox.showerror("Restore Error", error_msg)
+
     def restore_configuration(self):
         """Show restore dialog."""
         dialog = BackupRestoreDialog(self if USING_QT else self.root)
@@ -1950,19 +2080,22 @@ def run_gui_in_main_thread():
     if USING_QT:
         app = QApplication(sys.argv)
         app.setApplicationName("MCP Config Manager")
-        
+        app.setApplicationDisplayName("MCP Config Manager")
+
         # NOTE: There is a known Qt bug on macOS where QTreeWidgetItem checkboxes
         # may render as solid blue squares. This is a Qt rendering issue that
         # should be fixed in future Qt versions. The application is using the
         # native macOS style correctly.
-        
+
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
+
+        # Show window
         window.show()
-        # Ensure window gets focus after showing
         window.raise_()
         window.activateWindow()
-        app.exec()
+
+        sys.exit(app.exec())
     else:
         config_manager = ConfigManager()
         window = MainWindow(config_manager)
