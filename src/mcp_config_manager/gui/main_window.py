@@ -352,11 +352,11 @@ class MainWindow(QMainWindow if USING_QT else object):
     def _setup_tk_ui(self):
         """Set up tkinter UI layout."""
         # Main frame
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
         
         # Paned window (splitter)
-        self.paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        self.paned = ttk.PanedWindow(self.main_frame, orient=tk.HORIZONTAL)
         self.paned.pack(fill=tk.BOTH, expand=True)
         
         # Server list widget
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow if USING_QT else object):
         
         # Server details panel
         self.server_details_panel = ServerDetailsPanel(self.paned)
-        self.paned.add(self.server_details_panel.get_widget(), weight=4)
+        self.paned.add(self.server_details_panel.frame, weight=4)
     
     def _setup_menus(self):
         """Set up the menu bar."""
@@ -642,36 +642,44 @@ class MainWindow(QMainWindow if USING_QT else object):
         """Set up tkinter toolbar with improved visual hierarchy."""
         # Insert toolbar after menu but before main content
         toolbar = ttk.Frame(self.root)
-        toolbar.pack(side=tk.TOP, fill=tk.X, before=self.root.winfo_children()[-1])
+        if hasattr(self, 'main_frame'):
+            toolbar.pack(side=tk.TOP, fill=tk.X, before=self.main_frame)
+        else:
+            toolbar.pack(side=tk.TOP, fill=tk.X)
         
         # Dynamic Revert button - only shown when there are unsaved changes
         self.revert_btn = ttk.Button(toolbar, text="Revert", command=self.on_revert_changes)
         # Initially hidden by not packing
-        
+
         # Primary action - Save
-        save_btn = ttk.Button(toolbar, text="Save", command=self.save_configuration)
+        save_btn = ttk.Button(toolbar, text="💾 Save", command=self.save_configuration)
         save_btn.pack(side=tk.LEFT, padx=2)
-        # Note: tkinter doesn't support button styling as richly as Qt
 
         # Refresh button
-        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.reload_servers_from_disk)
+        refresh_btn = ttk.Button(toolbar, text="🔄 Refresh", command=self.reload_servers_from_disk)
         refresh_btn.pack(side=tk.LEFT, padx=2)
 
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        
+
         # Secondary actions
-        ttk.Button(toolbar, text="Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
-        
+        ttk.Button(toolbar, text="➕ Add Server", command=self.add_server).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="🗑️ Delete Server", command=self.delete_servers).pack(side=tk.LEFT, padx=2)
+
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Discover servers button
-        ttk.Button(toolbar, text="Discover", command=self.discover_project_servers).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="🔍 Discover", command=self.discover_project_servers).pack(side=tk.LEFT, padx=2)
+
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Backup and Restore buttons
+        ttk.Button(toolbar, text="📦 Backup", command=self.quick_backup).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="📂 Restore", command=self.quick_restore).pack(side=tk.LEFT, padx=2)
 
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Tertiary action
-        ttk.Button(toolbar, text="Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="✓ Validate", command=self.validate_configuration).pack(side=tk.LEFT, padx=2)
     
     def _setup_status_bar(self):
         """Set up the status bar with save indicator."""
@@ -890,7 +898,7 @@ class MainWindow(QMainWindow if USING_QT else object):
                 self.server_details_panel.server_deleted.connect(self._on_server_deleted)
             else:
                 # For tkinter callbacks
-                self.server_details_panel.update_callbacks.append(self._on_server_updated)
+                self.server_details_panel.server_updated_callbacks.append(self._on_server_updated)
                 self.server_details_panel.server_deleted_callbacks.append(self._on_server_deleted)
     
     def _register_event_handlers(self):
@@ -1618,18 +1626,26 @@ class MainWindow(QMainWindow if USING_QT else object):
                     # Show all backed up files
                     files_str = ', '.join([name for name, path in all_backups])
                     self.set_status_message(f"✅ Backup created: {files_str}", timeout=5000)
-                    
+
+                    # Show only the filename, not the full path for cleaner display
+                    backup_list = '\n'.join([f"{name}: {Path(path).name}" for name, path in all_backups])
+                    backup_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
                     if USING_QT:
-                        # Show only the filename, not the full path for cleaner display
-                        backup_list = '\n'.join([f"{name}: {Path(path).name}" for name, path in all_backups])
-                        backup_dir = Path.home() / 'Documents' / 'MCP Config Manager' / 'backups'
                         QMessageBox.information(self, "Backup Complete",
                                               f"Configuration backed up to:\n{backup_dir}\n\n{backup_list}")
+                    else:
+                        from tkinter import messagebox
+                        messagebox.showinfo("Backup Complete",
+                                          f"Configuration backed up to:\n{backup_dir}\n\n{backup_list}")
                 else:
                     self.set_status_message(f"✅ Backup created: {backup_file}", timeout=5000)
                     if USING_QT:
-                        QMessageBox.information(self, "Backup Complete", 
+                        QMessageBox.information(self, "Backup Complete",
                                               f"Configuration backed up to:\n{backup_file}")
+                    else:
+                        from tkinter import messagebox
+                        messagebox.showinfo("Backup Complete",
+                                          f"Configuration backed up to:\n{backup_file}")
                         
                 # Emit backup created event
                 dispatcher.emit_now(EventType.BACKUP_CREATED,
@@ -1640,12 +1656,18 @@ class MainWindow(QMainWindow if USING_QT else object):
                 self.set_status_message(f"❌ Backup failed: {error_msg}", timeout=0)
                 if USING_QT:
                     QMessageBox.critical(self, "Backup Error", f"Backup failed: {error_msg}")
-                    
+                else:
+                    from tkinter import messagebox
+                    messagebox.showerror("Backup Error", f"Backup failed: {error_msg}")
+
         except Exception as e:
             error_msg = f"Backup failed: {str(e)}"
             self.set_status_message(f"❌ {error_msg}", timeout=0)
             if USING_QT:
                 QMessageBox.critical(self, "Backup Error", error_msg)
+            else:
+                from tkinter import messagebox
+                messagebox.showerror("Backup Error", error_msg)
     
     def quick_restore(self):
         """Quick restore from backup files in the backups directory."""
@@ -1718,7 +1740,70 @@ class MainWindow(QMainWindow if USING_QT else object):
                 error_msg = f"Restore failed: {str(e)}"
                 self.set_status_message(error_msg, timeout=0)
                 QMessageBox.critical(self, "Restore Error", error_msg)
-    
+        else:
+            # Tkinter implementation
+            from tkinter import filedialog, messagebox
+
+            backups_dir = get_project_backups_dir()
+
+            # Show file selection dialog starting from backups directory
+            files = filedialog.askopenfilenames(
+                parent=self.root,
+                title="Select Backup Files to Restore",
+                initialdir=str(backups_dir) if backups_dir.exists() else str(Path.cwd()),
+                filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")]
+            )
+
+            if not files:
+                return
+
+            # Ask for confirmation
+            file_list = '\n'.join([Path(f).name for f in files])
+            reply = messagebox.askyesno(
+                "Confirm Restore",
+                f"This will replace your current configuration with:\n{file_list}\n\nAre you sure?"
+            )
+
+            if not reply:
+                return
+
+            try:
+                restored = []
+                for backup_file in files:
+                    backup_path = Path(backup_file)
+                    filename = backup_path.name.lower()
+
+                    # Determine destination based on filename
+                    if filename.startswith('claude-backup'):
+                        dest = Path.home() / '.claude.json'
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Claude')
+                    elif filename.startswith('gemini-backup'):
+                        dest = Path.home() / '.gemini' / 'settings.json'
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Gemini')
+                    elif filename.startswith('disabled-backup'):
+                        dest = get_disabled_servers_path()
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_path, dest)
+                        restored.append('Disabled Servers')
+
+                if restored:
+                    self.set_status_message(f"✅ Restored: {', '.join(restored)}", timeout=5000)
+                    messagebox.showinfo("Restore Complete",
+                                      f"Configuration restored for: {', '.join(restored)}\n\nReloading configuration...")
+                    # Reload the configuration
+                    self.load_configuration()
+                else:
+                    messagebox.showwarning("No Files Restored",
+                                         "Could not determine configuration type from filenames.\nFiles should start with 'claude-backup', 'gemini-backup', or 'disabled-backup'.")
+
+            except Exception as e:
+                error_msg = f"Restore failed: {str(e)}"
+                self.set_status_message(error_msg, timeout=0)
+                messagebox.showerror("Restore Error", error_msg)
+
     def restore_configuration(self):
         """Show restore dialog."""
         dialog = BackupRestoreDialog(self if USING_QT else self.root)
