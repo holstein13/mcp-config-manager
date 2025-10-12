@@ -1471,8 +1471,8 @@ class MainWindow(QMainWindow if USING_QT else object):
         dialog = AddServerDialog(self if USING_QT else self.root)
         server_json = dialog.show()
         if server_json:
-            # Extract client enablement metadata (if present)
-            client_enablement = server_json.pop('_client_enablement', None)
+            # Get client enablement metadata from dialog
+            client_enablement = dialog.get_client_enablement()
 
             # Determine which clients to enable for based on metadata
             if client_enablement:

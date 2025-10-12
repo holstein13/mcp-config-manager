@@ -18,13 +18,14 @@ from pathlib import Path
 class TestIssue24ClientEnablementMetadata:
     """Test that _client_enablement metadata is properly handled (Issue #24)."""
 
+    @patch('mcp_config_manager.gui.main_window.HAS_TKINTER', True)
     @patch('mcp_config_manager.gui.main_window.USING_QT', False)
     @patch('mcp_config_manager.gui.main_window.AddServerDialog')
     def test_add_server_extracts_client_enablement_metadata(self, mock_dialog_class):
         """Test that _client_enablement is extracted and not added as a server."""
         from mcp_config_manager.gui.main_window import MainWindow
 
-        # Mock the dialog to return JSON with _client_enablement
+        # Mock the dialog to return JSON and client enablement separately
         mock_dialog_instance = Mock()
         mock_dialog_class.return_value = mock_dialog_instance
 
@@ -32,13 +33,13 @@ class TestIssue24ClientEnablementMetadata:
             'test-server': {
                 'command': 'npx',
                 'args': ['-y', '@test/server']
-            },
-            '_client_enablement': {
-                'claude': True,
-                'gemini': False
             }
         }
         mock_dialog_instance.show.return_value = server_json.copy()
+        mock_dialog_instance.get_client_enablement.return_value = {
+            'claude': True,
+            'gemini': False
+        }
 
         # Mock server controller
         mock_controller = Mock()
@@ -68,6 +69,7 @@ class TestIssue24ClientEnablementMetadata:
         # Mode should be 'claude' (based on metadata: claude=True, gemini=False)
         assert mode == 'claude'
 
+    @patch('mcp_config_manager.gui.main_window.HAS_TKINTER', True)
     @patch('mcp_config_manager.gui.main_window.USING_QT', False)
     @patch('mcp_config_manager.gui.main_window.AddServerDialog')
     def test_add_server_both_clients_enabled(self, mock_dialog_class):
@@ -81,13 +83,13 @@ class TestIssue24ClientEnablementMetadata:
             'test-server': {
                 'command': 'npx',
                 'args': ['-y', '@test/server']
-            },
-            '_client_enablement': {
-                'claude': True,
-                'gemini': True
             }
         }
         mock_dialog_instance.show.return_value = server_json.copy()
+        mock_dialog_instance.get_client_enablement.return_value = {
+            'claude': True,
+            'gemini': True
+        }
 
         mock_controller = Mock()
         mock_controller.add_server.return_value = {
@@ -103,6 +105,7 @@ class TestIssue24ClientEnablementMetadata:
         _, mode = mock_controller.add_server.call_args[0]
         assert mode == 'both'
 
+    @patch('mcp_config_manager.gui.main_window.HAS_TKINTER', True)
     @patch('mcp_config_manager.gui.main_window.USING_QT', False)
     @patch('mcp_config_manager.gui.main_window.AddServerDialog')
     def test_add_server_gemini_only(self, mock_dialog_class):
@@ -116,13 +119,13 @@ class TestIssue24ClientEnablementMetadata:
             'test-server': {
                 'command': 'npx',
                 'args': ['-y', '@test/server']
-            },
-            '_client_enablement': {
-                'claude': False,
-                'gemini': True
             }
         }
         mock_dialog_instance.show.return_value = server_json.copy()
+        mock_dialog_instance.get_client_enablement.return_value = {
+            'claude': False,
+            'gemini': True
+        }
 
         mock_controller = Mock()
         mock_controller.add_server.return_value = {
@@ -137,6 +140,7 @@ class TestIssue24ClientEnablementMetadata:
         _, mode = mock_controller.add_server.call_args[0]
         assert mode == 'gemini'
 
+    @patch('mcp_config_manager.gui.main_window.HAS_TKINTER', True)
     @patch('mcp_config_manager.gui.main_window.USING_QT', False)
     @patch('mcp_config_manager.gui.main_window.AddServerDialog')
     def test_add_server_no_metadata_defaults_to_both(self, mock_dialog_class):
@@ -146,7 +150,7 @@ class TestIssue24ClientEnablementMetadata:
         mock_dialog_instance = Mock()
         mock_dialog_class.return_value = mock_dialog_instance
 
-        # No _client_enablement in the JSON
+        # No _client_enablement metadata
         server_json = {
             'test-server': {
                 'command': 'npx',
@@ -154,6 +158,7 @@ class TestIssue24ClientEnablementMetadata:
             }
         }
         mock_dialog_instance.show.return_value = server_json.copy()
+        mock_dialog_instance.get_client_enablement.return_value = None
 
         mock_controller = Mock()
         mock_controller.add_server.return_value = {
@@ -168,6 +173,7 @@ class TestIssue24ClientEnablementMetadata:
         _, mode = mock_controller.add_server.call_args[0]
         assert mode == 'both'
 
+    @patch('mcp_config_manager.gui.main_window.HAS_TKINTER', True)
     @patch('mcp_config_manager.gui.main_window.USING_QT', False)
     @patch('mcp_config_manager.gui.main_window.AddServerDialog')
     def test_add_server_neither_client_defaults_to_both(self, mock_dialog_class):
@@ -181,13 +187,13 @@ class TestIssue24ClientEnablementMetadata:
             'test-server': {
                 'command': 'npx',
                 'args': ['-y', '@test/server']
-            },
-            '_client_enablement': {
-                'claude': False,
-                'gemini': False
             }
         }
         mock_dialog_instance.show.return_value = server_json.copy()
+        mock_dialog_instance.get_client_enablement.return_value = {
+            'claude': False,
+            'gemini': False
+        }
 
         mock_controller = Mock()
         mock_controller.add_server.return_value = {
