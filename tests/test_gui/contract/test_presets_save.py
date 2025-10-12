@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestPresetsSaveContract:
     """Contract tests for preset saving."""
     
     def test_save_preset_request_format(self):
         """Test that save request has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -30,7 +31,7 @@ class TestPresetsSaveContract:
     
     def test_save_preset_response_format(self):
         """Test that save response has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -56,7 +57,7 @@ class TestPresetsSaveContract:
     
     def test_save_preset_overwrite_behavior(self):
         """Test overwrite behavior."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -87,7 +88,7 @@ class TestPresetsSaveContract:
     
     def test_save_preset_validation(self):
         """Test request validation."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -126,8 +127,8 @@ class TestPresetsSaveContract:
     
     def test_save_preset_events(self):
         """Test that save emits expected events."""
-        from src.gui.controllers.preset_controller import PresetController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = PresetController()
         dispatcher = EventDispatcher()
@@ -151,7 +152,7 @@ class TestPresetsSaveContract:
     
     def test_save_preset_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()

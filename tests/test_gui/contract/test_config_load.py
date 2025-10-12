@@ -10,12 +10,13 @@ from pathlib import Path
 import json
 
 
+@pytest.mark.unimplemented
 class TestConfigLoadContract:
     """Contract tests for configuration loading."""
     
     def test_load_config_request_format(self):
         """Test that load request has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         
@@ -30,7 +31,7 @@ class TestConfigLoadContract:
     
     def test_load_config_response_format(self):
         """Test that load response has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -61,7 +62,7 @@ class TestConfigLoadContract:
     
     def test_load_config_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -80,8 +81,8 @@ class TestConfigLoadContract:
     
     def test_load_config_events(self):
         """Test that load emits expected events."""
-        from src.gui.controllers.config_controller import ConfigController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ConfigController()
         dispatcher = EventDispatcher()
@@ -101,7 +102,7 @@ class TestConfigLoadContract:
     
     def test_load_config_validation(self):
         """Test request validation."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         

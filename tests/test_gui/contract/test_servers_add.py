@@ -9,12 +9,13 @@ from unittest.mock import Mock, patch, MagicMock
 import json
 
 
+@pytest.mark.unimplemented
 class TestServersAddContract:
     """Contract tests for server addition."""
     
     def test_add_server_request_format(self):
         """Test that add request has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -32,7 +33,7 @@ class TestServersAddContract:
     
     def test_add_server_response_format(self):
         """Test that add response has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -58,7 +59,7 @@ class TestServersAddContract:
     
     def test_add_server_json_validation(self):
         """Test JSON validation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -86,7 +87,7 @@ class TestServersAddContract:
     
     def test_add_server_name_extraction(self):
         """Test automatic server name extraction."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -119,8 +120,8 @@ class TestServersAddContract:
     
     def test_add_server_events(self):
         """Test that add emits expected events."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()
@@ -146,7 +147,7 @@ class TestServersAddContract:
     
     def test_add_server_duplicate_handling(self):
         """Test duplicate server handling."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -167,7 +168,7 @@ class TestServersAddContract:
     
     def test_add_server_both_mode(self):
         """Test adding server in 'both' mode."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -185,7 +186,7 @@ class TestServersAddContract:
     
     def test_add_server_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()

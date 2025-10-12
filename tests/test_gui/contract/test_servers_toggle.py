@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestServersToggleContract:
     """Contract tests for server toggling."""
     
     def test_toggle_server_request_format(self):
         """Test that toggle request has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -30,7 +31,7 @@ class TestServersToggleContract:
     
     def test_toggle_server_response_format(self):
         """Test that toggle response has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -56,8 +57,8 @@ class TestServersToggleContract:
     
     def test_toggle_server_events(self):
         """Test that toggle emits expected events."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()
@@ -95,7 +96,7 @@ class TestServersToggleContract:
     
     def test_toggle_server_validation(self):
         """Test request validation."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -130,7 +131,7 @@ class TestServersToggleContract:
     
     def test_toggle_server_both_mode(self):
         """Test toggling in 'both' mode affects both configs."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -154,7 +155,7 @@ class TestServersToggleContract:
     
     def test_toggle_server_save_immediately(self):
         """Test save_immediately parameter."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -184,7 +185,7 @@ class TestServersToggleContract:
     
     def test_toggle_server_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()

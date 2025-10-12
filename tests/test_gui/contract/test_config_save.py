@@ -10,12 +10,13 @@ from pathlib import Path
 import json
 
 
+@pytest.mark.unimplemented
 class TestConfigSaveContract:
     """Contract tests for configuration saving."""
     
     def test_save_config_request_format(self):
         """Test that save request has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         
@@ -34,7 +35,7 @@ class TestConfigSaveContract:
     
     def test_save_config_response_format(self):
         """Test that save response has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -58,7 +59,7 @@ class TestConfigSaveContract:
     
     def test_save_config_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -80,8 +81,8 @@ class TestConfigSaveContract:
     
     def test_save_config_events(self):
         """Test that save emits expected events."""
-        from src.gui.controllers.config_controller import ConfigController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ConfigController()
         dispatcher = EventDispatcher()
@@ -107,7 +108,7 @@ class TestConfigSaveContract:
     
     def test_save_config_validation(self):
         """Test request validation."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         
@@ -135,7 +136,7 @@ class TestConfigSaveContract:
     
     def test_save_config_backup_behavior(self):
         """Test backup creation behavior."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()

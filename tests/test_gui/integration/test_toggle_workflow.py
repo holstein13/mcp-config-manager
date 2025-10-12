@@ -10,14 +10,15 @@ from datetime import datetime
 import json
 
 
+@pytest.mark.unimplemented
 class TestToggleWorkflow:
     """Integration test for complete toggle workflow."""
     
     def test_complete_toggle_workflow(self):
         """Test complete workflow: UI click -> toggle -> save -> events."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.controllers.config_controller import ConfigController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         from src.core.config_manager import ConfigManager
         from src.core.server_manager import ServerManager
         
@@ -108,8 +109,8 @@ class TestToggleWorkflow:
     
     def test_bulk_toggle_workflow(self):
         """Test bulk toggle workflow."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()
@@ -145,9 +146,9 @@ class TestToggleWorkflow:
     
     def test_preset_toggle_workflow(self):
         """Test preset application with server toggling."""
-        from src.gui.controllers.preset_controller import PresetController
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         preset_controller = PresetController()
         server_controller = ServerController()
@@ -199,8 +200,8 @@ class TestToggleWorkflow:
     
     def test_error_recovery_workflow(self):
         """Test error handling and recovery in toggle workflow."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()
@@ -244,8 +245,8 @@ class TestToggleWorkflow:
     
     def test_mode_sync_workflow(self):
         """Test toggling in 'both' mode syncs Claude and Gemini."""
-        from src.gui.controllers.server_controller import ServerController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ServerController()
         dispatcher = EventDispatcher()

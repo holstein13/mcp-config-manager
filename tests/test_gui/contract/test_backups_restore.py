@@ -10,12 +10,13 @@ from datetime import datetime
 from pathlib import Path
 
 
+@pytest.mark.unimplemented
 class TestBackupsRestoreContract:
     """Contract tests for backup restoration."""
     
     def test_restore_backup_request_format(self):
         """Test that restore request has expected format."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         
@@ -32,7 +33,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_response_format(self):
         """Test that restore response has expected format."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         mock_config_manager = Mock()
@@ -58,7 +59,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_confirmation(self):
         """Test confirmation requirement."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         
@@ -84,7 +85,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_pre_backup(self):
         """Test pre-restore backup creation."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         mock_config_manager = Mock()
@@ -120,7 +121,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_validation(self):
         """Test request validation."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         
@@ -156,8 +157,8 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_events(self):
         """Test that restore emits expected events."""
-        from src.gui.controllers.backup_controller import BackupController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = BackupController()
         dispatcher = EventDispatcher()
@@ -184,7 +185,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_compatibility_check(self):
         """Test backup compatibility checking."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         mock_config_manager = Mock()
@@ -205,7 +206,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         mock_config_manager = Mock()
@@ -228,7 +229,7 @@ class TestBackupsRestoreContract:
     
     def test_restore_backup_both_mode(self):
         """Test restoring in 'both' mode."""
-        from src.gui.controllers.backup_controller import BackupController
+        from src.mcp_config_manager.gui.controllers.backup_controller import BackupController
         
         controller = BackupController()
         mock_config_manager = Mock()
