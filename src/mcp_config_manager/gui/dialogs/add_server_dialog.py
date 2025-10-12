@@ -34,6 +34,7 @@ class AddServerDialog:
         self.on_server_added_callbacks = []
         self.claude_enabled = True  # Default to enabled for both
         self.gemini_enabled = True
+        self.client_enablement = None  # Store client enablement separately
 
         if USING_QT:
             self._init_qt()
@@ -472,8 +473,8 @@ class AddServerDialog:
             json_text = self.json_input.toPlainText().strip()
             self.result = json.loads(json_text)
 
-            # Add client enablement info to result
-            self.result['_client_enablement'] = {
+            # Store client enablement info separately (not in result)
+            self.client_enablement = {
                 'claude': self.claude_enabled,
                 'gemini': self.gemini_enabled
             }
@@ -496,8 +497,8 @@ class AddServerDialog:
             json_text = self.json_input.get("1.0", "end").strip()
             self.result = json.loads(json_text)
 
-            # Add client enablement info to result
-            self.result['_client_enablement'] = {
+            # Store client enablement info separately (not in result)
+            self.client_enablement = {
                 'claude': self.claude_enabled,
                 'gemini': self.gemini_enabled
             }
@@ -536,11 +537,19 @@ class AddServerDialog:
     
     def get_server_json(self) -> Optional[Dict[str, Any]]:
         """Get the server JSON configuration.
-        
+
         Returns:
             Dictionary with server configuration or None if cancelled
         """
         return self.result
+
+    def get_client_enablement(self) -> Optional[Dict[str, bool]]:
+        """Get the client enablement settings.
+
+        Returns:
+            Dictionary with 'claude' and 'gemini' enablement flags or None
+        """
+        return self.client_enablement
     
     def set_initial_json(self, json_text: str):
         """Set initial JSON text in the input field.
