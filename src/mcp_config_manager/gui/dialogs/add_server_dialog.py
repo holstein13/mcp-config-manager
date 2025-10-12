@@ -99,6 +99,33 @@ class AddServerDialog:
         enablement_group.setLayout(enablement_layout)
         layout.addWidget(enablement_group)
 
+        # Conversion options
+        options_group = QGroupBox("Options:")
+        options_layout = QVBoxLayout()
+
+        checkbox_layout = QHBoxLayout()
+        self.convert_mcp_remote_checkbox = QCheckBox("Convert mcp-remote to native SSE")
+        self.convert_mcp_remote_checkbox.setChecked(False)  # Default to NOT converting
+        self.convert_mcp_remote_checkbox.setToolTip(
+            "When enabled, commands using 'npx mcp-remote <url>' will be converted to native SSE format.\n"
+            "When disabled (default), the original command structure is preserved."
+        )
+        checkbox_layout.addWidget(self.convert_mcp_remote_checkbox)
+        checkbox_layout.addStretch()
+        options_layout.addLayout(checkbox_layout)
+
+        # Add explanation text
+        help_label = QLabel(
+            "ℹ️  When enabled: npx mcp-remote commands → {type: 'sse', url: '...'}\n"
+            "   When disabled (default): keeps original → {command: 'npx', args: [...]}"
+        )
+        help_label.setWordWrap(True)
+        help_label.setStyleSheet("color: #666; font-size: 10px; padding-left: 20px;")
+        options_layout.addWidget(help_label)
+
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
+
         # Validation status
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
@@ -201,6 +228,28 @@ class AddServerDialog:
         )
         self.gemini_checkbox.pack(side=tk.LEFT)
 
+        # Conversion options
+        options_frame = ttk.LabelFrame(main_frame, text="Options:", padding="5")
+        options_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.convert_mcp_remote_var = tk.BooleanVar(value=False)  # Default to NOT converting
+        self.convert_mcp_remote_checkbox = ttk.Checkbutton(
+            options_frame,
+            text="Convert mcp-remote to native SSE",
+            variable=self.convert_mcp_remote_var
+        )
+        self.convert_mcp_remote_checkbox.pack(anchor=tk.W)
+
+        # Add explanation text
+        help_text = ttk.Label(
+            options_frame,
+            text="ℹ️  When enabled: npx mcp-remote commands → {type: 'sse', url: '...'}\n"
+                 "   When disabled (default): keeps original → {command: 'npx', args: [...]}",
+            foreground="gray",
+            font=("TkDefaultFont", 9)
+        )
+        help_text.pack(anchor=tk.W, padx=(20, 0), pady=(5, 0))
+
         # Validation status
         self.status_label = ttk.Label(main_frame, text="", foreground="red")
         self.status_label.pack(pady=(0, 10))
@@ -251,8 +300,16 @@ class AddServerDialog:
         # Check if this is a CLI command first
         if ClaudeCliParser.is_cli_command(json_text):
             try:
+                # Get the convert_mcp_remote preference
+                convert_mcp_remote = False
+                if USING_QT and hasattr(self, 'convert_mcp_remote_checkbox'):
+                    convert_mcp_remote = self.convert_mcp_remote_checkbox.isChecked()
+                elif hasattr(self, 'convert_mcp_remote_var'):
+                    convert_mcp_remote = self.convert_mcp_remote_var.get()
+
                 # Parse the CLI command to JSON
-                parsed_config = ClaudeCliParser.parse_cli_command(json_text)
+                parsed_config = ClaudeCliParser.parse_cli_command(json_text,
+                                                                   convert_mcp_remote=convert_mcp_remote)
                 return json.dumps(parsed_config, indent=2, ensure_ascii=False)
             except ValueError as e:
                 # If CLI parsing fails, let it fall through to JSON parsing
@@ -367,15 +424,28 @@ class AddServerDialog:
             
             # Validate each server
             for name, server in config.items():
+                # Skip _client_enablement metadata early
+                if name == '_client_enablement':
+                    continue
+
                 if not isinstance(server, dict):
                     self.status_label.setText(f"Server '{name}' must be an object")
                     self.status_label.setStyleSheet("color: red;")
                     return False
-                
-                if 'command' not in server:
-                    self.status_label.setText(f"Server '{name}' missing 'command' field")
-                    self.status_label.setStyleSheet("color: red;")
-                    return False
+
+                # Check if it's an SSE/HTTP server (requires type and url)
+                server_type = server.get('type')
+                if server_type in ['sse', 'http']:
+                    if 'url' not in server:
+                        self.status_label.setText(f"Server '{name}' with type '{server_type}' missing 'url' field")
+                        self.status_label.setStyleSheet("color: red;")
+                        return False
+                # Otherwise it's a stdio server (requires command)
+                else:
+                    if 'command' not in server:
+                        self.status_label.setText(f"Server '{name}' missing 'command' field")
+                        self.status_label.setStyleSheet("color: red;")
+                        return False
             
             self.status_label.setText("✓ Valid JSON configuration")
             self.status_label.setStyleSheet("color: green;")
@@ -431,13 +501,25 @@ class AddServerDialog:
             
             # Validate each server
             for name, server in config.items():
+                # Skip _client_enablement metadata early
+                if name == '_client_enablement':
+                    continue
+
                 if not isinstance(server, dict):
                     self.status_label.config(text=f"Server '{name}' must be an object", foreground="red")
                     return False
-                
-                if 'command' not in server:
-                    self.status_label.config(text=f"Server '{name}' missing 'command' field", foreground="red")
-                    return False
+
+                # Check if it's an SSE/HTTP server (requires type and url)
+                server_type = server.get('type')
+                if server_type in ['sse', 'http']:
+                    if 'url' not in server:
+                        self.status_label.config(text=f"Server '{name}' with type '{server_type}' missing 'url' field", foreground="red")
+                        return False
+                # Otherwise it's a stdio server (requires command)
+                else:
+                    if 'command' not in server:
+                        self.status_label.config(text=f"Server '{name}' missing 'command' field", foreground="red")
+                        return False
             
             self.status_label.config(text="✓ Valid JSON configuration", foreground="green")
             return True
