@@ -9,6 +9,12 @@ echo "Using build script at scripts/build/setup_app.py"
 python3 scripts/build/setup_app.py py2app --dist-dir artifacts/dist
 
 if [ $? -eq 0 ]; then
+    # Copy icon to app bundle (py2app doesn't always copy it correctly)
+    if [ -f "resources/icon.icns" ]; then
+        cp "resources/icon.icns" "artifacts/dist/MCP Config Manager.app/Contents/Resources/icon.icns"
+        echo "✅ Icon copied to app bundle"
+    fi
+
     echo ""
     echo "✅ Build successful!"
     echo "App location: artifacts/dist/MCP Config Manager.app"
