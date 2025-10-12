@@ -720,7 +720,7 @@ class ServerListWidget(QWidget if USING_QT else object):
             new_state = not (claude_enabled or gemini_enabled or codex_enabled)
             self._toggle_server(server_name, new_state, None)
     
-    def _show_context_menu(self, position: QPoint):
+    def _show_context_menu(self, position: 'QPoint'):
         """Show context menu (Qt)."""
         if not USING_QT:
             return
