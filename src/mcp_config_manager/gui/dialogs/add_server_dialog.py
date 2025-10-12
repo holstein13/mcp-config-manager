@@ -17,6 +17,8 @@ except ImportError:
     from tkinter import ttk, messagebox, scrolledtext
     USING_QT = False
 
+from ...parsers.cli_parser import ClaudeCliParser
+
 
 class AddServerDialog:
     """Dialog for adding new MCP servers via JSON configuration."""
@@ -50,8 +52,9 @@ class AddServerDialog:
         
         # Instructions
         instructions = QLabel(
-            "Paste the server JSON configuration below.\n"
-            "Format: {\"server_name\": {\"command\": \"...\", \"args\": [...], \"env\": {...}}}"
+            "Paste the server JSON configuration or Claude CLI command below.\n"
+            "JSON Format: {\"server_name\": {\"command\": \"...\", \"args\": [...]}}\n"
+            "CLI Format: claude mcp add servername -- npx -y package-name"
         )
         instructions.setWordWrap(True)
         layout.addWidget(instructions)
@@ -133,8 +136,9 @@ class AddServerDialog:
         # Instructions
         instructions = ttk.Label(
             main_frame,
-            text="Paste the server JSON configuration below.\n"
-                 "Format: {\"server_name\": {\"command\": \"...\", \"args\": [...], \"env\": {...}}}",
+            text="Paste the server JSON configuration or Claude CLI command below.\n"
+                 "JSON Format: {\"server_name\": {\"command\": \"...\", \"args\": [...]}}\n"
+                 "CLI Format: claude mcp add servername -- npx -y package-name",
             wraplength=550
         )
         instructions.pack(pady=(0, 10))
@@ -231,25 +235,38 @@ class AddServerDialog:
     
     def _cleanup_json_input(self, json_text: str) -> str:
         """Clean up and format messy JSON input.
-        
+
+        Also handles CLI commands and converts them to JSON.
+
         Args:
-            json_text: Raw JSON input that might be malformed
-            
+            json_text: Raw JSON input that might be malformed, or a CLI command
+
         Returns:
             Cleaned up JSON string
         """
         if not json_text.strip():
             return json_text
-            
+
+        # Check if this is a CLI command first
+        if ClaudeCliParser.is_cli_command(json_text):
+            try:
+                # Parse the CLI command to JSON
+                parsed_config = ClaudeCliParser.parse_cli_command(json_text)
+                return json.dumps(parsed_config, indent=2, ensure_ascii=False)
+            except ValueError as e:
+                # If CLI parsing fails, let it fall through to JSON parsing
+                # (maybe it's a JSON that happens to start with 'claude')
+                pass
+
         # Remove escape characters like \\ at the end
         json_text = re.sub(r'\\+$', '', json_text.strip())
-        
+
         # Remove extra escape characters in the middle
         json_text = re.sub(r'\\\\', '', json_text)
-        
+
         # Remove extra braces or brackets at the end that might be malformed
         json_text = re.sub(r'[}\]]+\\*$', '', json_text)
-        
+
         # Try to parse the JSON as-is first
         try:
             # If it's valid JSON, just reformat it nicely
@@ -257,7 +274,7 @@ class AddServerDialog:
             return json.dumps(parsed, indent=2, ensure_ascii=False)
         except json.JSONDecodeError:
             pass
-        
+
         # If it's not wrapped in outer braces, try to detect if it's a server config
         # and wrap it appropriately
         cleaned_text = json_text.strip()
@@ -265,7 +282,7 @@ class AddServerDialog:
             # Look for server name pattern at the start (e.g., "playwright": {)
             server_pattern = r'^"([^"]+)":\s*\{'
             match = re.match(server_pattern, cleaned_text)
-            
+
             if match:
                 # It looks like a server config, wrap it in outer braces
                 # Make sure the closing brace matches the opening structure
@@ -273,7 +290,7 @@ class AddServerDialog:
             else:
                 # Try to add outer braces anyway and see if it parses
                 json_text = '{\n' + cleaned_text + '\n}'
-        
+
         # Try to parse again after cleanup
         try:
             parsed = json.loads(json_text)
@@ -282,17 +299,17 @@ class AddServerDialog:
             # If still failing, try some more aggressive cleanup
             # Remove trailing commas
             json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
-            
+
             # Fix common bracket/brace issues
             json_text = re.sub(r'}\s*{', '},{', json_text)
             json_text = re.sub(r']\s*\[', '],[', json_text)
-            
+
             # Try to fix missing closing braces by counting
             open_braces = json_text.count('{')
             close_braces = json_text.count('}')
             if open_braces > close_braces:
                 json_text += '}' * (open_braces - close_braces)
-            
+
             # Try one more time
             try:
                 parsed = json.loads(json_text)
@@ -316,13 +333,22 @@ class AddServerDialog:
         
         # If cleanup is requested, try to clean up the JSON first
         if cleanup_on_validate:
+            # Check if original text was a CLI command
+            was_cli_command = ClaudeCliParser.is_cli_command(json_text)
+
             cleaned_json = self._cleanup_json_input(json_text)
             if cleaned_json != json_text:
                 # Update the text field with cleaned JSON
                 self.json_input.setPlainText(cleaned_json)
                 json_text = cleaned_json
-                self.status_label.setText("JSON cleaned up and formatted")
-                self.status_label.setStyleSheet("color: blue;")
+
+                # Provide appropriate feedback
+                if was_cli_command:
+                    self.status_label.setText("✓ CLI command converted to JSON")
+                    self.status_label.setStyleSheet("color: blue;")
+                else:
+                    self.status_label.setText("JSON cleaned up and formatted")
+                    self.status_label.setStyleSheet("color: blue;")
         
         try:
             config = json.loads(json_text)
@@ -374,13 +400,21 @@ class AddServerDialog:
         
         # If cleanup is requested, try to clean up the JSON first
         if cleanup_on_validate:
+            # Check if original text was a CLI command
+            was_cli_command = ClaudeCliParser.is_cli_command(json_text)
+
             cleaned_json = self._cleanup_json_input(json_text)
             if cleaned_json != json_text:
                 # Update the text field with cleaned JSON
                 self.json_input.delete("1.0", "end")
                 self.json_input.insert("1.0", cleaned_json)
                 json_text = cleaned_json
-                self.status_label.config(text="JSON cleaned up and formatted", foreground="blue")
+
+                # Provide appropriate feedback
+                if was_cli_command:
+                    self.status_label.config(text="✓ CLI command converted to JSON", foreground="blue")
+                else:
+                    self.status_label.config(text="JSON cleaned up and formatted", foreground="blue")
         
         try:
             config = json.loads(json_text)

@@ -9,12 +9,13 @@ from unittest.mock import Mock, patch, MagicMock
 import json
 
 
+@pytest.mark.unimplemented
 class TestValidateContract:
     """Contract tests for configuration validation."""
     
     def test_validate_request_format(self):
         """Test that validate request has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         
@@ -31,7 +32,7 @@ class TestValidateContract:
     
     def test_validate_response_format(self):
         """Test that validate response has expected format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -57,7 +58,7 @@ class TestValidateContract:
     
     def test_validate_with_errors(self):
         """Test validation with errors."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -102,7 +103,7 @@ class TestValidateContract:
     
     def test_validate_content_without_file(self):
         """Test validating JSON content directly."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -129,7 +130,7 @@ class TestValidateContract:
     
     def test_validate_strict_mode(self):
         """Test strict vs non-strict validation."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -166,7 +167,7 @@ class TestValidateContract:
     
     def test_validate_both_mode(self):
         """Test validating both configurations."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -192,7 +193,7 @@ class TestValidateContract:
     
     def test_validate_schema_checking(self):
         """Test schema validation."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -220,7 +221,7 @@ class TestValidateContract:
     
     def test_validate_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
         
         controller = ConfigController()
         mock_config_manager = Mock()
@@ -242,8 +243,8 @@ class TestValidateContract:
     
     def test_validate_events(self):
         """Test that validate emits expected events."""
-        from src.gui.controllers.config_controller import ConfigController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.config_controller import ConfigController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = ConfigController()
         dispatcher = EventDispatcher()

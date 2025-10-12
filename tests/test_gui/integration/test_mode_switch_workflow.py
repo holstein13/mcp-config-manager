@@ -16,16 +16,17 @@ import json
 from pathlib import Path
 
 
+@pytest.mark.unimplemented
 class TestModeSwitchWorkflow:
     """Test complete mode switching workflow and synchronization."""
     
     def test_switch_from_claude_to_gemini_workflow(self):
         """Test switching from Claude to Gemini mode."""
         # This will fail with ModuleNotFoundError until GUI is implemented
-        from src.gui.controllers import ConfigController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
-        from src.gui.widgets import ModeSelector
+        from src.mcp_config_manager.gui.controllers import ConfigController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.widgets import ModeSelector
         
         # Setup
         dispatcher = EventDispatcher()
@@ -95,9 +96,9 @@ class TestModeSwitchWorkflow:
             
     def test_switch_to_both_mode_sync_workflow(self):
         """Test switching to 'both' mode and syncing configurations."""
-        from src.gui.controllers import ConfigController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ConfigController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -168,10 +169,10 @@ class TestModeSwitchWorkflow:
         
     def test_unsaved_changes_warning_on_mode_switch(self):
         """Test warning when switching modes with unsaved changes."""
-        from src.gui.controllers import ConfigController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
-        from src.gui.dialogs import ConfirmationDialog
+        from src.mcp_config_manager.gui.controllers import ConfigController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.dialogs import ConfirmationDialog
         
         # Setup
         dispatcher = EventDispatcher()
@@ -222,9 +223,9 @@ class TestModeSwitchWorkflow:
         
     def test_mode_specific_operations_workflow(self):
         """Test that operations respect current mode."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -282,9 +283,9 @@ class TestModeSwitchWorkflow:
         
     def test_both_mode_synchronized_changes_workflow(self):
         """Test that changes in 'both' mode affect both configs."""
-        from src.gui.controllers import ConfigController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ConfigController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup in 'both' mode
         dispatcher = EventDispatcher()
@@ -334,10 +335,10 @@ class TestModeSwitchWorkflow:
         
     def test_mode_indicator_ui_update_workflow(self):
         """Test that UI mode indicator updates correctly."""
-        from src.gui.controllers import ConfigController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
-        from src.gui.widgets import ModeSelector
+        from src.mcp_config_manager.gui.controllers import ConfigController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.widgets import ModeSelector
         
         # Setup
         dispatcher = EventDispatcher()

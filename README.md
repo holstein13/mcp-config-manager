@@ -19,12 +19,14 @@ The graphical interface is complete and working with all major features operatio
 
 ### ✅ Fully Implemented
 - **🖥️ Graphical User Interface** - Modern cross-platform GUI with PyQt6/tkinter
+- **🎨 Dual GUI Backend** - PyQt6 for rich styling and tooltips, automatic fallback to tkinter if PyQt6 not available
 - **📝 Server Configuration Editor** - Edit server configurations directly in the GUI
 - **🔧 Field Editor System** - Dynamic field editing with real-time validation
 - **🔍 Project Discovery** - Automatically discover MCP servers from project .claude.json files
 - **🗑️ Bulk Server Deletion** - Delete multiple servers with confirmation dialog
 - **➕ Enhanced Server Addition** - Add servers with improved JSON validation and cleanup
 - **💾 Advanced Backup System** - Organized backups in dedicated directory with GUI integration
+- **📦 Quick Backup & Restore** - One-click backup and restore from toolbar with file selection
 - **🔄 Server Restore** - Restore servers from backup files including disabled servers
 - **Interactive CLI Management** - Full-featured interactive mode for server management
 - **Multi-Client Support** - Manages `.claude.json`, `.gemini/settings.json`, and Codex configuration files
@@ -43,9 +45,8 @@ The graphical interface is complete and working with all major features operatio
 - **Visual Polish** - Blue selection highlights, orange unsaved indicators, red validation errors
 
 ### 🚧 Next Features (Planning Phase)
-- **Tkinter Support** - Alternative GUI backend for systems without Qt
 - **Health Monitoring** - Real-time server connection status
-- **Import/Export** - Backup and restore entire configurations
+- **Advanced Import/Export** - Import/export presets and configurations between machines
 
 ## 🚀 Quick Install (Recommended)
 
@@ -92,7 +93,9 @@ mcp uninstall
 ### Prerequisites
 - Python 3.8 or higher
 - Claude Code CLI, Gemini CLI, and/or Codex installed
-- PyQt6 (optional, for better GUI experience): `pip install PyQt6`
+- **PyQt6** (recommended but optional): Provides rich styling, tooltips, and better UX
+  - If not installed, app automatically falls back to tkinter (built into Python)
+  - Install with: `pip install PyQt6`
 
 ### Clone and Install
 ```bash
@@ -129,11 +132,34 @@ mcp-config-manager gui
 
 #### macOS: Create a Native .app Bundle
 
-For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight:
+For easier launching on macOS, you can create a native .app bundle that can be double-clicked, added to your Dock, or launched via Spotlight.
+
+##### Initial Setup (One-time)
+
+Due to macOS's externally-managed Python environment (PEP 668), you need to use a virtual environment:
 
 ```bash
-# Install py2app (one-time setup)
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Install build dependencies
 pip install py2app
+
+# Install the application in editable mode
+pip install -e .
+
+# Install PyQt6 for GUI support (if not already installed)
+pip install PyQt6
+```
+
+##### Building the .app Bundle
+
+```bash
+# Activate virtual environment (if not already active)
+source venv/bin/activate
 
 # Build the .app bundle (from project root)
 ./build_app.sh
@@ -141,14 +167,45 @@ pip install py2app
 # Or manually:
 python3 scripts/build/setup_app.py py2app --dist-dir artifacts/dist
 
-# The app will be created in artifacts/dist/
-# You can then:
-# 1. Double-click "MCP Config Manager.app" to launch
-# 2. Drag it to /Applications for system-wide access
-# 3. Add it to your Dock for quick access
+# Install to Applications folder
+cp -r "artifacts/dist/MCP Config Manager.app" /Applications/
 ```
 
-**Note:** The .app bundle is completely self-contained with Python and all dependencies bundled. After code changes, rebuild the app with the same command above.
+The app will be created in `artifacts/dist/MCP Config Manager.app`. You can then:
+1. Double-click "MCP Config Manager.app" to launch
+2. Launch via Spotlight (⌘ + Space, type "MCP Config Manager")
+3. Add it to your Dock for quick access
+
+##### Rebuilding After Code Changes
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Clean previous build artifacts
+rm -rf build artifacts/dist
+
+# Build the .app bundle
+./build_app.sh
+
+# Install to Applications folder
+cp -r "artifacts/dist/MCP Config Manager.app" /Applications/
+```
+
+##### Troubleshooting
+
+If the build fails:
+- Make sure you're in the virtual environment (`source venv/bin/activate`)
+- Check that all dependencies are installed (`pip list`)
+- Clean build artifacts and try again (`rm -rf build artifacts/dist`)
+
+If the app crashes on launch:
+- Run from terminal to see error messages:
+  ```bash
+  /Applications/MCP\ Config\ Manager.app/Contents/MacOS/MCP\ Config\ Manager
+  ```
+
+**Note:** The .app bundle is completely self-contained with Python and all dependencies bundled. It works independently of your virtual environment once built.
 
 The GUI provides:
 - 🖥️ Visual server list with checkboxes

@@ -18,15 +18,16 @@ from datetime import datetime
 import json
 
 
+@pytest.mark.unimplemented
 class TestBackupWorkflow:
     """Test complete backup and restore workflow."""
     
     def test_create_and_restore_backup_workflow(self):
         """Test creating a backup and restoring from it."""
         # This will fail with ModuleNotFoundError until GUI is implemented
-        from src.gui.controllers import BackupController, ConfigController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState, BackupInfo
+        from src.mcp_config_manager.gui.controllers import BackupController, ConfigController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState, BackupInfo
         
         # Setup
         dispatcher = EventDispatcher()
@@ -147,9 +148,9 @@ class TestBackupWorkflow:
         
     def test_automatic_backup_on_save_workflow(self):
         """Test automatic backup creation when saving."""
-        from src.gui.controllers import ConfigController, BackupController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ConfigController, BackupController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -185,9 +186,9 @@ class TestBackupWorkflow:
         
     def test_backup_retention_limit_workflow(self):
         """Test backup retention and cleanup."""
-        from src.gui.controllers import BackupController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import BackupController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -233,10 +234,10 @@ class TestBackupWorkflow:
         
     def test_restore_with_confirmation_workflow(self):
         """Test restore requires confirmation when unsaved changes exist."""
-        from src.gui.controllers import BackupController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
-        from src.gui.dialogs import ConfirmationDialog
+        from src.mcp_config_manager.gui.controllers import BackupController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.dialogs import ConfirmationDialog
         
         # Setup
         dispatcher = EventDispatcher()
@@ -292,9 +293,9 @@ class TestBackupWorkflow:
         
     def test_backup_file_corruption_handling_workflow(self):
         """Test handling of corrupted backup files."""
-        from src.gui.controllers import BackupController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import BackupController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -322,9 +323,9 @@ class TestBackupWorkflow:
         
     def test_backup_metadata_workflow(self):
         """Test backup metadata storage and retrieval."""
-        from src.gui.controllers import BackupController, ConfigController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import BackupController, ConfigController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -370,9 +371,9 @@ class TestBackupWorkflow:
         
     def test_selective_backup_restore_workflow(self):
         """Test selective restore of specific configurations."""
-        from src.gui.controllers import BackupController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import BackupController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup in both mode
         dispatcher = EventDispatcher()

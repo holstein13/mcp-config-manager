@@ -19,6 +19,7 @@ class ServerType(Enum):
     MCP = "mcp"
     STDIO = "stdio"
     SSE = "sse"
+    HTTP = "http"
     CUSTOM = "custom"
 
 
@@ -110,6 +111,7 @@ class ServerListItem:
             ServerType.MCP: "server",
             ServerType.STDIO: "terminal",
             ServerType.SSE: "cloud",
+            ServerType.HTTP: "cloud",
             ServerType.CUSTOM: "puzzle",
         }
         return icon_map.get(self.server_type, "server")
@@ -239,13 +241,24 @@ class ServerListItem:
             self.validation_errors.append("Server name must be at least 2 characters")
             self.is_valid = False
         
-        # Validate command
-        if self.command:
-            if not self.command.command:
-                self.validation_errors.append("Server command is required")
+        # Validate command based on server type
+        # HTTP and SSE servers don't require a command (they use URL)
+        if self.server_type in (ServerType.STDIO, ServerType.MCP):
+            if self.command:
+                if not self.command.command:
+                    self.validation_errors.append("Server command is required")
+                    self.is_valid = False
+                elif not self._is_valid_command(self.command.command):
+                    self.validation_warnings.append(f"Command '{self.command.command}' may not be available")
+        elif self.server_type in (ServerType.HTTP, ServerType.SSE):
+            # For HTTP/SSE servers, validate URL if present in config
+            if "url" not in self.config or not self.config.get("url"):
+                self.validation_errors.append(f"{self.server_type.value.upper()} server requires a URL")
                 self.is_valid = False
-            elif not self._is_valid_command(self.command.command):
-                self.validation_warnings.append(f"Command '{self.command.command}' may not be available")
+            # Command is optional for HTTP/SSE
+            if self.command and self.command.command:
+                if not self._is_valid_command(self.command.command):
+                    self.validation_warnings.append(f"Command '{self.command.command}' may not be available")
         
         # Validate port if specified
         if self.port is not None:
