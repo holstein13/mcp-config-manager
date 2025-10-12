@@ -17,15 +17,16 @@ from pathlib import Path
 import json
 
 
+@pytest.mark.unimplemented
 class TestPresetWorkflow:
     """Test complete preset workflow from user action to state update."""
     
     def test_list_and_apply_preset_workflow(self):
         """Test listing presets and applying one."""
         # This will fail with ModuleNotFoundError until GUI is implemented
-        from src.gui.controllers import PresetController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState, PresetListItem
+        from src.mcp_config_manager.gui.controllers import PresetController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState, PresetListItem
         
         # Setup
         dispatcher = EventDispatcher()
@@ -88,9 +89,9 @@ class TestPresetWorkflow:
         
     def test_save_custom_preset_workflow(self):
         """Test saving current configuration as custom preset."""
-        from src.gui.controllers import PresetController, ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import PresetController, ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -149,9 +150,9 @@ class TestPresetWorkflow:
         
     def test_delete_custom_preset_workflow(self):
         """Test deleting a custom preset."""
-        from src.gui.controllers import PresetController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import PresetController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -196,9 +197,9 @@ class TestPresetWorkflow:
         
     def test_preset_validation_workflow(self):
         """Test preset validation and error handling."""
-        from src.gui.controllers import PresetController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import PresetController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -242,9 +243,9 @@ class TestPresetWorkflow:
         
     def test_preset_mode_sync_workflow(self):
         """Test preset application across different modes."""
-        from src.gui.controllers import PresetController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import PresetController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()

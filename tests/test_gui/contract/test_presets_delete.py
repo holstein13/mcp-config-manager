@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestPresetsDeleteContract:
     """Contract tests for preset deletion."""
     
     def test_delete_preset_request_format(self):
         """Test that delete request has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -28,7 +29,7 @@ class TestPresetsDeleteContract:
     
     def test_delete_preset_response_format(self):
         """Test that delete response has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -51,7 +52,7 @@ class TestPresetsDeleteContract:
     
     def test_delete_preset_confirmation(self):
         """Test confirmation requirement."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -74,7 +75,7 @@ class TestPresetsDeleteContract:
     
     def test_delete_preset_validation(self):
         """Test request validation."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -107,8 +108,8 @@ class TestPresetsDeleteContract:
     
     def test_delete_preset_events(self):
         """Test that delete emits expected events."""
-        from src.gui.controllers.preset_controller import PresetController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = PresetController()
         dispatcher = EventDispatcher()
@@ -132,7 +133,7 @@ class TestPresetsDeleteContract:
     
     def test_delete_preset_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()

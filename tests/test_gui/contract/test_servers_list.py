@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestServersListContract:
     """Contract tests for server listing."""
     
     def test_list_servers_request_format(self):
         """Test that list request has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         
@@ -29,7 +30,7 @@ class TestServersListContract:
     
     def test_list_servers_response_format(self):
         """Test that list response has expected format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -61,7 +62,7 @@ class TestServersListContract:
     
     def test_list_servers_filtering(self):
         """Test server filtering."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -86,7 +87,7 @@ class TestServersListContract:
     
     def test_list_servers_include_disabled(self):
         """Test include_disabled parameter."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -117,7 +118,7 @@ class TestServersListContract:
     
     def test_list_servers_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()
@@ -136,7 +137,7 @@ class TestServersListContract:
     
     def test_list_servers_both_mode(self):
         """Test listing servers in 'both' mode."""
-        from src.gui.controllers.server_controller import ServerController
+        from src.mcp_config_manager.gui.controllers.server_controller import ServerController
         
         controller = ServerController()
         mock_server_manager = Mock()

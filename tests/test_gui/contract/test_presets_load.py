@@ -8,12 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.unimplemented
 class TestPresetsLoadContract:
     """Contract tests for preset loading."""
     
     def test_load_preset_request_format(self):
         """Test that load request has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -30,7 +31,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_response_format(self):
         """Test that load response has expected format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -57,7 +58,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_merge_mode(self):
         """Test merge vs replace mode."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -103,8 +104,8 @@ class TestPresetsLoadContract:
     
     def test_load_preset_events(self):
         """Test that load emits expected events."""
-        from src.gui.controllers.preset_controller import PresetController
-        from src.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
         
         controller = PresetController()
         dispatcher = EventDispatcher()
@@ -130,7 +131,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_validation(self):
         """Test request validation."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         
@@ -166,7 +167,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_save_immediately(self):
         """Test save_immediately parameter."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -194,7 +195,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_both_mode(self):
         """Test loading preset in 'both' mode."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()
@@ -214,7 +215,7 @@ class TestPresetsLoadContract:
     
     def test_load_preset_error_handling(self):
         """Test error response format."""
-        from src.gui.controllers.preset_controller import PresetController
+        from src.mcp_config_manager.gui.controllers.preset_controller import PresetController
         
         controller = PresetController()
         mock_preset_manager = Mock()

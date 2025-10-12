@@ -16,16 +16,17 @@ from unittest.mock import Mock, patch
 import json
 
 
+@pytest.mark.unimplemented
 class TestAddServerWorkflow:
     """Test complete add server workflow from paste to state update."""
     
     def test_add_server_via_json_paste_workflow(self):
         """Test adding a server by pasting JSON configuration."""
         # This will fail with ModuleNotFoundError until GUI is implemented
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState, ServerListItem
-        from src.gui.dialogs import AddServerDialog
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState, ServerListItem
+        from src.mcp_config_manager.gui.dialogs import AddServerDialog
         
         # Setup
         dispatcher = EventDispatcher()
@@ -119,9 +120,9 @@ class TestAddServerWorkflow:
         
     def test_add_duplicate_server_workflow(self):
         """Test handling duplicate server names."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -175,9 +176,9 @@ class TestAddServerWorkflow:
         
     def test_add_server_with_invalid_json_workflow(self):
         """Test handling invalid JSON input."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -214,9 +215,9 @@ class TestAddServerWorkflow:
         
     def test_add_server_to_multiple_modes_workflow(self):
         """Test adding server to both Claude and Gemini."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup in synced mode
         dispatcher = EventDispatcher()
@@ -262,9 +263,9 @@ class TestAddServerWorkflow:
             
     def test_add_server_with_environment_variables_workflow(self):
         """Test adding server with environment variables."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()
@@ -312,9 +313,9 @@ class TestAddServerWorkflow:
         
     def test_add_server_cancel_workflow(self):
         """Test canceling add server dialog."""
-        from src.gui.controllers import ServerController
-        from src.gui.events import EventDispatcher
-        from src.gui.models import ApplicationState
+        from src.mcp_config_manager.gui.controllers import ServerController
+        from src.mcp_config_manager.gui.events import EventDispatcher
+        from src.mcp_config_manager.gui.models import ApplicationState
         
         # Setup
         dispatcher = EventDispatcher()

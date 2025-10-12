@@ -9,13 +9,14 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 
+@pytest.mark.unimplemented
 class TestApplicationEvents:
     """Contract tests for application events."""
     
     def test_mode_changed_event_structure(self):
         """Test ModeChanged event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ModeChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ModeChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -39,8 +40,8 @@ class TestApplicationEvents:
     
     def test_state_changed_event_structure(self):
         """Test StateChanged event structure."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import StateChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import StateChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -64,8 +65,8 @@ class TestApplicationEvents:
     
     def test_application_started_event(self):
         """Test ApplicationStarted event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationStartedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationStartedEvent
         
         dispatcher = EventDispatcher()
         
@@ -88,8 +89,8 @@ class TestApplicationEvents:
     
     def test_application_closing_event(self):
         """Test ApplicationClosing event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationClosingEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationClosingEvent
         
         dispatcher = EventDispatcher()
         
@@ -117,8 +118,8 @@ class TestApplicationEvents:
     
     def test_application_error_event(self):
         """Test ApplicationError event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationErrorEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationErrorEvent
         
         dispatcher = EventDispatcher()
         
@@ -146,8 +147,8 @@ class TestApplicationEvents:
     
     def test_application_notification_event(self):
         """Test ApplicationNotification event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationNotificationEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationNotificationEvent
         
         dispatcher = EventDispatcher()
         
@@ -179,8 +180,8 @@ class TestApplicationEvents:
     
     def test_settings_changed_event(self):
         """Test SettingsChanged event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import SettingsChangedEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import SettingsChangedEvent
         
         dispatcher = EventDispatcher()
         
@@ -203,8 +204,8 @@ class TestApplicationEvents:
     
     def test_application_busy_event(self):
         """Test ApplicationBusy event for long operations."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationBusyEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationBusyEvent
         
         dispatcher = EventDispatcher()
         
@@ -235,8 +236,8 @@ class TestApplicationEvents:
     
     def test_application_ready_event(self):
         """Test ApplicationReady event."""
-        from src.gui.events.dispatcher import EventDispatcher
-        from src.gui.events.app_events import ApplicationReadyEvent
+        from src.mcp_config_manager.gui.events.dispatcher import EventDispatcher
+        from src.mcp_config_manager.gui.events.app_events import ApplicationReadyEvent
         
         dispatcher = EventDispatcher()
         
