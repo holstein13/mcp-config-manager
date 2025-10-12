@@ -41,12 +41,14 @@ class ClaudeCliParser:
         return text.startswith('claude mcp add')
 
     @staticmethod
-    def parse_cli_command(command: str) -> Dict[str, Any]:
+    def parse_cli_command(command: str, convert_mcp_remote: bool = False) -> Dict[str, Any]:
         """
         Parse a Claude MCP add command into JSON configuration.
 
         Args:
             command: CLI command string (e.g., 'claude mcp add servername ...')
+            convert_mcp_remote: If True, convert mcp-remote commands to native SSE format.
+                               If False (default), keep as command/args.
 
         Returns:
             Dictionary with server configuration
@@ -82,7 +84,8 @@ class ClaudeCliParser:
         server_name, transport, env_vars, _, command_parts = ClaudeCliParser._parse_tokens(tokens)
 
         # Build the server configuration
-        server_config = ClaudeCliParser._build_config(transport, env_vars, command_parts)
+        server_config = ClaudeCliParser._build_config(transport, env_vars, command_parts,
+                                                      convert_mcp_remote=convert_mcp_remote)
 
         # Return in the format expected by the add server dialog
         return {
@@ -190,7 +193,7 @@ class ClaudeCliParser:
 
     @staticmethod
     def _build_config(transport: Optional[str], env_vars: Dict[str, str],
-                     command_parts: List[str]) -> Dict[str, Any]:
+                     command_parts: List[str], convert_mcp_remote: bool = False) -> Dict[str, Any]:
         """
         Build server configuration dictionary.
 
@@ -198,6 +201,7 @@ class ClaudeCliParser:
             transport: Transport type (e.g., 'sse')
             env_vars: Environment variables dictionary
             command_parts: Command and arguments
+            convert_mcp_remote: If True, convert mcp-remote commands to native SSE format
 
         Returns:
             Server configuration dictionary
@@ -207,27 +211,89 @@ class ClaudeCliParser:
         # Handle SSE transport
         if transport == 'sse':
             config['type'] = 'sse'
-            if command_parts and command_parts[0].startswith('http'):
+            if command_parts and (command_parts[0].startswith('https://') or command_parts[0].startswith('http://')):
                 config['url'] = command_parts[0]
             else:
-                raise ValueError("SSE transport requires a URL")
+                raise ValueError("SSE transport requires a valid URL (http:// or https://)")
 
         # Handle stdio transport (default)
         else:
             if not command_parts:
                 raise ValueError("No command provided for stdio transport")
 
-            # First part is the command, rest are args
-            config['command'] = command_parts[0]
+            # Optionally detect mcp-remote pattern and convert to native SSE format
+            # Pattern: npx [-y] mcp-remote <url>
+            if convert_mcp_remote and ClaudeCliParser._is_mcp_remote_command(command_parts):
+                url = ClaudeCliParser._extract_mcp_remote_url(command_parts)
+                config['type'] = 'sse'
+                config['url'] = url
+            else:
+                # Standard stdio command with args
+                # First part is the command, rest are args
+                config['command'] = command_parts[0]
 
-            if len(command_parts) > 1:
-                config['args'] = command_parts[1:]
+                if len(command_parts) > 1:
+                    config['args'] = command_parts[1:]
 
         # Add environment variables if any
         if env_vars:
             config['env'] = env_vars
 
         return config
+
+    @staticmethod
+    def _is_mcp_remote_command(command_parts: List[str]) -> bool:
+        """
+        Check if command is using mcp-remote (indicating SSE server).
+
+        Patterns detected:
+        - npx mcp-remote <url>
+        - npx -y mcp-remote <url>
+
+        Args:
+            command_parts: Command and arguments list
+
+        Returns:
+            True if this is an mcp-remote command
+        """
+        if not command_parts or command_parts[0] != 'npx':
+            return False
+
+        # Look for 'mcp-remote' in the args
+        return 'mcp-remote' in command_parts
+
+    @staticmethod
+    def _extract_mcp_remote_url(command_parts: List[str]) -> str:
+        """
+        Extract URL from mcp-remote command.
+
+        Args:
+            command_parts: Command and arguments list (e.g., ['npx', '-y', 'mcp-remote', 'https://...'])
+
+        Returns:
+            The SSE URL
+
+        Raises:
+            ValueError: If URL cannot be found
+        """
+        # Find the index of 'mcp-remote'
+        try:
+            mcp_remote_index = command_parts.index('mcp-remote')
+        except ValueError:
+            raise ValueError("mcp-remote not found in command")
+
+        # URL should be the next argument after mcp-remote
+        url_index = mcp_remote_index + 1
+
+        if url_index >= len(command_parts):
+            raise ValueError("No URL provided after mcp-remote")
+
+        url = command_parts[url_index]
+
+        if not (url.startswith('https://') or url.startswith('http://')):
+            raise ValueError(f"Invalid URL for mcp-remote: {url}")
+
+        return url
 
 
 def parse_cli_to_json(cli_command: str) -> Dict[str, Any]:
