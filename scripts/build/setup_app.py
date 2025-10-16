@@ -34,7 +34,9 @@ OPTIONS = {
         'scipy',
         'pandas',
         'PIL',
+        'pkg_resources',
     ],
+    'site_packages': True,
     'plist': {
         'CFBundleName': 'MCP Config Manager',
         'CFBundleDisplayName': 'MCP Config Manager',
